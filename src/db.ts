@@ -2,7 +2,11 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 
-const db = new Database('delivery_system.db');
+const dbPath = process.env.VERCEL === '1' 
+  ? path.join('/tmp', 'delivery_system.db')
+  : path.join(process.cwd(), 'delivery_system.db');
+
+const db = new Database(dbPath);
 
 // Initialize tables
 db.exec(`

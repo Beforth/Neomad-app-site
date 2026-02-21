@@ -1,6 +1,6 @@
 {
-  "name": "Marg Invoice & Delivery Management System",
-  "description": "A comprehensive system for managing invoices extracted from Gmail, tracking deliveries in real-time, and managing delivery personnel.",
+  "name": "BeForth Delivery Management",
+  "description": "A comprehensive system for managing invoices, tracking deliveries in real-time, and managing delivery personnel.",
   "requestFramePermissions": [
     "geolocation"
   ]
