@@ -8,7 +8,7 @@ A comprehensive system for managing invoices, tracking deliveries in real-time, 
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+**Prerequisites:**  Node.js!
 
 1. Install dependencies:
    `npm install`
