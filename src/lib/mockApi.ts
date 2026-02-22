@@ -33,9 +33,91 @@ const INITIAL_USERS: User[] = [
 const INITIAL_INVOICES: Invoice[] = [
   { id: 1, invoice_number: 'INV-2024-001', hospital_name: 'City Hospital', amount: 4500, status: 'pending', created_at: new Date().toISOString() },
   { id: 2, invoice_number: 'INV-2024-002', hospital_name: 'Metro Clinic', amount: 2800, status: 'pending', created_at: new Date().toISOString() },
-  { id: 3, invoice_number: 'INV-2024-003', hospital_name: 'St. Mary Medical', amount: 3200, status: 'delivered', assigned_to: 2, created_at: new Date().toISOString(), delivered_at: new Date().toISOString() },
+  { id: 3, invoice_number: 'INV-2024-003', hospital_name: 'St. Mary Medical', amount: 3200, status: 'delivered', assigned_to: 3, created_at: new Date().toISOString(), delivered_at: new Date().toISOString(), cash_received: 3200 },
   { id: 4, invoice_number: 'INV-2024-004', hospital_name: 'Apollo Health', amount: 1500, status: 'pending', created_at: new Date().toISOString() },
   { id: 5, invoice_number: 'INV-2024-005', hospital_name: 'LifeCare Center', amount: 5600, status: 'pending', created_at: new Date().toISOString() },
+];
+
+// Pre-seeded system-generated notifications shown on first load
+const ago = (mins: number) => new Date(Date.now() - mins * 60 * 1000).toISOString();
+const INITIAL_NOTIFICATIONS = [
+  {
+    id: 100001,
+    title: '📧 New Invoice Fetched from Gmail',
+    message: '5 new invoices were automatically imported from admin@example.com. Review them in the Invoices section.',
+    targets: ['admin', 'manager'],
+    priority: 'normal',
+    sentBy: 'System',
+    isSystem: true,
+    created_at: ago(5),
+    readBy: [],
+  },
+  {
+    id: 100002,
+    title: '⚠️ Delivery Boy Waiting Too Long',
+    message: 'delivery1 has been waiting at Metro Clinic for 18 minutes on invoice INV-2024-002. Please investigate.',
+    targets: ['admin', 'manager'],
+    priority: 'important',
+    sentBy: 'System',
+    isSystem: true,
+    created_at: ago(8),
+    readBy: [],
+  },
+  {
+    id: 100003,
+    title: '✅ Invoice INV-2024-003 Delivered',
+    message: 'delivery1 successfully delivered INV-2024-003 to St. Mary Medical. Cash collected: ₹3,200.',
+    targets: ['admin', 'manager'],
+    priority: 'normal',
+    sentBy: 'System',
+    isSystem: true,
+    created_at: ago(22),
+    readBy: [],
+  },
+  {
+    id: 100004,
+    title: '💰 Cash Payment Pending Confirmation',
+    message: 'INV-2024-003 — ₹3,200 cash collected by delivery1. Admin action required to confirm receipt.',
+    targets: ['admin'],
+    priority: 'important',
+    sentBy: 'System',
+    isSystem: true,
+    created_at: ago(22),
+    readBy: [],
+  },
+  {
+    id: 100005,
+    title: '📋 New Task Assigned to You',
+    message: 'You have been assigned invoice INV-2024-001 — City Hospital, ₹4,500. Open the app to accept.',
+    targets: ['delivery_boy'],
+    priority: 'important',
+    sentBy: 'System',
+    isSystem: true,
+    created_at: ago(30),
+    readBy: [],
+  },
+  {
+    id: 100006,
+    title: '🔄 System Sync Complete',
+    message: 'Database sync completed at ' + new Date(Date.now() - 35 * 60000).toLocaleTimeString() + '. All invoice records are up to date.',
+    targets: ['admin'],
+    priority: 'normal',
+    sentBy: 'System',
+    isSystem: true,
+    created_at: ago(35),
+    readBy: [],
+  },
+  {
+    id: 100007,
+    title: '📍 Delivery Boy Went Offline',
+    message: 'delivery1 has gone offline at 10:45 AM. 2 pending invoices may need reassignment.',
+    targets: ['admin', 'manager'],
+    priority: 'important',
+    sentBy: 'System',
+    isSystem: true,
+    created_at: ago(90),
+    readBy: [],
+  },
 ];
 
 const getStored = (key: string, initial: any) => {
@@ -45,6 +127,28 @@ const getStored = (key: string, initial: any) => {
 
 const setStored = (key: string, value: any) => {
   localStorage.setItem(key, JSON.stringify(value));
+};
+
+// Pushes a system-generated notification (always from "System")
+const pushSystemNotif = (
+  title: string,
+  message: string,
+  targets: string[],
+  priority: 'normal' | 'important' | 'urgent' = 'normal'
+) => {
+  const list = getStored('mock_notifications', INITIAL_NOTIFICATIONS);
+  list.unshift({
+    id: Date.now(),
+    title,
+    message,
+    targets,
+    priority,
+    sentBy: 'System',
+    isSystem: true,
+    created_at: new Date().toISOString(),
+    readBy: [],
+  });
+  setStored('mock_notifications', list);
 };
 
 export const mockApi = {
@@ -65,6 +169,12 @@ export const mockApi = {
     const newUser = { ...userData, id: users.length + 1, status: 'active' };
     users.push(newUser);
     setStored('mock_users', users);
+    pushSystemNotif(
+      '👤 New User Created',
+      `A new ${userData.role.replace('_', ' ')} account "${userData.username}" (${userData.email}) has been added to the system.`,
+      ['admin'],
+      'normal'
+    );
     return { success: true };
   },
 
@@ -79,27 +189,49 @@ export const mockApi = {
   assignInvoice: async (id: number, deliveryBoyId: number) => {
     const invoices = getStored('mock_invoices', INITIAL_INVOICES);
     const invoice = invoices.find((inv: any) => inv.id === id);
+    const users = getStored('mock_users', INITIAL_USERS);
+    const boy = users.find((u: any) => u.id === deliveryBoyId);
     if (invoice) {
       invoice.assigned_to = deliveryBoyId;
       invoice.status = 'assigned';
       setStored('mock_invoices', invoices);
+      // Notify all roles + the delivery boy specifically
+      pushSystemNotif(
+        `📋 Invoice Assigned — ${invoice.invoice_number}`,
+        `${invoice.invoice_number} (${invoice.hospital_name}, ₹${invoice.amount.toLocaleString()}) has been assigned to ${boy?.username || 'a delivery boy'}.`,
+        ['admin', 'manager'],
+        'normal'
+      );
+      pushSystemNotif(
+        `📋 New Task Assigned to You`,
+        `You have been assigned ${invoice.invoice_number} — ${invoice.hospital_name}, ₹${invoice.amount.toLocaleString()}. Open the app to accept.`,
+        ['delivery_boy'],
+        'important'
+      );
     }
     return { success: true };
   },
 
   acceptInvoice: async (id: number, userId: number) => {
     const invoices = getStored('mock_invoices', INITIAL_INVOICES);
-    // Prevent accepting if user already has an active assigned task
     const alreadyActive = invoices.find((inv: any) => inv.status === 'assigned' && inv.assigned_to === userId);
     if (alreadyActive) {
-      return { success: false, error: 'You already have an active task. Complete it before accepting a new one.' };
+      return { success: false, error: 'You already have an active task.' };
     }
     const invoice = invoices.find((inv: any) => inv.id === id);
+    const users = getStored('mock_users', INITIAL_USERS);
+    const boy = users.find((u: any) => u.id === userId);
     if (invoice && invoice.status === 'pending') {
       invoice.status = 'assigned';
       invoice.assigned_to = userId;
       invoice.accepted_at = new Date().toISOString();
       setStored('mock_invoices', invoices);
+      pushSystemNotif(
+        `🚀 Task Accepted — ${invoice.invoice_number}`,
+        `${boy?.username || 'A delivery boy'} accepted ${invoice.invoice_number} (${invoice.hospital_name}) and is now heading for delivery.`,
+        ['admin', 'manager'],
+        'normal'
+      );
     }
     return { success: true };
   },
@@ -112,8 +244,26 @@ export const mockApi = {
       invoice.delivered_at = new Date().toISOString();
       invoice.cash_received = data.cash || 0;
       invoice.cheque_received = data.cheque || 0;
-      invoice.signed_copy_url = data.signed_copy_url || "";
+      invoice.signed_copy_url = data.signed_copy_url || '';
       setStored('mock_invoices', invoices);
+      const paymentParts = [];
+      if (data.cash > 0) paymentParts.push(`₹${data.cash} cash`);
+      if (data.cheque > 0) paymentParts.push(`₹${data.cheque} cheque`);
+      const paymentStr = paymentParts.length > 0 ? `Payment collected: ${paymentParts.join(' + ')}.` : 'No payment collected.';
+      pushSystemNotif(
+        `✅ Invoice Delivered — ${invoice.invoice_number}`,
+        `${invoice.invoice_number} (${invoice.hospital_name}) has been successfully delivered. ${paymentStr}`,
+        ['admin', 'manager'],
+        'normal'
+      );
+      if ((data.cash || 0) + (data.cheque || 0) > 0) {
+        pushSystemNotif(
+          `💰 Payment Pending Confirmation — ${invoice.invoice_number}`,
+          `${invoice.invoice_number}: ${paymentStr} Admin confirmation required before closing this invoice.`,
+          ['admin'],
+          'important'
+        );
+      }
     }
     return { success: true };
   },
@@ -139,6 +289,12 @@ export const mockApi = {
       if (type === 'cash') inv.cash_confirmed = true;
       else inv.cheque_confirmed = true;
       setStored('mock_invoices', invoices);
+      pushSystemNotif(
+        `✔️ ${type === 'cash' ? 'Cash' : 'Cheque'} Confirmed — ${inv.invoice_number}`,
+        `Admin confirmed receipt of ${type} payment for ${inv.invoice_number} (${inv.hospital_name}).`,
+        ['admin', 'manager'],
+        'normal'
+      );
     }
     return { success: true };
   },
@@ -154,27 +310,55 @@ export const mockApi = {
   toggleUserStatus: async (id: number) => {
     const users = getStored('mock_users', INITIAL_USERS);
     const user = users.find((u: any) => u.id === id);
-    if (user) user.status = user.status === 'active' ? 'inactive' : 'active';
-    setStored('mock_users', users);
+    if (user) {
+      const newStatus = user.status === 'active' ? 'inactive' : 'active';
+      user.status = newStatus;
+      setStored('mock_users', users);
+      pushSystemNotif(
+        `👤 User ${newStatus === 'active' ? 'Activated' : 'Deactivated'} — ${user.username}`,
+        `User account "${user.username}" (${user.role.replace('_', ' ')}) has been ${newStatus === 'active' ? 'activated' : 'deactivated'} by an admin.`,
+        ['admin'],
+        newStatus === 'inactive' ? 'important' : 'normal'
+      );
+    }
     return { success: true };
   },
 
   cancelInvoice: async (id: number) => {
     const invoices = getStored('mock_invoices', INITIAL_INVOICES);
     const inv = invoices.find((i: any) => i.id === id);
-    if (inv) { inv.status = 'cancelled'; setStored('mock_invoices', invoices); }
+    if (inv) {
+      inv.status = 'cancelled';
+      setStored('mock_invoices', invoices);
+      pushSystemNotif(
+        `❌ Invoice Cancelled — ${inv.invoice_number}`,
+        `${inv.invoice_number} (${inv.hospital_name}, ₹${inv.amount.toLocaleString()}) was cancelled.`,
+        ['admin', 'manager'],
+        'important'
+      );
+    }
     return { success: true };
   },
 
+  // Push a waiting alert (called from DeliveryBoyApp when status changes to 'waiting')
+  pushWaitingAlert: (invoiceNumber: string, hospitalName: string, boyName: string) => {
+    pushSystemNotif(
+      `⏳ Delivery Boy Waiting — ${invoiceNumber}`,
+      `${boyName} has been waiting at ${hospitalName} for over 5 minutes on ${invoiceNumber}. Consider following up.`,
+      ['admin', 'manager'],
+      'important'
+    );
+  },
+
   // Notifications
-  getNotifications: () => getStored('mock_notifications', []),
+  getNotifications: () => getStored('mock_notifications', INITIAL_NOTIFICATIONS),
   saveNotification: (n: any) => {
-    const list = getStored('mock_notifications', []);
+    const list = getStored('mock_notifications', INITIAL_NOTIFICATIONS);
     list.unshift({ ...n, id: Date.now(), created_at: new Date().toISOString() });
     setStored('mock_notifications', list);
   },
   markNotifRead: (id: number, userId: number) => {
-    const list = getStored('mock_notifications', []);
+    const list = getStored('mock_notifications', INITIAL_NOTIFICATIONS);
     const n = list.find((x: any) => x.id === id);
     if (n) { n.readBy = n.readBy || []; if (!n.readBy.includes(userId)) n.readBy.push(userId); }
     setStored('mock_notifications', list);

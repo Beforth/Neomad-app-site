@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { mockApi } from '../lib/mockApi';
 import { 
   Bell, Plus, Send, Trash2, Users, Shield, Truck, 
-  CheckCircle2, Clock, X, ChevronDown
+  CheckCircle2, Clock, X, Bot
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -70,6 +70,8 @@ export default function Notifications() {
 
   const filtered = filterTarget === 'all'
     ? notifications
+    : filterTarget === 'system'
+    ? notifications.filter(n => n.isSystem)
     : notifications.filter(n => n.targets.includes(filterTarget) || n.targets.includes('all'));
 
   const priorityDot = (p: string) => {
@@ -188,7 +190,7 @@ export default function Notifications() {
 
       {/* Filter tabs */}
       <div className="flex gap-1 bg-zinc-100 p-1 rounded-xl w-fit flex-wrap">
-        {[{ id: 'all', label: 'All' }, ...TARGET_OPTIONS.slice(1)].map(t => (
+        {[{ id: 'all', label: 'All' }, { id: 'system', label: '🤖 System' }, ...TARGET_OPTIONS.slice(1)].map(t => (
           <button key={t.id} onClick={() => setFilterTarget(t.id)}
             className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filterTarget === t.id ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
             {t.label}
@@ -208,7 +210,9 @@ export default function Notifications() {
           </div>
         ) : filtered.map(n => (
           <motion.div key={n.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+            className={`bg-white rounded-2xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow ${
+              n.isSystem ? 'border-l-4 border-l-teal-400 border-zinc-100' : 'border-zinc-100'
+            }`}>
             <div className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -216,8 +220,15 @@ export default function Notifications() {
                     <span className={`w-2 h-2 rounded-full shrink-0 ${priorityDot(n.priority)}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-zinc-900 text-sm leading-tight">{n.title}</h4>
-                    <p className="text-xs text-zinc-500 mt-1 leading-relaxed">{n.message}</p>
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <h4 className="font-bold text-zinc-900 text-sm leading-tight">{n.title}</h4>
+                      {n.isSystem && (
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-teal-50 text-teal-700 border border-teal-200 rounded-full text-[9px] font-bold shrink-0">
+                          <Bot size={9} />System
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-500 leading-relaxed">{n.message}</p>
                   </div>
                 </div>
                 <button onClick={() => handleDelete(n.id)}
@@ -245,8 +256,13 @@ export default function Notifications() {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-1 text-[10px] text-zinc-400">
-                  <Clock size={10} />{new Date(n.created_at).toLocaleString()}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {n.sentBy && (
+                    <span className="text-[10px] text-zinc-400 font-medium">by {n.sentBy}</span>
+                  )}
+                  <div className="flex items-center gap-1 text-[10px] text-zinc-400">
+                    <Clock size={10} />{new Date(n.created_at).toLocaleString()}
+                  </div>
                 </div>
               </div>
             </div>

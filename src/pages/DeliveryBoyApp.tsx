@@ -72,11 +72,26 @@ export default function DeliveryBoyApp() {
     return () => clearInterval(tick);
   }, [activeTask?.accepted_at]);
 
-  // Waiting accumulator
+  // Waiting accumulator + alert
+  const waitingAlertSentRef = useRef(false);
   useEffect(() => {
-    if (deliveryStatus !== 'waiting') return;
+    if (deliveryStatus !== 'waiting') {
+      waitingAlertSentRef.current = false;
+      return;
+    }
     const tick = setInterval(() => setWaitingSeconds(s => s + 1), 1000);
-    return () => clearInterval(tick);
+    // Send a system alert to admin/manager after 5 seconds of waiting
+    const alertTimer = setTimeout(() => {
+      if (!waitingAlertSentRef.current && activeTask) {
+        mockApi.pushWaitingAlert(
+          activeTask.invoice_number,
+          activeTask.hospital_name,
+          user?.username || 'Delivery Boy'
+        );
+        waitingAlertSentRef.current = true;
+      }
+    }, 5000);
+    return () => { clearInterval(tick); clearTimeout(alertTimer); };
   }, [deliveryStatus]);
 
   // Geolocation
