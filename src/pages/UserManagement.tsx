@@ -13,8 +13,9 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
+import { mockApi } from '../lib/mockApi';
+
 export default function UserManagement() {
-  const { token } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -22,28 +23,18 @@ export default function UserManagement() {
 
   useEffect(() => {
     fetchUsers();
-  }, [token]);
+  }, []);
 
   const fetchUsers = async () => {
-    const res = await fetch('/api/users', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await res.json();
+    const data = await mockApi.getUsers();
     setUsers(data);
     setLoading(false);
   };
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch('/api/users', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` 
-      },
-      body: JSON.stringify(newUser)
-    });
-    if (res.ok) {
+    const res = await mockApi.addUser(newUser);
+    if (res.success) {
       setShowAddModal(false);
       setNewUser({ username: '', email: '', password: '', role: 'delivery_boy' });
       fetchUsers();

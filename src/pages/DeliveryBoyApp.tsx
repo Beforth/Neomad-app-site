@@ -20,8 +20,10 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { mockApi } from '../lib/mockApi';
+
 export default function DeliveryBoyApp() {
-  const { user, logout, token } = useAuth();
+  const { user, logout } = useAuth();
   const { socket } = useSocket();
   const [isAvailable, setIsAvailable] = useState(false);
   const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed'>('available');
@@ -40,31 +42,14 @@ export default function DeliveryBoyApp() {
           lng: pos.coords.longitude,
           status: activeTask ? 'moving' : 'waiting'
         });
-        
-        // Also send to API for persistence
-        fetch('/api/tracking', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            status: activeTask ? 'moving' : 'waiting'
-          })
-        });
       }
     });
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [isAvailable, activeTask, socket, token]);
+  }, [isAvailable, activeTask, socket]);
 
   const fetchInvoices = async () => {
-    const res = await fetch('/api/invoices', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await res.json();
+    const data = await mockApi.getInvoices(user);
     setInvoices(data);
     const active = data.find((inv: any) => inv.status === 'assigned' && inv.assigned_to === user?.id);
     if (active) {
@@ -74,25 +59,16 @@ export default function DeliveryBoyApp() {
   };
 
   const handleAccept = async (id: number) => {
-    const res = await fetch(`/api/invoices/${id}/accept`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (res.ok) {
+    if (!user) return;
+    const res = await mockApi.acceptInvoice(id, user.id);
+    if (res.success) {
       fetchInvoices();
     }
   };
 
   const handleDeliver = async (id: number, cash: number, cheque: number) => {
-    const res = await fetch(`/api/invoices/${id}/deliver`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` 
-      },
-      body: JSON.stringify({ cash, cheque, signed_copy_url: 'https://picsum.photos/200/300' })
-    });
-    if (res.ok) {
+    const res = await mockApi.deliverInvoice(id, { cash, cheque, signed_copy_url: 'https://picsum.photos/200/300' });
+    if (res.success) {
       setActiveTask(null);
       setActiveTab('completed');
       fetchInvoices();

@@ -13,18 +13,15 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
+import { mockApi } from '../lib/mockApi';
 
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
-  const { user, token } = useAuth();
+  const { user } = useAuth();
 
   useEffect(() => {
-    fetch('/api/stats', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    .then(res => res.json())
-    .then(data => setStats(data));
-  }, [token]);
+    mockApi.getStats().then(setStats);
+  }, []);
 
   const cards = [
     { label: 'Total Today', value: stats?.total_today?.count || 0, icon: FileText, color: 'blue' },

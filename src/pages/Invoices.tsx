@@ -14,22 +14,20 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
+import { mockApi } from '../lib/mockApi';
+
 export default function Invoices() {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
 
   useEffect(() => {
-    fetch('/api/invoices', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    .then(res => res.json())
-    .then(data => {
+    mockApi.getInvoices(user).then(data => {
       setInvoices(data);
       setLoading(false);
     });
-  }, [token]);
+  }, [user]);
 
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 

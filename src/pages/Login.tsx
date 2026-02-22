@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'motion/react';
 import { LogIn, AlertCircle } from 'lucide-react';
+import { mockApi } from '../lib/mockApi';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -15,19 +16,10 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        login(data.token, data.user);
-      } else {
-        setError(data.error || 'Login failed');
-      }
-    } catch (err) {
-      setError('Something went wrong');
+      const data = await mockApi.login(username, password);
+      login(data.token, data.user);
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
