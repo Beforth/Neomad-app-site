@@ -3,6 +3,7 @@ export interface User {
   id: number;
   username: string;
   email: string;
+  phone?: string;
   password?: string;
   role: 'admin' | 'manager' | 'delivery_boy';
   status: 'active' | 'inactive';

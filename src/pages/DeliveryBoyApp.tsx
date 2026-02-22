@@ -29,16 +29,21 @@ export default function DeliveryBoyApp() {
   const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed'>('available');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [activeTask, setActiveTask] = useState<any>(null);
-  const [location, setLocation] = useState<GeolocationPosition | null>(null);
   const [acceptingId, setAcceptingId] = useState<number | null>(null);
+  const [deliveryStatus, setDeliveryStatus] = useState<'moving' | 'waiting' | 'at_location'>('moving');
+  const [deliverySeconds, setDeliverySeconds] = useState(0);
+  const [waitingSeconds, setWaitingSeconds] = useState(0);
+  const deliveryStatusRef = useRef(deliveryStatus);
+  deliveryStatusRef.current = deliveryStatus;
 
-  // Refs so geolocation callback always reads latest values without restarting
+  // Refs — updated synchronously each render, no extra useEffect needed
   const isAvailableRef = useRef(isAvailable);
   const activeTaskRef = useRef(activeTask);
   const socketRef = useRef(socket);
-  useEffect(() => { isAvailableRef.current = isAvailable; }, [isAvailable]);
-  useEffect(() => { activeTaskRef.current = activeTask; }, [activeTask]);
-  useEffect(() => { socketRef.current = socket; }, [socket]);
+  const locationRef = useRef<GeolocationPosition | null>(null);
+  isAvailableRef.current = isAvailable;
+  activeTaskRef.current = activeTask;
+  socketRef.current = socket;
 
   // Fetch invoices once on mount
   useEffect(() => {
@@ -46,11 +51,37 @@ export default function DeliveryBoyApp() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Live delivery timer — counts from accepted_at
+  useEffect(() => {
+    if (!activeTask?.accepted_at) { setDeliverySeconds(0); return; }
+    const start = new Date(activeTask.accepted_at).getTime();
+    const tick = setInterval(() => {
+      setDeliverySeconds(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [activeTask?.accepted_at]);
+
+  // Waiting accumulator — only ticks when status is 'waiting'
+  useEffect(() => {
+    if (deliveryStatus !== 'waiting') return;
+    const tick = setInterval(() => setWaitingSeconds(s => s + 1), 1000);
+    return () => clearInterval(tick);
+  }, [deliveryStatus]);
+
+  const fmtTime = (secs: number) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return h > 0
+      ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+      : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
   // Geolocation watch — set up once, never restarts on state changes
   useEffect(() => {
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        setLocation(pos);
+        locationRef.current = pos; // store without triggering re-render
         if (isAvailableRef.current && socketRef.current) {
           socketRef.current.emit('tracking', {
             lat: pos.coords.latitude,
@@ -60,7 +91,7 @@ export default function DeliveryBoyApp() {
         }
       },
       undefined,
-      { enableHighAccuracy: false, maximumAge: 5000, timeout: 10000 }
+      { enableHighAccuracy: false, maximumAge: 10000, timeout: 15000 }
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, []); // runs once — refs keep it up to date
@@ -208,7 +239,7 @@ export default function DeliveryBoyApp() {
               {activeTask ? (
                 <div className="space-y-6">
                   <div className="bg-emerald-500 text-white p-6 rounded-3xl shadow-lg shadow-emerald-200">
-                    <div className="flex justify-between items-start mb-6">
+                    <div className="flex justify-between items-start mb-4">
                       <div>
                         <p className="text-emerald-100 text-xs font-bold uppercase tracking-wider">Active Delivery</p>
                         <h3 className="text-2xl font-bold mt-1">{activeTask.hospital_name}</h3>
@@ -217,16 +248,34 @@ export default function DeliveryBoyApp() {
                         <Truck size={24} />
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
+
+                    {/* Live timer */}
+                    <div className="flex items-center gap-6 mb-4">
                       <div className="space-y-1">
-                        <p className="text-emerald-100 text-[10px]">Timer</p>
-                        <p className="text-xl font-mono font-bold">12:45:02</p>
+                        <p className="text-emerald-100 text-[10px]">Delivery Time</p>
+                        <p className="text-2xl font-mono font-bold tabular-nums">{fmtTime(deliverySeconds)}</p>
                       </div>
-                      <div className="h-8 w-px bg-white/20"></div>
-                      <div className="space-y-1">
-                        <p className="text-emerald-100 text-[10px]">Distance</p>
-                        <p className="text-xl font-bold">1.2 km</p>
-                      </div>
+                      {waitingSeconds > 0 && (
+                        <>
+                          <div className="h-8 w-px bg-white/20" />
+                          <div className="space-y-1">
+                            <p className="text-amber-200 text-[10px]">Waiting</p>
+                            <p className="text-xl font-mono font-bold text-amber-200 tabular-nums">{fmtTime(waitingSeconds)}</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Status Toggle */}
+                    <div className="flex gap-2">
+                      {(['moving', 'waiting', 'at_location'] as const).map(s => (
+                        <button key={s} onClick={() => setDeliveryStatus(s)}
+                          className={`flex-1 py-1.5 rounded-xl text-[10px] font-bold transition-all ${
+                            deliveryStatus === s ? 'bg-white text-emerald-700' : 'bg-white/20 text-white hover:bg-white/30'
+                          }`}>
+                          {s === 'moving' ? '🚗 Moving' : s === 'waiting' ? '⏳ Waiting' : '📍 At Location'}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -317,19 +366,33 @@ export default function DeliveryBoyApp() {
             >
               <h3 className="font-bold text-zinc-900 mb-2">Recent History</h3>
               {invoices.filter(i => i.status === 'delivered' && i.assigned_to === user?.id).map((inv) => (
-                <div key={inv.id} className="bg-white p-4 rounded-2xl border border-zinc-100 shadow-sm flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500">
-                      <CheckCircle2 size={20} />
+                <div key={inv.id} className="bg-white p-4 rounded-2xl border border-zinc-100 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500">
+                        <CheckCircle2 size={20} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-zinc-400">{inv.invoice_number}</p>
+                        <h4 className="font-bold text-zinc-900 text-sm">{inv.hospital_name}</h4>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-zinc-400">{inv.invoice_number}</p>
-                      <h4 className="font-bold text-zinc-900 text-sm">{inv.hospital_name}</h4>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-zinc-900">₹{inv.amount.toLocaleString()}</p>
+                      <p className="text-[10px] text-zinc-500">{new Date(inv.delivered_at).toLocaleDateString()}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-zinc-900">₹{inv.amount.toLocaleString()}</p>
-                    <p className="text-[10px] text-zinc-500">{new Date(inv.delivered_at).toLocaleDateString()}</p>
+                  {/* Duration chips */}
+                  <div className="flex gap-2 mt-3 pt-3 border-t border-zinc-50">
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
+                      <Clock size={10} />Travel: 18 min
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">
+                      <Clock size={10} />Waiting: 6 min
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-zinc-600 bg-zinc-100 px-2 py-1 rounded-lg">
+                      Total: 24 min
+                    </span>
                   </div>
                 </div>
               ))}

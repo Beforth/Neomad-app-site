@@ -19,7 +19,7 @@ export default function UserManagement() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newUser, setNewUser] = useState({ username: '', email: '', password: '', role: 'delivery_boy' });
+  const [newUser, setNewUser] = useState({ username: '', email: '', phone: '', password: '', role: 'delivery_boy' });
 
   useEffect(() => {
     fetchUsers();
@@ -36,7 +36,7 @@ export default function UserManagement() {
     const res = await mockApi.addUser(newUser);
     if (res.success) {
       setShowAddModal(false);
-      setNewUser({ username: '', email: '', password: '', role: 'delivery_boy' });
+      setNewUser({ username: '', email: '', phone: '', password: '', role: 'delivery_boy' });
       fetchUsers();
     }
   };
@@ -75,6 +75,7 @@ export default function UserManagement() {
             <thead>
               <tr className="bg-zinc-50/50 border-b border-zinc-100">
                 <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">User</th>
+                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Phone</th>
                 <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Role</th>
                 <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Status</th>
                 <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Actions</th>
@@ -95,6 +96,9 @@ export default function UserManagement() {
                         <p className="text-[10px] text-zinc-400 font-medium">{u.email}</p>
                       </div>
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="text-xs text-zinc-600 font-medium">{u.phone || <span className="text-zinc-300">—</span>}</p>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold capitalize ${
@@ -147,6 +151,7 @@ export default function UserManagement() {
                   <div>
                     <p className="text-sm font-bold text-zinc-900">{u.username}</p>
                     <p className="text-xs text-zinc-500">{u.email}</p>
+                    {u.phone && <p className="text-xs text-zinc-400">{u.phone}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -211,6 +216,16 @@ export default function UserManagement() {
                   className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20"
                   value={newUser.email}
                   onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 mb-1">Phone Number</label>
+                <input 
+                  type="tel"
+                  placeholder="e.g. +91 98765 43210"
+                  className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  value={newUser.phone}
+                  onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
                 />
               </div>
               <div>
