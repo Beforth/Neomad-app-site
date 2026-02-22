@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react';
 import { 
-  FileText, 
-  Clock, 
-  CheckCircle2, 
-  XCircle, 
-  Truck,
-  ArrowUpRight,
-  TrendingUp,
-  IndianRupee,
-  AlertCircle
+  FileText, Clock, CheckCircle2, XCircle, Truck,
+  ArrowUpRight, TrendingUp, IndianRupee, AlertCircle
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
@@ -23,13 +16,16 @@ export default function Dashboard() {
     mockApi.getStats().then(setStats);
   }, []);
 
-  const cards = [
-    { label: 'Total Today', value: stats?.total_today?.count || 0, icon: FileText, color: 'blue' },
-    { label: 'Pending', value: stats?.pending?.count || 0, icon: Clock, color: 'amber' },
-    { label: 'Assigned', value: stats?.assigned?.count || 0, icon: Truck, color: 'indigo' },
-    { label: 'Delivered', value: stats?.delivered?.count || 0, icon: CheckCircle2, color: 'emerald' },
-    { label: 'Cash Pending', value: stats?.cash_pending?.count || 0, icon: IndianRupee, color: 'red' },
+  const allCards = [
+    { label: 'Total Today', value: stats?.total_today?.count || 0, icon: FileText, color: 'blue', roles: ['admin', 'manager'] },
+    { label: 'Pending', value: stats?.pending?.count || 0, icon: Clock, color: 'amber', roles: ['admin', 'manager'] },
+    { label: 'Assigned', value: stats?.assigned?.count || 0, icon: Truck, color: 'indigo', roles: ['admin', 'manager'] },
+    { label: 'Delivered', value: stats?.delivered?.count || 0, icon: CheckCircle2, color: 'emerald', roles: ['admin', 'manager'] },
+    { label: 'Cancelled', value: stats?.cancelled?.count || 0, icon: XCircle, color: 'red', roles: ['admin', 'manager'] },
+    { label: 'Cash Pending', value: stats?.cash_pending?.count || 0, icon: IndianRupee, color: 'orange', roles: ['admin'] },
   ];
+
+  const cards = allCards.filter(c => c.roles.includes(user?.role || ''));
 
   return (
     <div className="space-y-8">
@@ -54,7 +50,7 @@ export default function Dashboard() {
             <AlertCircle size={20} />
           </div>
           <div className="flex-1">
-            <p className="font-bold text-sm">Waiting Alert</p>
+            <p className="font-bold text-sm">⚠️ Waiting Alert</p>
             <p className="text-xs">Delivery Boy #104 has been waiting at City Hospital for over 15 minutes.</p>
           </div>
           <button className="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold hover:bg-amber-700 transition-colors">
@@ -63,7 +59,7 @@ export default function Dashboard() {
         </motion.div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className={`grid grid-cols-2 ${cards.length >= 6 ? 'md:grid-cols-3 lg:grid-cols-6' : 'md:grid-cols-3 lg:grid-cols-5'} gap-4`}>
         {cards.map((card, i) => (
           <motion.div
             key={card.label}
@@ -82,8 +78,7 @@ export default function Dashboard() {
             <div className="flex items-end justify-between mt-0.5">
               <h3 className="text-xl font-bold text-zinc-900 tracking-tight">{card.value}</h3>
               <span className="text-emerald-600 text-[10px] font-bold flex items-center gap-0.5 mb-1">
-                <TrendingUp size={10} />
-                +12%
+                <TrendingUp size={10} />+12%
               </span>
             </div>
           </motion.div>
@@ -116,8 +111,8 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
+          </div>
         </div>
-      </div>
 
         <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4">
           <h3 className="text-sm font-bold text-zinc-900 mb-4">Live Map Preview (Nashik)</h3>

@@ -26,7 +26,8 @@ export interface Invoice {
 
 const INITIAL_USERS: User[] = [
   { id: 1, username: 'admin', email: 'admin@example.com', password: 'admin123', role: 'admin', status: 'active' },
-  { id: 2, username: 'delivery1', email: 'boy1@example.com', password: 'boy123', role: 'delivery_boy', status: 'active' }
+  { id: 2, username: 'manager', email: 'manager@example.com', password: 'manager123', role: 'manager', status: 'active' },
+  { id: 3, username: 'delivery1', email: 'boy1@example.com', password: 'boy123', role: 'delivery_boy', status: 'active' }
 ];
 
 const INITIAL_INVOICES: Invoice[] = [
@@ -119,12 +120,63 @@ export const mockApi = {
 
   getStats: async () => {
     const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const delivered = invoices.filter((i: any) => i.status === 'delivered');
+    const cashPending = delivered.filter((i: any) => !i.cash_confirmed && !i.cheque_confirmed && (i.cash_received > 0 || i.cheque_received > 0));
     return {
       total_today: { count: invoices.length },
       pending: { count: invoices.filter((i: any) => i.status === 'pending').length },
       assigned: { count: invoices.filter((i: any) => i.status === 'assigned').length },
-      delivered: { count: invoices.filter((i: any) => i.status === 'delivered').length },
+      delivered: { count: delivered.length },
       cancelled: { count: invoices.filter((i: any) => i.status === 'cancelled').length },
+      cash_pending: { count: cashPending.length },
     };
-  }
+  },
+
+  markCashConfirmed: async (id: number, type: 'cash' | 'cheque') => {
+    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const inv = invoices.find((i: any) => i.id === id);
+    if (inv) {
+      if (type === 'cash') inv.cash_confirmed = true;
+      else inv.cheque_confirmed = true;
+      setStored('mock_invoices', invoices);
+    }
+    return { success: true };
+  },
+
+  updateUser: async (id: number, data: any) => {
+    const users = getStored('mock_users', INITIAL_USERS);
+    const idx = users.findIndex((u: any) => u.id === id);
+    if (idx !== -1) users[idx] = { ...users[idx], ...data };
+    setStored('mock_users', users);
+    return { success: true };
+  },
+
+  toggleUserStatus: async (id: number) => {
+    const users = getStored('mock_users', INITIAL_USERS);
+    const user = users.find((u: any) => u.id === id);
+    if (user) user.status = user.status === 'active' ? 'inactive' : 'active';
+    setStored('mock_users', users);
+    return { success: true };
+  },
+
+  cancelInvoice: async (id: number) => {
+    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const inv = invoices.find((i: any) => i.id === id);
+    if (inv) { inv.status = 'cancelled'; setStored('mock_invoices', invoices); }
+    return { success: true };
+  },
+
+  // Notifications
+  getNotifications: () => getStored('mock_notifications', []),
+  saveNotification: (n: any) => {
+    const list = getStored('mock_notifications', []);
+    list.unshift({ ...n, id: Date.now(), created_at: new Date().toISOString() });
+    setStored('mock_notifications', list);
+  },
+  markNotifRead: (id: number, userId: number) => {
+    const list = getStored('mock_notifications', []);
+    const n = list.find((x: any) => x.id === id);
+    if (n) { n.readBy = n.readBy || []; if (!n.readBy.includes(userId)) n.readBy.push(userId); }
+    setStored('mock_notifications', list);
+  },
 };

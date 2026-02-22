@@ -74,10 +74,14 @@ export default function Login() {
               )}
               <div className="bg-zinc-50 border border-zinc-100 rounded-xl p-4 space-y-2">
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Test Credentials</p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <p className="text-[10px] text-zinc-500 font-medium">Admin</p>
                     <p className="text-xs font-bold text-zinc-900">admin / admin123</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-500 font-medium">Manager</p>
+                    <p className="text-xs font-bold text-zinc-900">manager / manager123</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-zinc-500 font-medium">Delivery Boy</p>
@@ -141,6 +145,12 @@ export default function Login() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <div className="mt-6 pt-4 border-t border-zinc-100 text-center">
+          <a href="/dev" className="text-[11px] text-zinc-400 hover:text-zinc-600 transition-colors font-mono">
+            Developer Portal →
+          </a>
+        </div>
       </motion.div>
     </div>
   );
