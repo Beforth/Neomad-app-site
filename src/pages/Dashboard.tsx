@@ -7,7 +7,6 @@ import {
   Truck,
   ArrowUpRight,
   TrendingUp,
-  MapPin,
   IndianRupee,
   AlertCircle
 } from 'lucide-react';
