@@ -52,7 +52,7 @@ function AppRoutes() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA]">
+    <div className="flex h-screen overflow-hidden bg-[#F8F9FA]">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />

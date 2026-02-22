@@ -49,7 +49,7 @@ export default function Sidebar() {
       </button>
 
       <motion.aside initial={false} animate={{ width: isOpen ? 240 : 0 }}
-        className="fixed lg:static inset-y-0 left-0 z-40 bg-white border-r border-zinc-200 text-zinc-600 overflow-hidden flex flex-col shadow-sm lg:shadow-none">
+        className="fixed lg:static inset-y-0 left-0 z-40 bg-white border-r border-zinc-200 text-zinc-600 overflow-hidden flex flex-col shadow-sm lg:shadow-none lg:h-screen">
         <div className="p-5 mb-2">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">M</div>
@@ -60,7 +60,7 @@ export default function Sidebar() {
           </div>
         </div>
 
-        <nav className="flex-1 px-3 space-y-0.5">
+        <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
           {filteredItems.map(item => (
             <Link key={item.path} to={item.path} onClick={() => { window.innerWidth < 1024 && setIsOpen(false); }}
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all whitespace-nowrap group ${
