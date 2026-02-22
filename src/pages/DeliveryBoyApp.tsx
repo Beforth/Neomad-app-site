@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
 import { 
@@ -30,39 +30,62 @@ export default function DeliveryBoyApp() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [activeTask, setActiveTask] = useState<any>(null);
   const [location, setLocation] = useState<GeolocationPosition | null>(null);
+  const [acceptingId, setAcceptingId] = useState<number | null>(null);
 
+  // Refs so geolocation callback always reads latest values without restarting
+  const isAvailableRef = useRef(isAvailable);
+  const activeTaskRef = useRef(activeTask);
+  const socketRef = useRef(socket);
+  useEffect(() => { isAvailableRef.current = isAvailable; }, [isAvailable]);
+  useEffect(() => { activeTaskRef.current = activeTask; }, [activeTask]);
+  useEffect(() => { socketRef.current = socket; }, [socket]);
+
+  // Fetch invoices once on mount
   useEffect(() => {
     fetchInvoices();
-    
-    const watchId = navigator.geolocation.watchPosition((pos) => {
-      setLocation(pos);
-      if (isAvailable && socket) {
-        socket.emit('tracking', {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          status: activeTask ? 'moving' : 'waiting'
-        });
-      }
-    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Geolocation watch — set up once, never restarts on state changes
+  useEffect(() => {
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        setLocation(pos);
+        if (isAvailableRef.current && socketRef.current) {
+          socketRef.current.emit('tracking', {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            status: activeTaskRef.current ? 'moving' : 'waiting'
+          });
+        }
+      },
+      undefined,
+      { enableHighAccuracy: false, maximumAge: 5000, timeout: 10000 }
+    );
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [isAvailable, activeTask, socket]);
+  }, []); // runs once — refs keep it up to date
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = useCallback(async () => {
     const data = await mockApi.getInvoices(user);
     setInvoices(data);
     const active = data.find((inv: any) => inv.status === 'assigned' && inv.assigned_to === user?.id);
-    if (active) {
-      setActiveTask(active);
-      setActiveTab('active');
-    }
-  };
+    setActiveTask(active || null);
+    return data;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const handleAccept = async (id: number) => {
     if (!user) return;
-    const res = await mockApi.acceptInvoice(id, user.id);
-    if (res.success) {
-      fetchInvoices();
+    if (activeTask) return; // Already has an active task
+    setAcceptingId(id);
+    try {
+      const res = await mockApi.acceptInvoice(id, user.id);
+      if (res.success) {
+        await fetchInvoices();
+        setActiveTab('active');
+      }
+    } finally {
+      setAcceptingId(null);
     }
   };
 
@@ -143,10 +166,22 @@ export default function DeliveryBoyApp() {
                   </div>
                   <button 
                     onClick={() => handleAccept(inv.id)}
-                    className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
+                    disabled={!!activeTask || acceptingId === inv.id}
+                    className={`w-full py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 ${
+                      activeTask
+                        ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed'
+                        : acceptingId === inv.id
+                        ? 'bg-emerald-400 text-white cursor-wait'
+                        : 'bg-zinc-900 text-white hover:bg-zinc-800'
+                    }`}
                   >
-                    Accept Task
-                    <ChevronRight size={18} />
+                    {acceptingId === inv.id ? (
+                      <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Accepting...</>
+                    ) : activeTask ? (
+                      <>Active task in progress</>
+                    ) : (
+                      <>Accept Task<ChevronRight size={18} /></>
+                    )}
                   </button>
                 </div>
               ))}

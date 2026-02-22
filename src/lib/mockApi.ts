@@ -30,7 +30,7 @@ const INITIAL_USERS: User[] = [
 
 const INITIAL_INVOICES: Invoice[] = [
   { id: 1, invoice_number: 'INV-2024-001', hospital_name: 'City Hospital', amount: 4500, status: 'pending', created_at: new Date().toISOString() },
-  { id: 2, invoice_number: 'INV-2024-002', hospital_name: 'Metro Clinic', amount: 2800, status: 'assigned', assigned_to: 2, created_at: new Date().toISOString() },
+  { id: 2, invoice_number: 'INV-2024-002', hospital_name: 'Metro Clinic', amount: 2800, status: 'pending', created_at: new Date().toISOString() },
   { id: 3, invoice_number: 'INV-2024-003', hospital_name: 'St. Mary Medical', amount: 3200, status: 'delivered', assigned_to: 2, created_at: new Date().toISOString(), delivered_at: new Date().toISOString() },
   { id: 4, invoice_number: 'INV-2024-004', hospital_name: 'Apollo Health', amount: 1500, status: 'pending', created_at: new Date().toISOString() },
   { id: 5, invoice_number: 'INV-2024-005', hospital_name: 'LifeCare Center', amount: 5600, status: 'pending', created_at: new Date().toISOString() },
@@ -87,8 +87,13 @@ export const mockApi = {
 
   acceptInvoice: async (id: number, userId: number) => {
     const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    // Prevent accepting if user already has an active assigned task
+    const alreadyActive = invoices.find((inv: any) => inv.status === 'assigned' && inv.assigned_to === userId);
+    if (alreadyActive) {
+      return { success: false, error: 'You already have an active task. Complete it before accepting a new one.' };
+    }
     const invoice = invoices.find((inv: any) => inv.id === id);
-    if (invoice) {
+    if (invoice && invoice.status === 'pending') {
       invoice.status = 'assigned';
       invoice.assigned_to = userId;
       invoice.accepted_at = new Date().toISOString();
