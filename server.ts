@@ -1,7 +1,6 @@
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -78,24 +77,38 @@ const authenticate = (req: any, res: any, next: any) => {
 };
 
 // --- Auth Routes ---
-app.post("/api/login", (req, res) => {
-  const { username, password } = req.body;
-  console.log(`Login attempt for username: ${username}`);
-  
-  const user = state.users.find(u => u.username === username);
-  if (!user) {
-    console.log(`Login failed: user '${username}' not found`);
-    return res.status(401).json({ error: "Invalid credentials" });
-  }
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", message: "Server is running" });
+});
 
-  if (!bcrypt.compareSync(password, user.password)) {
-    console.log(`Login failed: incorrect password for user '${username}'`);
-    return res.status(401).json({ error: "Invalid credentials" });
-  }
+app.post("/api/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    console.log(`Login attempt for username: ${username}`);
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username and password are required" });
+    }
 
-  console.log(`Login successful for user: ${username}`);
-  const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET);
-  res.json({ token, user: { id: user.id, username: user.username, role: user.role, email: user.email } });
+    const user = state.users.find(u => u.username === username);
+    if (!user) {
+      console.log(`Login failed: user '${username}' not found`);
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      console.log(`Login failed: incorrect password for user '${username}'`);
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    console.log(`Login successful for user: ${username}`);
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET);
+    res.json({ token, user: { id: user.id, username: user.username, role: user.role, email: user.email } });
+  } catch (err: any) {
+    console.error("Login route error:", err);
+    res.status(500).json({ error: "Internal server error during login", details: err.message });
+  }
 });
 
 // --- User Management ---
@@ -245,6 +258,7 @@ app.get("/api/stats", authenticate, (req: any, res) => {
 // --- Vite Integration ---
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
