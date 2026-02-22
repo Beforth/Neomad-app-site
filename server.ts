@@ -80,10 +80,20 @@ const authenticate = (req: any, res: any, next: any) => {
 // --- Auth Routes ---
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
+  console.log(`Login attempt for username: ${username}`);
+  
   const user = state.users.find(u => u.username === username);
-  if (!user || !bcrypt.compareSync(password, user.password)) {
+  if (!user) {
+    console.log(`Login failed: user '${username}' not found`);
     return res.status(401).json({ error: "Invalid credentials" });
   }
+
+  if (!bcrypt.compareSync(password, user.password)) {
+    console.log(`Login failed: incorrect password for user '${username}'`);
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+
+  console.log(`Login successful for user: ${username}`);
   const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET);
   res.json({ token, user: { id: user.id, username: user.username, role: user.role, email: user.email } });
 });
@@ -231,7 +241,6 @@ app.get("/api/stats", authenticate, (req: any, res) => {
   res.json(stats);
 });
 
-export default app;
 
 // --- Vite Integration ---
 async function startServer() {
@@ -260,6 +269,8 @@ async function startServer() {
   });
 }
 
-if (process.env.NODE_ENV !== "production" || process.env.VERCEL !== "1") {
+if (process.env.NODE_ENV !== "production" && process.env.VERCEL !== "1") {
   startServer();
 }
+
+export default app;
