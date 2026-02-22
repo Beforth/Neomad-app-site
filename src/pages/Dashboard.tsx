@@ -14,6 +14,7 @@ import {
 import { motion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { mockApi } from '../lib/mockApi';
+import MapPreview from '../components/MapPreview';
 
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -116,14 +117,13 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
-          </div>
         </div>
+      </div>
 
         <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4">
-          <h3 className="text-sm font-bold text-zinc-900 mb-4">Live Map Preview</h3>
+          <h3 className="text-sm font-bold text-zinc-900 mb-4">Live Map Preview (Nashik)</h3>
           <div className="aspect-square bg-zinc-50 rounded-lg relative overflow-hidden flex items-center justify-center text-zinc-400 border border-zinc-100">
-            <MapPin size={32} className="opacity-20" />
-            <p className="absolute bottom-3 text-[10px] font-bold uppercase tracking-wider">Map view</p>
+            <MapPreview />
           </div>
           <div className="mt-4 space-y-3">
             <div className="flex items-center justify-between text-[11px]">
