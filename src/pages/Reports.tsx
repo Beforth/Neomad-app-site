@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
-import { Calendar, Download, Clock, TrendingUp, Users, AlertCircle } from 'lucide-react';
+import { Calendar, Download, Clock, TrendingUp, Users, AlertCircle, TrendingDown, Gauge, CheckCircle2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { mockApi } from '../lib/mockApi';
 
 const deliveryData = [
   { name: 'Mon', deliveries: 45, time: 22, waiting: 8 },
@@ -29,7 +30,7 @@ const pieData = [
   { name: 'Cancelled', value: 5, color: '#ef4444' },
 ];
 
-const DELIVERY_BOYS = ['All Boys', 'Sagar Wagh', 'Rahul Patil', 'Amit Shinde', 'Pooja Kale'];
+
 
 const CHART_STYLE = {
   contentStyle: { backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #f4f4f5', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' },
@@ -39,7 +40,33 @@ const CHART_STYLE = {
 export default function Reports() {
   const [tab, setTab] = useState<'delivery' | 'availability'>('delivery');
   const [dateRange, setDateRange] = useState('7d');
-  const [boyFilter, setBoyFilter] = useState('All Boys');
+  const [boyFilter, setBoyFilter] = useState('All');
+  
+  const [deliveryBoys, setDeliveryBoys] = useState<any[]>([]);
+  const [globalStats, setGlobalStats] = useState({ totalBoys: 0, totalDelivered: 0 });
+  const [boyStats, setBoyStats] = useState({ delivered: 0, kmDriven: '0.0' });
+
+  useEffect(() => {
+    mockApi.getUsers().then(users => {
+      const boys = users.filter((u: any) => u.role === 'delivery_boy');
+      setDeliveryBoys(boys);
+      setGlobalStats(prev => ({ ...prev, totalBoys: boys.length }));
+    });
+    mockApi.getStats().then(s => {
+      setGlobalStats(prev => ({ ...prev, totalDelivered: s.delivered.count }));
+    });
+  }, []);
+
+  useEffect(() => {
+    if (boyFilter !== 'All') {
+      const boyId = Number(boyFilter);
+      mockApi.getDeliveryBoyStats(boyId).then(s => {
+        setBoyStats({ delivered: s.total_delivered, kmDriven: s.km_driven });
+      });
+    } else {
+      setBoyStats({ delivered: 0, kmDriven: '0.0' });
+    }
+  }, [boyFilter]);
 
   return (
     <div className="space-y-6">
@@ -61,7 +88,8 @@ export default function Reports() {
           <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-zinc-600 shadow-sm">
             <Users size={14} className="text-zinc-400" />
             <select className="bg-transparent outline-none cursor-pointer" value={boyFilter} onChange={e => setBoyFilter(e.target.value)}>
-              {DELIVERY_BOYS.map(b => <option key={b}>{b}</option>)}
+              <option value="All">All Boys</option>
+              {deliveryBoys.map(b => <option key={b.id} value={b.id}>{b.username}</option>)}
             </select>
           </div>
           <button className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
@@ -86,10 +114,10 @@ export default function Reports() {
           {/* Metric cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Avg. Delivery Time', value: '24.5 min', icon: Clock, color: 'emerald', delta: '-2.4 min' },
-              { label: 'Longest Delivery', value: '42 min', icon: TrendingUp, color: 'red', delta: 'Max' },
-              { label: 'Shortest Delivery', value: '12 min', icon: TrendingUp, color: 'blue', delta: 'Min' },
-              { label: 'Total Waiting Time', value: '53 min', icon: AlertCircle, color: 'amber', delta: 'This week' },
+              { label: 'Total Delivery Boys', value: globalStats.totalBoys.toString(), icon: Users, color: 'blue', delta: 'Active' },
+              { label: 'Total Orders Delivered', value: globalStats.totalDelivered.toString(), icon: CheckCircle2, color: 'emerald', delta: 'All time' },
+              { label: 'Boy Orders Delivered', value: boyFilter === 'All' ? '-' : boyStats.delivered.toString(), icon: TrendingUp, color: 'emerald', delta: boyFilter === 'All' ? 'Select a boy' : 'All time' },
+              { label: 'Boy Km Driven', value: boyFilter === 'All' ? '-' : `${boyStats.kmDriven} km`, icon: Gauge, color: 'purple', delta: boyFilter === 'All' ? 'Select a boy' : 'Estimated distance' },
             ].map(card => (
               <div key={card.label} className="bg-white p-4 rounded-xl border border-zinc-100 shadow-sm">
                 <div className="flex items-center gap-3 mb-2">

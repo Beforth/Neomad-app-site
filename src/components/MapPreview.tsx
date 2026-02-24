@@ -1,5 +1,6 @@
 
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { mockApi } from '../lib/mockApi';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -20,22 +21,20 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Custom rider icon
-const riderIcon = L.divIcon({
-  className: 'custom-rider-icon',
-  html: `<div class="relative group">
-          <div class="w-10 h-10 bg-emerald-500 rounded-2xl border-2 border-white shadow-lg flex items-center justify-center text-white transform -rotate-45 group-hover:bg-zinc-900 transition-colors">
-            <div class="rotate-45">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>
-              </svg>
-            </div>
-          </div>
-          <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-emerald-500 rounded-full border border-white shadow-sm ring-4 ring-emerald-500/20"></div>
-        </div>`,
-  iconSize: [40, 40],
-  iconAnchor: [20, 40]
-});
+const createRiderIcon = (name: string) => {
+  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
+  return L.divIcon({
+    className: 'custom-rider-icon',
+    html: `
+      <div class="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white shadow-lg font-bold text-xs text-white" 
+           style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); min-width: 40px;">
+        ${initials}
+      </div>
+    `,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+  });
+};
 
 const riders = [
   { id: 1, name: 'Sagar Wagh', pos: [19.9975, 73.7898], status: 'Heading to City Hospital', order: 'INV-2024-001' },
@@ -53,7 +52,7 @@ export default function MapPreview() {
         center={center} 
         zoom={13} 
         style={{ height: '100%', width: '100%' }}
-        scrollWheelZoom={false}
+        scrollWheelZoom={true}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -63,8 +62,22 @@ export default function MapPreview() {
           <Marker 
             key={rider.id} 
             position={rider.pos as [number, number]} 
-            icon={riderIcon}
+            icon={createRiderIcon(rider.name)}
           >
+            <Tooltip direction="top" offset={[0, -10]} opacity={1}>
+              <div className="p-2 min-w-[140px] space-y-1">
+                <div className="font-bold text-zinc-900 text-sm border-b border-zinc-100 pb-1">{rider.name}</div>
+                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+                  <div className={`w-1.5 h-1.5 rounded-full ${rider.status.includes('Waiting') ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
+                  <span className="font-medium">{rider.status}</span>
+                </div>
+                {rider.order !== 'N/A' && (
+                  <div className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded inline-block">
+                    {rider.order}
+                  </div>
+                )}
+              </div>
+            </Tooltip>
             <Popup>
               <div className="p-1 min-w-[120px]">
                 <p className="font-bold text-zinc-900 text-sm mb-1">{rider.name}</p>

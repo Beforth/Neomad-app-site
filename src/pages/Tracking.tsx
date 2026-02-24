@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSocket } from '../hooks/useSocket';
-import { Truck, Clock, AlertCircle, RefreshCw, Navigation, Timer } from 'lucide-react';
+import { Truck, Clock, AlertCircle, RefreshCw, Navigation, Timer, Plus, X, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import MapPreview from '../components/MapPreview';
+import { mockApi } from '../lib/mockApi';
 
 const MOCK_RIDERS = [
   { id: 1, name: 'Sagar Wagh', initials: 'SW', status: 'moving', statusLabel: 'Heading to City Hospital', order: 'INV-2024-001', acceptedMinsAgo: 18, waitingSecs: 0, tasks: '4/12' },
@@ -98,6 +100,29 @@ export default function Tracking() {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [selected, setSelected] = useState<number | null>(null);
 
+  // Task Creation states
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskFormData, setTaskFormData] = useState({ description: '', assigneeId: '' });
+  const [managers, setManagers] = useState<any[]>([]);
+  const [deliveryBoys, setDeliveryBoys] = useState<any[]>([]);
+
+  useEffect(() => {
+    mockApi.getUsers().then(users => {
+      setManagers(users.filter((u: any) => u.role === 'manager'));
+      setDeliveryBoys(users.filter((u: any) => u.role === 'delivery_boy'));
+    });
+  }, []);
+
+  const handleCreateTask = async () => {
+    if (!taskFormData.description || !taskFormData.assigneeId) return;
+    await mockApi.createTask({
+      description: taskFormData.description,
+      assigned_to: Number(taskFormData.assigneeId)
+    });
+    setShowTaskModal(false);
+    setTaskFormData({ description: '', assigneeId: '' });
+  };
+
   useEffect(() => {
     if (socket) {
       socket.on('location_update', (data: any) => {
@@ -120,6 +145,10 @@ export default function Tracking() {
           <p className="text-zinc-500 text-sm">Monitor all active delivery boys in real-time</p>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={() => setShowTaskModal(true)} 
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-xl text-sm font-bold shadow-lg shadow-zinc-200 hover:bg-zinc-800 transition-colors">
+            <Plus size={16} />Create Task
+          </button>
           <div className="flex items-center gap-2 text-sm font-medium text-zinc-600 bg-white px-3 py-1.5 rounded-xl border border-zinc-200 shadow-sm">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />Live
           </div>
@@ -167,6 +196,67 @@ export default function Tracking() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showTaskModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} 
+            className="fixed inset-0 z-50 bg-zinc-900/50 flex flex-col items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} 
+              className="w-full max-w-lg bg-white rounded-3xl overflow-hidden shadow-2xl mr-4 md:mr-0 pl-1">
+              
+              <div className="flex items-center justify-between p-6 pb-4 border-b border-zinc-100">
+                <h2 className="text-xl font-bold text-zinc-900">Create New Task</h2>
+                <button onClick={() => setShowTaskModal(false)} className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Assign To</label>
+                  <select 
+                    value={taskFormData.assigneeId} 
+                    onChange={e => setTaskFormData(prev => ({ ...prev, assigneeId: e.target.value }))}
+                    className="w-full p-3.5 bg-zinc-50 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-900 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  >
+                    <option value="">Select an assignee...</option>
+                    <optgroup label="Managers">
+                      {managers.map(m => (
+                        <option key={m.id} value={m.id}>{m.username}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Delivery Boys">
+                      {deliveryBoys.map(d => (
+                        <option key={d.id} value={d.id}>{d.username}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Task Description</label>
+                  <textarea 
+                    value={taskFormData.description}
+                    onChange={e => setTaskFormData(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full h-32 p-3.5 bg-zinc-50 rounded-xl border border-zinc-200 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none font-medium"
+                    placeholder="Describe the task..."
+                  />
+                </div>
+
+                <button 
+                  disabled={!taskFormData.assigneeId || !taskFormData.description.trim()}
+                  onClick={handleCreateTask}
+                  className="w-full py-4 bg-zinc-900 text-white rounded-xl font-bold shadow-lg hover:bg-zinc-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={18} /> Confirm Assignment
+                </button>
+              </div>
+
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

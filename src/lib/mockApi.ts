@@ -5,7 +5,7 @@ export interface User {
   email: string;
   phone?: string;
   password?: string;
-  role: 'admin' | 'manager' | 'delivery_boy';
+  role: 'admin' | 'manager' | 'delivery_boy' | 'staff';
   status: 'active' | 'inactive';
 }
 
@@ -21,13 +21,20 @@ export interface Invoice {
   delivered_at?: string;
   cash_received?: number;
   cheque_received?: number;
+  cheque_number?: string;
+  bank_name?: string;
+  cheque_photo_url?: string;
   signed_copy_url?: string;
+  cancel_reason?: string;
+  delivery_feedback?: 'properly' | 'improperly';
+  feedback_reason?: string;
 }
 
 const INITIAL_USERS: User[] = [
   { id: 1, username: 'admin', email: 'admin@example.com', password: 'admin123', role: 'admin', status: 'active' },
   { id: 2, username: 'manager', email: 'manager@example.com', password: 'manager123', role: 'manager', status: 'active' },
-  { id: 3, username: 'delivery1', email: 'boy1@example.com', password: 'boy123', role: 'delivery_boy', status: 'active' }
+  { id: 3, username: 'delivery1', email: 'boy1@example.com', password: 'boy123', role: 'delivery_boy', status: 'active' },
+  { id: 4, username: 'staff1', email: 'staff1@example.com', password: 'staff123', role: 'staff', status: 'active' }
 ];
 
 const INITIAL_INVOICES: Invoice[] = [
@@ -244,6 +251,9 @@ export const mockApi = {
       invoice.delivered_at = new Date().toISOString();
       invoice.cash_received = data.cash || 0;
       invoice.cheque_received = data.cheque || 0;
+      invoice.cheque_number = data.cheque_number || '';
+      invoice.bank_name = data.bank_name || '';
+      invoice.cheque_photo_url = data.cheque_photo_url || '';
       invoice.signed_copy_url = data.signed_copy_url || '';
       setStored('mock_invoices', invoices);
       const paymentParts = [];
@@ -324,20 +334,78 @@ export const mockApi = {
     return { success: true };
   },
 
-  cancelInvoice: async (id: number) => {
+  cancelInvoice: async (id: number, reason?: string) => {
     const invoices = getStored('mock_invoices', INITIAL_INVOICES);
     const inv = invoices.find((i: any) => i.id === id);
     if (inv) {
       inv.status = 'cancelled';
+      inv.cancel_reason = reason || '';
       setStored('mock_invoices', invoices);
       pushSystemNotif(
         `❌ Invoice Cancelled — ${inv.invoice_number}`,
-        `${inv.invoice_number} (${inv.hospital_name}, ₹${inv.amount.toLocaleString()}) was cancelled.`,
+        `${inv.invoice_number} (${inv.hospital_name}, ₹${inv.amount.toLocaleString()}) was cancelled. Reason: ${reason || 'N/A'}`,
         ['admin', 'manager'],
         'important'
       );
     }
     return { success: true };
+  },
+
+  submitFeedback: async (id: number, feedback: 'properly' | 'improperly', reason?: string) => {
+    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const inv = invoices.find((i: any) => i.id === id);
+    if (inv) {
+      inv.delivery_feedback = feedback;
+      inv.feedback_reason = reason || '';
+      setStored('mock_invoices', invoices);
+      if (feedback === 'improperly') {
+        pushSystemNotif(
+          `⚠️ Improper Delivery Feedback — ${inv.invoice_number}`,
+          `${inv.invoice_number} was marked as improperly delivered by the delivery boy. Reason: ${reason || 'N/A'}`,
+          ['admin', 'manager'],
+          'important'
+        );
+      }
+    }
+    return { success: true };
+  },
+
+  createTask: async (data: any) => {
+    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const newInvoice = {
+      id: invoices.length + 1,
+      invoice_number: `TASK-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(3, '0')}`,
+      hospital_name: data.task_name,
+      amount: data.amount || 0,
+      status: data.assignee ? 'assigned' : 'pending',
+      created_at: new Date().toISOString(),
+      assigned_to: data.assignee ? Number(data.assignee) : undefined,
+    };
+    invoices.push(newInvoice);
+    setStored('mock_invoices', invoices);
+    
+    if (data.assignee) {
+      pushSystemNotif(
+        `📋 New Task Created & Assigned — ${newInvoice.invoice_number}`,
+        `Task "${data.task_name}" has been created and assigned.`,
+        ['admin', 'manager', 'delivery_boy'],
+        'normal'
+      );
+    }
+    return { success: true, task: newInvoice };
+  },
+
+  getDeliveryBoyStats: async (boyId: number) => {
+    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const delivered = invoices.filter((i: any) => i.status === 'delivered' && i.assigned_to === boyId);
+    
+    // Mock km calculation based on number of deliveries (e.g. 5.2km per delivery average)
+    const kmDriven = delivered.length * 5.2;
+
+    return {
+      total_delivered: delivered.length,
+      km_driven: kmDriven.toFixed(1)
+    };
   },
 
   // Push a waiting alert (called from DeliveryBoyApp when status changes to 'waiting')

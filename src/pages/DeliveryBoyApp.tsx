@@ -4,18 +4,43 @@ import { useSocket } from '../hooks/useSocket';
 import { 
   Power, Clock, MapPin, ChevronRight, CheckCircle2, Truck,
   History, LayoutGrid, AlertCircle, Navigation, Upload, IndianRupee,
-  FileCheck, LogOut, XCircle, Camera, Bell, X
+  FileCheck, LogOut, XCircle, Camera, Bell, X, Map as MapIcon, Flag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { mockApi } from '../lib/mockApi';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerIconRetina from 'leaflet/dist/images/marker-icon-2x.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+const DefaultIcon = L.icon({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIconRetina,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
 function fmtTime(secs: number) {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
   const s = secs % 60;
   return h > 0
+  return h > 0
     ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
     : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function isToday(dateString: string) {
+  if (!dateString) return false;
+  const d = new Date(dateString);
+  const now = new Date();
+  return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
 export default function DeliveryBoyApp() {
@@ -32,11 +57,28 @@ export default function DeliveryBoyApp() {
   const [availableSeconds, setAvailableSeconds] = useState(0);
   const [cash, setCash] = useState('');
   const [cheque, setCheque] = useState('');
+  const [chequeNumber, setChequeNumber] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [chequePhotoUrl, setChequePhotoUrl] = useState<string | null>(null);
+  
   const [signedCopy, setSignedCopy] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [showNotifs, setShowNotifs] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
+
+  // Modals
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedback, setFeedback] = useState<'properly' | 'improperly' | null>(null);
+  const [feedbackReason, setFeedbackReason] = useState('');
+
+  const [showShiftModal, setShowShiftModal] = useState(false);
+
+  const [showMap, setShowMap] = useState(true);
+  const [checkpoints, setCheckpoints] = useState<any[]>([]);
 
   const isAvailableRef = useRef(isAvailable);
   const activeTaskRef = useRef(activeTask);
@@ -128,32 +170,84 @@ export default function DeliveryBoyApp() {
     setAcceptingId(id);
     try {
       const res = await mockApi.acceptInvoice(id, user.id);
-      if (res.success) { await fetchInvoices(); setActiveTab('active'); setDeliveryStatus('moving'); setWaitingSeconds(0); }
+      if (res.success) {
+        await fetchInvoices();
+        setActiveTab('active');
+        setShowMap(true);
+        setDeliveryStatus('moving');
+        setWaitingSeconds(0);
+      }
     } finally { setAcceptingId(null); }
   };
 
   const handleDeliver = async () => {
     if (!signedCopy) { setSubmitError('Please upload a signed copy before submitting.'); return; }
+    if (Number(cheque) > 0 && (!chequeNumber || !bankName)) {
+      setSubmitError('Please provide Cheque Number and Bank Name.');
+      return;
+    }
     setSubmitError('');
     const res = await mockApi.deliverInvoice(activeTask.id, {
       cash: Number(cash) || 0,
       cheque: Number(cheque) || 0,
+      cheque_number: chequeNumber,
+      bank_name: bankName,
+      cheque_photo_url: chequePhotoUrl,
       signed_copy_url: signedCopy,
     });
     if (res.success) {
-      setSubmitted(true);
-      setTimeout(async () => {
-        setActiveTask(null);
-        setActiveTab('completed');
-        await fetchInvoices();
-      }, 1500);
+      setShowFeedbackModal(true);
     }
+  };
+
+  const handleFeedbackSubmit = async () => {
+    if (activeTask && feedback) {
+      await mockApi.submitFeedback(activeTask.id, feedback, feedbackReason);
+    }
+    setShowFeedbackModal(false);
+    setSubmitted(true);
+    
+    // Show shift completion modal after 1.5s
+    setTimeout(async () => {
+      setActiveTask(null);
+      await fetchInvoices();
+      setShowShiftModal(true);
+    }, 1500);
+  };
+
+  const handleCancelOrder = async () => {
+    if (!cancelReason.trim()) return;
+    await mockApi.cancelInvoice(activeTask.id, cancelReason);
+    setShowCancelModal(false);
+    setCancelReason('');
+    setActiveTask(null);
+    fetchInvoices();
+    setActiveTab('available');
   };
 
   // Mock signed copy capture
   const handleCapture = () => {
     const url = `https://picsum.photos/seed/${Date.now()}/400/300`;
     setSignedCopy(url);
+  };
+
+  const handleCaptureCheque = () => {
+    const url = `https://picsum.photos/seed/${Date.now() + 1}/400/300`;
+    setChequePhotoUrl(url);
+  };
+
+  const handleAddCheckpoint = () => {
+    if (locationRef.current) {
+      const pos = { lat: locationRef.current.coords.latitude, lng: locationRef.current.coords.longitude, time: new Date() };
+      setCheckpoints([...checkpoints, pos]);
+      // Mock sending to manager
+      mockApi.saveNotification({
+        title: '📍 New Checkpoint Recorded',
+        message: `${user?.username} recorded a checkpoint at their current location for order ${activeTask?.invoice_number}`,
+        targets: ['manager', 'admin'],
+        priority: 'normal'
+      });
+    }
   };
 
   return (
@@ -231,6 +325,90 @@ export default function DeliveryBoyApp() {
                   );
                 })}
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Shift Complete Modal */}
+      <AnimatePresence>
+        {showShiftModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-zinc-900/50 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="text-emerald-500" size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-zinc-900">Task Completed!</h3>
+                <p className="text-sm text-zinc-500 mt-1">What would you like to do next?</p>
+              </div>
+              <div className="space-y-3 pt-4">
+                <button onClick={() => { setIsAvailable(true); setShowShiftModal(false); setActiveTab('available'); }}
+                  className="w-full py-3 bg-zinc-900 text-white font-bold rounded-xl hover:bg-zinc-800 transition-colors">
+                  Return to neomed (Available)
+                </button>
+                <button onClick={() => { setIsAvailable(false); setShowShiftModal(false); setActiveTab('completed'); }}
+                  className="w-full py-3 bg-zinc-100 text-zinc-600 font-bold rounded-xl hover:bg-zinc-200 transition-colors">
+                  Complete Shift (Offline)
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Cancel Reason Modal */}
+      <AnimatePresence>
+        {showCancelModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-zinc-900/50 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
+              <h3 className="text-xl font-bold text-zinc-900">Cancel Order</h3>
+              <p className="text-sm text-zinc-500">Please provide a reason for cancelling this order.</p>
+              <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)}
+                className="w-full p-3 bg-zinc-50 rounded-xl border border-zinc-200 text-sm h-24 outline-none focus:ring-2 focus:ring-red-500/20"
+                placeholder="Reason..." />
+              <div className="flex gap-3">
+                <button onClick={() => setShowCancelModal(false)} className="flex-1 py-3 bg-zinc-100 text-zinc-600 rounded-xl font-bold">Back</button>
+                <button onClick={handleCancelOrder} disabled={!cancelReason.trim()}
+                  className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold disabled:opacity-50">Confirm Cancellation</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Feedback Modal */}
+      <AnimatePresence>
+        {showFeedbackModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-zinc-900/50 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
+              <h3 className="text-xl font-bold text-zinc-900 text-center">Delivery Feedback</h3>
+              <p className="text-sm text-zinc-500 text-center">How was this delivery experience?</p>
+              
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button onClick={() => setFeedback('properly')}
+                  className={`py-3 rounded-xl border-2 font-bold transition-all ${feedback === 'properly' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-zinc-200 bg-white text-zinc-400'}`}>
+                  Properly
+                </button>
+                <button onClick={() => setFeedback('improperly')}
+                  className={`py-3 rounded-xl border-2 font-bold transition-all ${feedback === 'improperly' ? 'border-red-500 bg-red-50 text-red-700' : 'border-zinc-200 bg-white text-zinc-400'}`}>
+                  Improperly
+                </button>
+              </div>
+
+              {feedback === 'improperly' && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2">
+                  <label className="text-xs font-bold text-zinc-500">Why was it improper?</label>
+                  <textarea value={feedbackReason} onChange={e => setFeedbackReason(e.target.value)}
+                    className="w-full p-3 bg-zinc-50 rounded-xl border border-zinc-200 text-sm h-20 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    placeholder="Details..." />
+                </motion.div>
+              )}
+
+              <button onClick={handleFeedbackSubmit} disabled={!feedback || (feedback === 'improperly' && !feedbackReason.trim())}
+                className="w-full py-4 mt-2 bg-zinc-900 text-white rounded-xl font-bold shadow-lg disabled:opacity-50 hover:bg-zinc-800 transition-colors">
+                Submit Feedback
+              </button>
             </motion.div>
           </motion.div>
         )}
@@ -320,16 +498,46 @@ export default function DeliveryBoyApp() {
                     </div>
                   </div>
 
-                  {/* Navigate / Cancel */}
+                  {/* Navigate / Map / Cancel */}
                   {!submitted && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <button className="flex items-center justify-center gap-2 py-3 bg-blue-50 text-blue-600 rounded-xl font-bold text-sm">
-                        <Navigation size={18} />Navigate
+                    <div className="grid grid-cols-3 gap-3">
+                      <button className="flex items-center justify-center gap-1.5 py-3 bg-blue-50 text-blue-600 rounded-xl font-bold text-xs">
+                        <Navigation size={16} />Navigate
                       </button>
-                      <button onClick={() => { mockApi.cancelInvoice(activeTask.id); setActiveTask(null); fetchInvoices(); setActiveTab('available'); }}
-                        className="flex items-center justify-center gap-2 py-3 bg-red-50 text-red-600 rounded-xl font-bold text-sm">
-                        <XCircle size={18} />Cancel Order
+                      <button onClick={() => setShowMap(!showMap)} className="flex items-center justify-center gap-1.5 py-3 bg-zinc-100 text-zinc-700 rounded-xl font-bold text-xs">
+                        <MapIcon size={16} />{showMap ? 'Hide Map' : 'Show Map'}
                       </button>
+                      <button onClick={() => setShowCancelModal(true)}
+                        className="flex items-center justify-center gap-1.5 py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs">
+                        <XCircle size={16} />Cancel
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Inline Map */}
+                  {showMap && !submitted && (
+                    <div className="bg-white p-3 rounded-2xl border border-zinc-100 shadow-sm space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-zinc-900 text-sm">Live Location</h4>
+                        <button onClick={handleAddCheckpoint} className="text-[10px] font-bold bg-zinc-100 text-zinc-600 px-2 py-1 rounded-lg flex items-center gap-1">
+                          <Flag size={12} /> Add Checkpoint
+                        </button>
+                      </div>
+                      <div className="h-48 rounded-xl overflow-hidden border border-zinc-200 relative z-0">
+                        <MapContainer center={[19.9975, 73.7898]} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+                          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                          {locationRef.current && (
+                            <Marker position={[locationRef.current.coords.latitude, locationRef.current.coords.longitude]}>
+                              <Popup>You are here</Popup>
+                            </Marker>
+                          )}
+                          {checkpoints.map((cp, idx) => (
+                            <Marker key={idx} position={[cp.lat, cp.lng]}>
+                              <Popup>Checkpoint {idx + 1}</Popup>
+                            </Marker>
+                          ))}
+                        </MapContainer>
+                      </div>
                     </div>
                   )}
 
@@ -377,6 +585,44 @@ export default function DeliveryBoyApp() {
                       </div>
                     </div>
 
+                    {/* Extended Cheque Fields */}
+                    {Number(cheque) > 0 && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-3 p-4 bg-zinc-50 border border-zinc-100 rounded-xl overflow-hidden">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-zinc-500">Cheque Number <span className="text-red-500">*</span></label>
+                            <input type="text" placeholder="123456" value={chequeNumber} onChange={e => setChequeNumber(e.target.value)}
+                              disabled={submitted}
+                              className="w-full p-2.5 bg-white rounded-lg border border-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 text-xs disabled:opacity-50" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-zinc-500">Bank Name <span className="text-red-500">*</span></label>
+                            <input type="text" placeholder="HDFC Bank" value={bankName} onChange={e => setBankName(e.target.value)}
+                              disabled={submitted}
+                              className="w-full p-2.5 bg-white rounded-lg border border-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 text-xs disabled:opacity-50" />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-zinc-500">Cheque Photo (Optional)</label>
+                          {chequePhotoUrl ? (
+                            <div className="relative">
+                              <img src={chequePhotoUrl} alt="Cheque" className="w-full h-16 object-cover rounded-lg border border-zinc-200" />
+                              {!submitted && (
+                                <button onClick={() => setChequePhotoUrl(null)} className="absolute top-1 right-1 bg-white rounded-full p-0.5 text-red-500 border border-zinc-200">
+                                  <X size={12} />
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <button onClick={handleCaptureCheque} disabled={submitted}
+                              className="w-full border-2 border-dashed border-zinc-300 rounded-lg py-3 flex items-center justify-center text-zinc-400 gap-2 hover:border-emerald-400 transition-colors disabled:opacity-50 bg-white">
+                              <Camera size={14} /><span className="text-[10px] font-medium">Take Photo</span>
+                            </button>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+
                     {submitError && (
                       <p className="text-xs text-red-500 font-medium flex items-center gap-1">
                         <AlertCircle size={12} />{submitError}
@@ -408,8 +654,8 @@ export default function DeliveryBoyApp() {
           {/* COMPLETED DELIVERIES */}
           {activeTab === 'completed' && (
             <motion.div key="completed" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-4">
-              <h3 className="font-bold text-zinc-900 mb-2">Recent History</h3>
-              {invoices.filter(i => i.status === 'delivered' && i.assigned_to === user?.id).map(inv => (
+              <h3 className="font-bold text-zinc-900 mb-2">Today's History</h3>
+              {invoices.filter(i => i.status === 'delivered' && i.assigned_to === user?.id && isToday(i.delivered_at)).map(inv => (
                 <div key={inv.id} className="bg-white p-4 rounded-2xl border border-zinc-100 shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -459,7 +705,7 @@ export default function DeliveryBoyApp() {
                   </div>
                 </div>
               ))}
-              {invoices.filter(i => i.status === 'delivered' && i.assigned_to === user?.id).length === 0 && (
+              {invoices.filter(i => i.status === 'delivered' && i.assigned_to === user?.id && isToday(i.delivered_at)).length === 0 && (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-400"><History size={32} /></div>
                   <p className="text-zinc-500 font-medium">No deliveries yet</p>

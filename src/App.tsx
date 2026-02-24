@@ -12,6 +12,7 @@ import UserManagement from './pages/UserManagement';
 import Reports from './pages/Reports';
 import DeveloperPortal from './pages/DeveloperPortal';
 import Notifications from './pages/Notifications';
+import StaffApp from './pages/StaffApp';
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
@@ -49,6 +50,10 @@ function AppRoutes() {
 
   if (user.role === 'delivery_boy') {
     return <DeliveryBoyApp />;
+  }
+
+  if (user.role === 'staff') {
+    return <StaffApp />;
   }
 
   return (

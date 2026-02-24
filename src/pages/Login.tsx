@@ -74,7 +74,7 @@ export default function Login() {
               )}
               <div className="bg-zinc-50 border border-zinc-100 rounded-xl p-4 space-y-2">
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Test Credentials</p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
                     <p className="text-[10px] text-zinc-500 font-medium">Admin</p>
                     <p className="text-xs font-bold text-zinc-900">admin / admin123</p>
@@ -83,9 +83,15 @@ export default function Login() {
                     <p className="text-[10px] text-zinc-500 font-medium">Manager</p>
                     <p className="text-xs font-bold text-zinc-900">manager / manager123</p>
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-[10px] text-zinc-500 font-medium">Delivery Boy</p>
                     <p className="text-xs font-bold text-zinc-900">delivery1 / boy123</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-500 font-medium">Staff</p>
+                    <p className="text-xs font-bold text-zinc-900">staff1 / staff123</p>
                   </div>
                 </div>
               </div>
