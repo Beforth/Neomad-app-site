@@ -1,8 +1,7 @@
-
-import { mockApi } from '../lib/mockApi';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useEffect } from 'react';
 
 // Fix for default marker icons in Leaflet with Webpack/Vite
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -21,7 +20,36 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const createRiderIcon = (name: string) => {
+// Helper component to fix the "gray map" issue by invalidating size on mount and changes
+function ResizeHandler({ center, zoom }: { center: [number, number], zoom: number }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    // Small delay to ensure container transition/animation is complete
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [map, center, zoom]);
+
+  return null;
+}
+
+const createRiderIcon = (name: string, isCheckpoint = false, status: 'completed' | 'active' = 'completed') => {
+  if (isCheckpoint) {
+    return L.divIcon({
+      className: 'custom-checkpoint-icon',
+      html: `
+        <div class="flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-md font-bold text-[10px] text-white" 
+             style="background: ${status === 'active' ? '#3b82f6' : '#10b981'};">
+          ${status === 'active' ? '📍' : '✓'}
+        </div>
+      `,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+  }
+
   const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
   return L.divIcon({
     className: 'custom-rider-icon',
@@ -36,28 +64,58 @@ const createRiderIcon = (name: string) => {
   });
 };
 
-const riders = [
+export const DEFAULT_RIDERS = [
   { id: 1, name: 'Sagar Wagh', pos: [19.9975, 73.7898], status: 'Heading to City Hospital', order: 'INV-2024-001' },
   { id: 2, name: 'Rahul Patil', pos: [20.0050, 73.7800], status: 'Waiting at Metro Clinic', order: 'INV-2024-002' },
   { id: 3, name: 'Amit Shinde', pos: [19.9900, 73.8000], status: 'Pick-up from Warehouse', order: 'N/A' },
   { id: 4, name: 'Pooja Kale', pos: [19.9850, 73.7750], status: 'Delivering to Apollo', order: 'INV-2024-004' },
 ];
 
-export default function MapPreview() {
-  const center: [number, number] = [19.9975, 73.7898]; // Nashik Center
+interface MapPreviewProps {
+  riders?: any[];
+  route?: [number, number][];
+  checkpoints?: { pos: [number, number]; label: string; time: string; status: 'completed' | 'active' }[];
+  center?: [number, number];
+  zoom?: number;
+}
 
+export default function MapPreview({ riders = DEFAULT_RIDERS, route = [], checkpoints = [], center = [19.9975, 73.7898], zoom = 13 }: MapPreviewProps) {
   return (
-    <div className="w-full h-full rounded-lg overflow-hidden border border-zinc-100 shadow-inner">
+    <div className="w-full h-full rounded-lg overflow-hidden border border-zinc-100 shadow-inner bg-zinc-50">
       <MapContainer 
         center={center} 
-        zoom={13} 
+        zoom={zoom} 
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
       >
+        <ResizeHandler center={center} zoom={zoom} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        
+        {/* Render Route Polyline */}
+        {route.length > 0 && (
+          <Polyline positions={route} color="#10b981" weight={4} opacity={0.6} dashArray="8, 8" />
+        )}
+
+        {/* Render Checkpoints */}
+        {checkpoints.map((cp, idx) => (
+          <Marker 
+            key={`cp-${idx}`} 
+            position={cp.pos} 
+            icon={createRiderIcon('', true, cp.status)}
+          >
+            <Tooltip direction="top" offset={[0, -10]} opacity={1}>
+              <div className="p-2 min-w-[100px] space-y-1">
+                <div className="font-bold text-zinc-900 text-xs">{cp.label}</div>
+                <div className="text-[10px] text-zinc-500 font-medium">{cp.time}</div>
+              </div>
+            </Tooltip>
+          </Marker>
+        ))}
+
+        {/* Render Riders */}
         {riders.map((rider) => (
           <Marker 
             key={rider.id} 
@@ -98,3 +156,4 @@ export default function MapPreview() {
     </div>
   );
 }
+

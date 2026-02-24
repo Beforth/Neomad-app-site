@@ -402,10 +402,59 @@ export const mockApi = {
     // Mock km calculation based on number of deliveries (e.g. 5.2km per delivery average)
     const kmDriven = delivered.length * 5.2;
 
+    // Daily distance data for graphs
+    const dailyDistance = [
+      { day: 'Mon', km: (delivered.length * 0.8).toFixed(1) },
+      { day: 'Tue', km: (delivered.length * 1.2).toFixed(1) },
+      { day: 'Wed', km: (delivered.length * 0.9).toFixed(1) },
+      { day: 'Thu', km: (delivered.length * 1.5).toFixed(1) },
+      { day: 'Fri', km: (delivered.length * 1.1).toFixed(1) },
+      { day: 'Sat', km: (delivered.length * 0.5).toFixed(1) },
+      { day: 'Sun', km: (delivered.length * 0.3).toFixed(1) },
+    ];
+
     return {
       total_delivered: delivered.length,
-      km_driven: kmDriven.toFixed(1)
+      km_driven: kmDriven.toFixed(1),
+      daily_distance: dailyDistance
     };
+  },
+
+  getBoyRoute: async (boyId: number, date: string) => {
+    // Mock route data for different boys
+    const routes: Record<number, any> = {
+      1: {
+        path: [[19.9975, 73.7898], [19.9980, 73.7920], [20.0010, 73.7950], [20.0050, 73.7980]],
+        checkpoints: [
+          { pos: [19.9975, 73.7898], label: 'Pickup: Warehouse', time: '09:15 AM', status: 'completed' },
+          { pos: [20.0010, 73.7950], label: 'City Hospital', time: '10:30 AM', status: 'completed' },
+          { pos: [20.0050, 73.7980], label: 'Current Location', time: 'Now', status: 'active' }
+        ]
+      },
+      2: {
+        path: [[20.0050, 73.7800], [20.0030, 73.7750], [20.0010, 73.7700], [19.9980, 73.7650]],
+        checkpoints: [
+          { pos: [20.0050, 73.7800], label: 'Pickup: Hub B', time: '08:45 AM', status: 'completed' },
+          { pos: [20.0010, 73.7700], label: 'Metro Clinic', time: '11:20 AM', status: 'completed' },
+          { pos: [19.9980, 73.7650], label: 'Last Stop', time: '12:45 PM', status: 'completed' }
+        ]
+      },
+      3: {
+        path: [[19.9900, 73.8000], [19.9880, 73.8050], [19.9850, 73.8100], [19.9820, 73.8150]],
+        checkpoints: [
+          { pos: [19.9900, 73.8000], label: 'Pickup: Main Office', time: '10:00 AM', status: 'completed' },
+          { pos: [19.9850, 73.8100], label: 'St. Mary Medical', time: '02:15 PM', status: 'completed' }
+        ]
+      },
+      4: {
+        path: [[19.9850, 73.7750], [19.9880, 73.7720], [19.9910, 73.7690], [19.9950, 73.7650]],
+        checkpoints: [
+          { pos: [19.9850, 73.7750], label: 'Pickup: Apollo Gate', time: '11:30 AM', status: 'completed' },
+          { pos: [19.9950, 73.7650], label: 'Customer A', time: '01:50 PM', status: 'completed' }
+        ]
+      }
+    };
+    return routes[boyId] || { path: [], checkpoints: [] };
   },
 
   // Push a waiting alert (called from DeliveryBoyApp when status changes to 'waiting')

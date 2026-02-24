@@ -159,7 +159,7 @@ export default function Tracking() {
       </div>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0">
-        <div className="lg:col-span-3 bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden min-h-[300px] lg:min-h-0">
+        <div className="lg:col-span-3 bg-white rounded-2xl border border-zinc-100 shadow-inner overflow-hidden min-h-[300px] lg:min-h-0 relative">
           <MapPreview />
         </div>
 

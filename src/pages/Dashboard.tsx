@@ -116,7 +116,7 @@ export default function Dashboard() {
 
         <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4">
           <h3 className="text-sm font-bold text-zinc-900 mb-4">Live Map Preview (Nashik)</h3>
-          <div className="h-64 md:h-72 lg:aspect-square lg:h-auto bg-zinc-50 rounded-lg relative overflow-hidden border border-zinc-100">
+          <div className="h-64 md:h-72 lg:aspect-square lg:h-auto bg-white rounded-lg relative overflow-hidden border border-zinc-100 shadow-inner">
             <MapPreview />
           </div>
           <div className="mt-4 space-y-3">

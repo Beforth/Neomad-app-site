@@ -3,9 +3,10 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
-import { Calendar, Download, Clock, TrendingUp, Users, AlertCircle, TrendingDown, Gauge, CheckCircle2 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Calendar, Download, Clock, TrendingUp, Users, AlertCircle, TrendingDown, Gauge, CheckCircle2, Map as MapIcon, Navigation } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { mockApi } from '../lib/mockApi';
+import MapPreview, { DEFAULT_RIDERS } from '../components/MapPreview';
 
 const deliveryData = [
   { name: 'Mon', deliveries: 45, time: 22, waiting: 8 },
@@ -44,7 +45,9 @@ export default function Reports() {
   
   const [deliveryBoys, setDeliveryBoys] = useState<any[]>([]);
   const [globalStats, setGlobalStats] = useState({ totalBoys: 0, totalDelivered: 0 });
-  const [boyStats, setBoyStats] = useState({ delivered: 0, kmDriven: '0.0' });
+  const [boyStats, setBoyStats] = useState({ delivered: 0, kmDriven: '0.0', daily_distance: [] as any[] });
+  const [boyRoute, setBoyRoute] = useState<{ path: [number, number][], checkpoints: any[] }>({ path: [], checkpoints: [] });
+  const [loadingRoute, setLoadingRoute] = useState(false);
 
   useEffect(() => {
     mockApi.getUsers().then(users => {
@@ -60,13 +63,20 @@ export default function Reports() {
   useEffect(() => {
     if (boyFilter !== 'All') {
       const boyId = Number(boyFilter);
-      mockApi.getDeliveryBoyStats(boyId).then(s => {
-        setBoyStats({ delivered: s.total_delivered, kmDriven: s.km_driven });
+      setLoadingRoute(true);
+      Promise.all([
+        mockApi.getDeliveryBoyStats(boyId),
+        mockApi.getBoyRoute(boyId, dateRange)
+      ]).then(([s, r]) => {
+        setBoyStats({ delivered: s.total_delivered, kmDriven: s.km_driven, daily_distance: s.daily_distance });
+        setBoyRoute(r);
+        setLoadingRoute(false);
       });
     } else {
-      setBoyStats({ delivered: 0, kmDriven: '0.0' });
+      setBoyStats({ delivered: 0, kmDriven: '0.0', daily_distance: [] });
+      setBoyRoute({ path: [], checkpoints: [] });
     }
-  }, [boyFilter]);
+  }, [boyFilter, dateRange]);
 
   return (
     <div className="space-y-6">
@@ -132,20 +142,88 @@ export default function Reports() {
             ))}
           </div>
 
+          {/* Delivery Route / Fleet Map */}
+          <div className="bg-white p-4 md:p-6 rounded-2xl border border-zinc-100 shadow-sm mb-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                 <MapIcon size={18} className="text-zinc-400" />
+                 <h3 className="font-bold text-zinc-900">
+                   {boyFilter === 'All' ? 'Fleet Locations' : "Today's Delivery Route"}
+                 </h3>
+              </div>
+              {boyFilter !== 'All' && boyRoute.path.length > 0 && (
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                   {boyRoute.checkpoints.filter(c => c.status === 'completed').length} Checkpoints Completed
+                </span>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className={boyFilter === 'All' ? "lg:col-span-4 h-[400px] rounded-xl overflow-hidden relative" : "lg:col-span-3 h-[400px] rounded-xl overflow-hidden relative"}>
+                {loadingRoute ? (
+                  <div className="absolute inset-0 bg-zinc-50 flex items-center justify-center z-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-900"></div>
+                  </div>
+                ) : null}
+                <MapPreview 
+                  riders={boyFilter === 'All' ? DEFAULT_RIDERS : DEFAULT_RIDERS.filter(r => r.id === Number(boyFilter))}
+                  route={boyRoute.path} 
+                  checkpoints={boyRoute.checkpoints}
+                  center={boyRoute.path[0] || [19.9975, 73.7898]}
+                  zoom={boyFilter === 'All' ? 12 : 14}
+                />
+              </div>
+              
+              {boyFilter !== 'All' && (
+                <div className="space-y-4">
+                   <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Timeline</h4>
+                   <div className="space-y-4 relative">
+                      <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-zinc-100" />
+                      {boyRoute.checkpoints.map((cp, i) => (
+                        <div key={i} className="flex gap-3 relative z-10">
+                           <div className={`w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center shrink-0 ${
+                             cp.status === 'completed' ? 'bg-emerald-500' : 'bg-blue-500'
+                           }`}>
+                             {cp.status === 'completed' ? <CheckCircle2 size={12} className="text-white" /> : <Navigation size={12} className="text-white" />}
+                           </div>
+                           <div>
+                             <p className="text-sm font-bold text-zinc-900 leading-tight">{cp.label}</p>
+                             <p className="text-[10px] text-zinc-500">{cp.time}</p>
+                           </div>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white p-4 md:p-6 rounded-2xl border border-zinc-100 shadow-sm">
-              <h3 className="font-bold text-zinc-900 mb-6">Delivery Volume vs Avg. Time</h3>
+              <h3 className="font-bold text-zinc-900 mb-6">
+                {boyFilter === 'All' ? 'Delivery Volume vs Avg. Time' : 'Daily Distance Covered (km)'}
+              </h3>
               <div className="h-[260px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={deliveryData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} />
-                    <Tooltip {...CHART_STYLE} />
-                    <Bar dataKey="deliveries" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} name="Deliveries" />
-                    <Bar dataKey="time" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} name="Avg Time (min)" />
-                  </BarChart>
+                  {boyFilter === 'All' ? (
+                    <BarChart data={deliveryData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} />
+                      <Tooltip {...CHART_STYLE} />
+                      <Bar dataKey="deliveries" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} name="Deliveries" />
+                      <Bar dataKey="time" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} name="Avg Time (min)" />
+                    </BarChart>
+                  ) : (
+                    <BarChart data={boyStats.daily_distance}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
+                      <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} />
+                      <Tooltip {...CHART_STYLE} />
+                      <Bar dataKey="km" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={30} name="Distance (km)" />
+                    </BarChart>
+                  )}
                 </ResponsiveContainer>
               </div>
             </div>
