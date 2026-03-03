@@ -23,7 +23,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 // Helper component to fix the "gray map" issue by invalidating size on mount and changes
 function ResizeHandler({ center, zoom }: { center: [number, number], zoom: number }) {
   const map = useMap();
-  
+
   useEffect(() => {
     // Small delay to ensure container transition/animation is complete
     const timer = setTimeout(() => {
@@ -42,7 +42,9 @@ const createRiderIcon = (name: string, isCheckpoint = false, status: 'completed'
       html: `
         <div class="flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-md font-bold text-[10px] text-white" 
              style="background: ${status === 'active' ? '#3b82f6' : '#10b981'};">
-          ${status === 'active' ? '📍' : '✓'}
+          ${status === 'active'
+          ? '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>'
+          : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'}
         </div>
       `,
       iconSize: [24, 24],
@@ -82,9 +84,9 @@ interface MapPreviewProps {
 export default function MapPreview({ riders = DEFAULT_RIDERS, route = [], checkpoints = [], center = [19.9975, 73.7898], zoom = 13 }: MapPreviewProps) {
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-zinc-100 shadow-inner bg-zinc-50">
-      <MapContainer 
-        center={center} 
-        zoom={zoom} 
+      <MapContainer
+        center={center}
+        zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
       >
@@ -93,7 +95,7 @@ export default function MapPreview({ riders = DEFAULT_RIDERS, route = [], checkp
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        
+
         {/* Render Route Polyline */}
         {route.length > 0 && (
           <Polyline positions={route} color="#10b981" weight={4} opacity={0.6} dashArray="8, 8" />
@@ -101,9 +103,9 @@ export default function MapPreview({ riders = DEFAULT_RIDERS, route = [], checkp
 
         {/* Render Checkpoints */}
         {checkpoints.map((cp, idx) => (
-          <Marker 
-            key={`cp-${idx}`} 
-            position={cp.pos} 
+          <Marker
+            key={`cp-${idx}`}
+            position={cp.pos}
             icon={createRiderIcon('', true, cp.status)}
           >
             <Tooltip direction="top" offset={[0, -10]} opacity={1}>
@@ -117,9 +119,9 @@ export default function MapPreview({ riders = DEFAULT_RIDERS, route = [], checkp
 
         {/* Render Riders */}
         {riders.map((rider) => (
-          <Marker 
-            key={rider.id} 
-            position={rider.pos as [number, number]} 
+          <Marker
+            key={rider.id}
+            position={rider.pos as [number, number]}
             icon={createRiderIcon(rider.name)}
           >
             <Tooltip direction="top" offset={[0, -10]} opacity={1}>

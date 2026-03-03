@@ -8,15 +8,15 @@ const GEOFENCE_RADIUS_METERS = 100;
 
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371e3; // metres
-  const p1 = lat1 * Math.PI/180; 
-  const p2 = lat2 * Math.PI/180;
-  const dp = (lat2-lat1) * Math.PI/180;
-  const dl = (lon2-lon1) * Math.PI/180;
+  const p1 = lat1 * Math.PI / 180;
+  const p2 = lat2 * Math.PI / 180;
+  const dp = (lat2 - lat1) * Math.PI / 180;
+  const dl = (lon2 - lon1) * Math.PI / 180;
 
-  const a = Math.sin(dp/2) * Math.sin(dp/2) +
-            Math.cos(p1) * Math.cos(p2) *
-            Math.sin(dl/2) * Math.sin(dl/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const a = Math.sin(dp / 2) * Math.sin(dp / 2) +
+    Math.cos(p1) * Math.cos(p2) *
+    Math.sin(dl / 2) * Math.sin(dl / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return R * c;
 }
@@ -26,7 +26,7 @@ export default function StaffApp() {
   const [locationError, setLocationError] = useState('');
   const [distance, setDistance] = useState<number | null>(null);
   const [isOutside, setIsOutside] = useState(false);
-  
+
   const alertSentRef = useRef(false);
 
   useEffect(() => {
@@ -40,13 +40,13 @@ export default function StaffApp() {
         const { latitude, longitude } = pos.coords;
         const dist = getDistance(OFFICE_LOCATION.lat, OFFICE_LOCATION.lng, latitude, longitude);
         setDistance(Math.round(dist));
-        
+
         if (dist > GEOFENCE_RADIUS_METERS) {
           setIsOutside(true);
           if (!alertSentRef.current) {
             // Trigger system alert
             mockApi.saveNotification({
-              title: '⚠️ Staff Member Left Office Premises',
+              title: 'Staff Member Left Office Premises',
               message: `${user?.username} has moved ${Math.round(dist)} meters away from the office.`,
               targets: ['admin', 'manager'],
               priority: 'important'
@@ -106,7 +106,7 @@ export default function StaffApp() {
               <div className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg ${isOutside ? 'bg-red-500 shadow-red-200' : 'bg-emerald-500 shadow-emerald-200'}`}>
                 {isOutside ? <AlertTriangle className="text-white" size={32} /> : <CheckCircle2 className="text-white" size={32} />}
               </div>
-              
+
               <div>
                 <h3 className={`text-xl font-bold ${isOutside ? 'text-red-700' : 'text-emerald-700'}`}>
                   {isOutside ? 'Outside Premises' : 'Inside Premises'}

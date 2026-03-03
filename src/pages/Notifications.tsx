@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { mockApi } from '../lib/mockApi';
-import { 
-  Bell, Plus, Send, Trash2, Users, Shield, Truck, 
+import {
+  Bell, Plus, Send, Trash2, Users, Shield, Truck,
   CheckCircle2, Clock, X, Bot
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -71,8 +71,8 @@ export default function Notifications() {
   const filtered = filterTarget === 'all'
     ? notifications
     : filterTarget === 'system'
-    ? notifications.filter(n => n.isSystem)
-    : notifications.filter(n => n.targets.includes(filterTarget) || n.targets.includes('all'));
+      ? notifications.filter(n => n.isSystem)
+      : notifications.filter(n => n.targets.includes(filterTarget) || n.targets.includes('all'));
 
   const priorityDot = (p: string) => {
     if (p === 'urgent') return 'bg-red-500';
@@ -86,7 +86,7 @@ export default function Notifications() {
       <AnimatePresence>
         {toast && (
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="fixed top-6 right-6 z-[99] bg-zinc-900 text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
+            className="fixed top-6 right-6 z-99 bg-zinc-900 text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
             <CheckCircle2 size={16} className="text-emerald-400" />{toast}
           </motion.div>
         )}
@@ -145,9 +145,8 @@ export default function Notifications() {
                   <div className="flex gap-2">
                     {PRIORITY_OPTIONS.map(p => (
                       <button key={p.id} onClick={() => setPriority(p.id)}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-xs font-bold transition-all ${
-                          priority === p.id ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'
-                        }`}>
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-xs font-bold transition-all ${priority === p.id ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'
+                          }`}>
                         <span className={`w-2 h-2 rounded-full ${priority === p.id ? 'bg-white' : p.dot}`} />
                         {p.label}
                       </button>
@@ -161,9 +160,8 @@ export default function Notifications() {
                   <div className="grid grid-cols-2 gap-2">
                     {TARGET_OPTIONS.map(opt => (
                       <button key={opt.id} onClick={() => toggleTarget(opt.id)}
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all ${
-                          targets.includes(opt.id) ? opt.color + ' border-current' : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300'
-                        }`}>
+                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all ${targets.includes(opt.id) ? opt.color + ' border-current' : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300'
+                          }`}>
                         <opt.icon size={14} />
                         {opt.label}
                         {targets.includes(opt.id) && <CheckCircle2 size={12} className="ml-auto" />}
@@ -190,9 +188,10 @@ export default function Notifications() {
 
       {/* Filter tabs */}
       <div className="flex gap-1 bg-zinc-100 p-1 rounded-xl w-fit flex-wrap">
-        {[{ id: 'all', label: 'All' }, { id: 'system', label: '🤖 System' }, ...TARGET_OPTIONS.slice(1)].map(t => (
+        {[{ id: 'all', label: 'All' }, { id: 'system', label: 'System', icon: Bot }, ...TARGET_OPTIONS.slice(1)].map(t => (
           <button key={t.id} onClick={() => setFilterTarget(t.id)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filterTarget === t.id ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${filterTarget === t.id ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
+            {t.icon && <t.icon size={12} />}
             {t.label}
           </button>
         ))}
@@ -210,9 +209,8 @@ export default function Notifications() {
           </div>
         ) : filtered.map(n => (
           <motion.div key={n.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className={`bg-white rounded-2xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow ${
-              n.isSystem ? 'border-l-4 border-l-teal-400 border-zinc-100' : 'border-zinc-100'
-            }`}>
+            className={`bg-white rounded-2xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow ${n.isSystem ? 'border-l-4 border-l-teal-400 border-zinc-100' : 'border-zinc-100'
+              }`}>
             <div className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -249,10 +247,9 @@ export default function Notifications() {
                     );
                   })}
                   {n.priority !== 'normal' && (
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                      n.priority === 'urgent' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                    }`}>
-                      {n.priority === 'urgent' ? '🔴 Urgent' : '🟡 Important'}
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${n.priority === 'urgent' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}>
+                      {n.priority === 'urgent' ? 'Urgent' : 'Important'}
                     </span>
                   )}
                 </div>

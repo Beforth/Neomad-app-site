@@ -1,6 +1,6 @@
-import { 
-  LayoutDashboard, FileText, MapPin, BarChart3, Users, 
-  UserCircle, LogOut, Menu, X, Bell
+import {
+  LayoutDashboard, FileText, MapPin, BarChart3, Users,
+  UserCircle, LogOut, Menu, X, Bell, Package
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
@@ -31,6 +31,7 @@ export default function Sidebar() {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/', roles: ['admin', 'manager'] },
+    { icon: Package, label: 'Tasks', path: '/tasks', roles: ['admin', 'manager'] },
     { icon: FileText, label: 'Invoices', path: '/invoices', roles: ['admin', 'manager'] },
     { icon: MapPin, label: 'Live Tracking', path: '/tracking', roles: ['admin', 'manager'] },
     { icon: BarChart3, label: 'Reports', path: '/reports', roles: ['admin', 'manager'] },
@@ -63,11 +64,10 @@ export default function Sidebar() {
         <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
           {filteredItems.map(item => (
             <Link key={item.path} to={item.path} onClick={() => { window.innerWidth < 1024 && setIsOpen(false); }}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all whitespace-nowrap group ${
-                location.pathname === item.path
-                  ? 'bg-zinc-900 text-white shadow-sm'
-                  : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
-              }`}>
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all whitespace-nowrap group ${location.pathname === item.path
+                ? 'bg-zinc-900 text-white shadow-sm'
+                : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
+                }`}>
               <div className="relative">
                 <item.icon size={18} className={location.pathname === item.path ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-900'} />
                 {item.path === '/notifications' && unread > 0 && (

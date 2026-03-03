@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { 
+import {
   FileText, Clock, CheckCircle2, XCircle, Truck,
   ArrowUpRight, TrendingUp, IndianRupee, AlertCircle
 } from 'lucide-react';
@@ -34,14 +34,22 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold text-zinc-900">Dashboard</h1>
           <p className="text-zinc-500">Welcome back! Here's what's happening today.</p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-zinc-200 text-sm font-medium text-zinc-600 shadow-sm">
-          <Clock size={16} className="text-zinc-400" />
-          Last updated: {new Date().toLocaleTimeString()}
+        <div className="flex items-center gap-3">
+          {user?.role === 'admin' && (
+            <button onClick={async () => { await mockApi.seedDemoData(); window.location.reload(); }}
+              className="flex items-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100">
+              <CheckCircle2 size={14} /> Reset Demo Data
+            </button>
+          )}
+          <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-zinc-200 text-sm font-medium text-zinc-600 shadow-sm">
+            <Clock size={16} className="text-zinc-400" />
+            Last updated: {new Date().toLocaleTimeString()}
+          </div>
         </div>
       </header>
 
       {user?.role === 'manager' && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center gap-4 text-amber-800"
@@ -50,7 +58,7 @@ export default function Dashboard() {
             <AlertCircle size={20} />
           </div>
           <div className="flex-1">
-            <p className="font-bold text-sm">⚠️ Waiting Alert</p>
+            <p className="font-bold text-sm">Waiting Alert</p>
             <p className="text-xs">Delivery Boy #104 has been waiting at City Hospital for over 15 minutes.</p>
           </div>
           <button className="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold hover:bg-amber-700 transition-colors">
@@ -135,6 +143,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { 
-  UserPlus, Shield, Trash2, Edit2, CheckCircle2, 
+import {
+  UserPlus, Shield, Trash2, Edit2, CheckCircle2,
   XCircle, Search, Key, X, Save, Eye, EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -11,6 +11,7 @@ const ROLE_COLORS: Record<string, string> = {
   admin: 'bg-purple-50 text-purple-700',
   manager: 'bg-blue-50 text-blue-700',
   delivery_boy: 'bg-zinc-50 text-zinc-600',
+  staff: 'bg-emerald-50 text-emerald-700',
 };
 
 export default function UserManagement() {
@@ -108,7 +109,7 @@ export default function UserManagement() {
       <AnimatePresence>
         {toast && (
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="fixed top-6 right-6 z-[99] bg-zinc-900 text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
+            className="fixed top-6 right-6 z-99 bg-zinc-900 text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
             <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
           </motion.div>
         )}
@@ -168,10 +169,9 @@ export default function UserManagement() {
                   </td>
                   <td className="px-4 py-3">
                     <button onClick={() => handleToggleStatus(u)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize transition-all border ${
-                        u.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200' 
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize transition-all border ${u.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200'
                         : 'bg-red-50 text-red-700 border-red-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
-                      }`} title="Click to toggle">
+                        }`} title="Click to toggle">
                       {u.status === 'active' ? <><CheckCircle2 size={10} />Active</> : <><XCircle size={10} />Inactive</>}
                     </button>
                   </td>

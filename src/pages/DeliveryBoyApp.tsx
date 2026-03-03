@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
-import { 
+import {
   Power, Clock, MapPin, ChevronRight, CheckCircle2, Truck,
   History, LayoutGrid, AlertCircle, Navigation, Upload, IndianRupee,
   FileCheck, LogOut, XCircle, Camera, Bell, X, Map as MapIcon, Flag
@@ -49,29 +49,34 @@ export default function DeliveryBoyApp() {
   const [isAvailable, setIsAvailable] = useState(false);
   const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed'>('available');
   const [invoices, setInvoices] = useState<any[]>([]);
-  const [activeTask, setActiveTask] = useState<any>(null);
+  const [activeTasks, setActiveTasks] = useState<any[]>([]);
   const [acceptingId, setAcceptingId] = useState<number | null>(null);
   const [deliveryStatus, setDeliveryStatus] = useState<'moving' | 'waiting' | 'at_location'>('moving');
-  const [deliverySeconds, setDeliverySeconds] = useState(0);
+  const [deliverySeconds, setDeliverySeconds] = useState<Record<number, number>>({});
   const [waitingSeconds, setWaitingSeconds] = useState(0);
   const [availableSeconds, setAvailableSeconds] = useState(0);
-  const [cash, setCash] = useState('');
-  const [cheque, setCheque] = useState('');
-  const [chequeNumber, setChequeNumber] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [chequePhotoUrl, setChequePhotoUrl] = useState<string | null>(null);
-  
-  const [signedCopy, setSignedCopy] = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState(false);
-  const [submitError, setSubmitError] = useState('');
+
+  // Payment states (now mapped to task ID)
+  const [showCashInput, setShowCashInput] = useState<Record<number, boolean>>({});
+  const [showChequeInput, setShowChequeInput] = useState<Record<number, boolean>>({});
+  const [cash, setCash] = useState<Record<number, string>>({});
+  const [cheque, setCheque] = useState<Record<number, string>>({});
+  const [chequeNumber, setChequeNumber] = useState<Record<number, string>>({});
+  const [bankName, setBankName] = useState<Record<number, string>>({});
+  const [chequePhotoUrl, setChequePhotoUrl] = useState<Record<number, string | null>>({});
+
+  const [signedCopy, setSignedCopy] = useState<Record<number, string | null>>({});
+  const [submitted, setSubmitted] = useState<Record<number, boolean>>({});
+  const [submitError, setSubmitError] = useState<Record<number, string>>({});
   const [showNotifs, setShowNotifs] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
 
   // Modals
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
-  
+
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackTaskId, setFeedbackTaskId] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<'properly' | 'improperly' | null>(null);
   const [feedbackReason, setFeedbackReason] = useState('');
 
@@ -81,17 +86,17 @@ export default function DeliveryBoyApp() {
   const [checkpoints, setCheckpoints] = useState<any[]>([]);
 
   const isAvailableRef = useRef(isAvailable);
-  const activeTaskRef = useRef(activeTask);
+  const activeTasksRef = useRef(activeTasks);
   const socketRef = useRef(socket);
   const locationRef = useRef<GeolocationPosition | null>(null);
   isAvailableRef.current = isAvailable;
-  activeTaskRef.current = activeTask;
+  activeTasksRef.current = activeTasks;
   socketRef.current = socket;
 
   // Load notifications
   useEffect(() => {
     const all = mockApi.getNotifications();
-    const mine = all.filter((n: any) => 
+    const mine = all.filter((n: any) =>
       n.targets.includes('all') || n.targets.includes('delivery_boy')
     );
     setNotifications(mine);
@@ -106,13 +111,22 @@ export default function DeliveryBoyApp() {
     return () => clearInterval(t);
   }, [isAvailable]);
 
-  // Delivery timer
+  // Delivery timer for each active task
   useEffect(() => {
-    if (!activeTask?.accepted_at) { setDeliverySeconds(0); return; }
-    const start = new Date(activeTask.accepted_at).getTime();
-    const tick = setInterval(() => setDeliverySeconds(Math.floor((Date.now() - start) / 1000)), 1000);
+    if (activeTasks.length === 0) { setDeliverySeconds({}); return; }
+    const tick = setInterval(() => {
+      setDeliverySeconds(prev => {
+        const next = { ...prev };
+        activeTasks.forEach(task => {
+          if (task.accepted_at) {
+            next[task.id] = Math.floor((Date.now() - new Date(task.accepted_at).getTime()) / 1000);
+          }
+        });
+        return next;
+      });
+    }, 1000);
     return () => clearInterval(tick);
-  }, [activeTask?.accepted_at]);
+  }, [activeTasks]);
 
   // Waiting accumulator + alert
   const waitingAlertSentRef = useRef(false);
@@ -124,17 +138,20 @@ export default function DeliveryBoyApp() {
     const tick = setInterval(() => setWaitingSeconds(s => s + 1), 1000);
     // Send a system alert to admin/manager after 5 seconds of waiting
     const alertTimer = setTimeout(() => {
-      if (!waitingAlertSentRef.current && activeTask) {
+      if (!waitingAlertSentRef.current && activeTasks.length > 0) {
+        // Send alert for the "current" or most recent task logic? 
+        // For now, let's just use the first active task for the alert reference
+        const task = activeTasks[0];
         mockApi.pushWaitingAlert(
-          activeTask.invoice_number,
-          activeTask.hospital_name,
+          task.invoice_number,
+          task.hospital_name, // Keeping the variable name for now as it's from the API
           user?.username || 'Delivery Boy'
         );
         waitingAlertSentRef.current = true;
       }
     }, 5000);
     return () => { clearInterval(tick); clearTimeout(alertTimer); };
-  }, [deliveryStatus]);
+  }, [deliveryStatus, activeTasks]);
 
   // Geolocation
   useEffect(() => {
@@ -144,7 +161,7 @@ export default function DeliveryBoyApp() {
         if (isAvailableRef.current && socketRef.current) {
           socketRef.current.emit('tracking', {
             lat: pos.coords.latitude, lng: pos.coords.longitude,
-            status: activeTaskRef.current ? 'moving' : 'waiting'
+            status: activeTasksRef.current.length > 0 ? 'moving' : 'waiting'
           });
         }
       },
@@ -157,16 +174,15 @@ export default function DeliveryBoyApp() {
   const fetchInvoices = useCallback(async () => {
     const data = await mockApi.getInvoices(user);
     setInvoices(data);
-    const active = data.find((inv: any) => inv.status === 'assigned' && inv.assigned_to === user?.id);
-    setActiveTask(active || null);
-    if (active) { setSubmitted(false); setCash(''); setCheque(''); setSignedCopy(null); }
+    const active = data.filter((inv: any) => inv.status === 'assigned' && inv.assigned_to === user?.id);
+    setActiveTasks(active);
     return data;
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => { fetchInvoices(); }, []);
 
   const handleAccept = async (id: number) => {
-    if (!user || activeTask) return;
+    if (!user) return;
     setAcceptingId(id);
     try {
       const res = await mockApi.acceptInvoice(id, user.id);
@@ -180,47 +196,50 @@ export default function DeliveryBoyApp() {
     } finally { setAcceptingId(null); }
   };
 
-  const handleDeliver = async () => {
-    if (!signedCopy) { setSubmitError('Please upload a signed copy before submitting.'); return; }
-    if (Number(cheque) > 0 && (!chequeNumber || !bankName)) {
-      setSubmitError('Please provide Cheque Number and Bank Name.');
+  const handleDeliver = async (taskId: number) => {
+    if (!signedCopy[taskId]) {
+      setSubmitError(prev => ({ ...prev, [taskId]: 'Please upload a signed copy before submitting.' }));
       return;
     }
-    setSubmitError('');
-    const res = await mockApi.deliverInvoice(activeTask.id, {
-      cash: Number(cash) || 0,
-      cheque: Number(cheque) || 0,
-      cheque_number: chequeNumber,
-      bank_name: bankName,
-      cheque_photo_url: chequePhotoUrl,
-      signed_copy_url: signedCopy,
+    const chqAmt = Number(cheque[taskId]);
+    if (chqAmt > 0 && (!chequeNumber[taskId] || !bankName[taskId])) {
+      setSubmitError(prev => ({ ...prev, [taskId]: 'Please provide Cheque Number and Bank Name.' }));
+      return;
+    }
+    setSubmitError(prev => ({ ...prev, [taskId]: '' }));
+    const res = await mockApi.deliverInvoice(taskId, {
+      cash: Number(cash[taskId]) || 0,
+      cheque: chqAmt || 0,
+      cheque_number: chequeNumber[taskId],
+      bank_name: bankName[taskId],
+      cheque_photo_url: chequePhotoUrl[taskId],
+      signed_copy_url: signedCopy[taskId],
     });
     if (res.success) {
+      setSubmitted(prev => ({ ...prev, [taskId]: true }));
+      setFeedbackTaskId(taskId);
       setShowFeedbackModal(true);
     }
   };
 
   const handleFeedbackSubmit = async () => {
-    if (activeTask && feedback) {
-      await mockApi.submitFeedback(activeTask.id, feedback, feedbackReason);
+    if (feedbackTaskId && feedback) {
+      await mockApi.submitFeedback(feedbackTaskId, feedback, feedbackReason);
     }
     setShowFeedbackModal(false);
-    setSubmitted(true);
-    
-    // Show shift completion modal after 1.5s
+
+    // Show shift completion modal after 1s
     setTimeout(async () => {
-      setActiveTask(null);
       await fetchInvoices();
       setShowShiftModal(true);
-    }, 1500);
+    }, 1000);
   };
 
   const handleCancelOrder = async () => {
-    if (!cancelReason.trim()) return;
-    await mockApi.cancelInvoice(activeTask.id, cancelReason);
+    if (!cancelReason.trim() || !activeTasks[0]) return;
+    await mockApi.cancelInvoice(activeTasks[0].id, cancelReason);
     setShowCancelModal(false);
     setCancelReason('');
-    setActiveTask(null);
     fetchInvoices();
     setActiveTab('available');
   };
@@ -238,12 +257,20 @@ export default function DeliveryBoyApp() {
 
   const handleAddCheckpoint = () => {
     if (locationRef.current) {
-      const pos = { lat: locationRef.current.coords.latitude, lng: locationRef.current.coords.longitude, time: new Date() };
+      const desc = prompt("Enter checkpoint description:");
+      if (desc === null) return; // Cancelled
+
+      const pos = {
+        lat: locationRef.current.coords.latitude,
+        lng: locationRef.current.coords.longitude,
+        time: new Date(),
+        description: desc
+      };
       setCheckpoints([...checkpoints, pos]);
       // Mock sending to manager
       mockApi.saveNotification({
-        title: '📍 New Checkpoint Recorded',
-        message: `${user?.username} recorded a checkpoint at their current location for order ${activeTask?.invoice_number}`,
+        title: 'New Checkpoint Recorded',
+        message: `${user?.username} recorded a checkpoint: "${desc}" for order ${activeTasks[0]?.invoice_number || 'N/A'}`,
         targets: ['manager', 'admin'],
         priority: 'normal'
       });
@@ -384,7 +411,7 @@ export default function DeliveryBoyApp() {
             <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
               <h3 className="text-xl font-bold text-zinc-900 text-center">Delivery Feedback</h3>
               <p className="text-sm text-zinc-500 text-center">How was this delivery experience?</p>
-              
+
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <button onClick={() => setFeedback('properly')}
                   className={`py-3 rounded-xl border-2 font-bold transition-all ${feedback === 'properly' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-zinc-200 bg-white text-zinc-400'}`}>
@@ -405,7 +432,7 @@ export default function DeliveryBoyApp() {
                 </motion.div>
               )}
 
-              <button onClick={handleFeedbackSubmit} disabled={!feedback || (feedback === 'improperly' && !feedbackReason.trim())}
+              <button onClick={() => handleFeedbackSubmit()} disabled={!feedback || (feedback === 'improperly' && !feedbackReason.trim())}
                 className="w-full py-4 mt-2 bg-zinc-900 text-white rounded-xl font-bold shadow-lg disabled:opacity-50 hover:bg-zinc-800 transition-colors">
                 Submit Feedback
               </button>
@@ -430,6 +457,7 @@ export default function DeliveryBoyApp() {
                     <div>
                       <p className="text-xs font-bold text-emerald-600">{inv.invoice_number}</p>
                       <h4 className="font-bold text-zinc-900 mt-1">{inv.hospital_name}</h4>
+                      <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">Task / Entity</p>
                     </div>
                     <p className="font-bold text-zinc-900">₹{inv.amount.toLocaleString()}</p>
                   </div>
@@ -437,13 +465,10 @@ export default function DeliveryBoyApp() {
                     <div className="flex items-center gap-1"><MapPin size={14} /><span>2.4 km</span></div>
                     <div className="flex items-center gap-1"><Clock size={14} /><span>~15 mins</span></div>
                   </div>
-                  <button onClick={() => handleAccept(inv.id)} disabled={!!activeTask || acceptingId === inv.id}
-                    className={`w-full py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 ${
-                      activeTask ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed'
-                      : acceptingId === inv.id ? 'bg-emerald-400 text-white cursor-wait'
+                  <button onClick={() => handleAccept(inv.id)} disabled={acceptingId === inv.id}
+                    className={`w-full py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 ${acceptingId === inv.id ? 'bg-emerald-400 text-white cursor-wait'
                       : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}>
                     {acceptingId === inv.id ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Accepting...</>
-                      : activeTask ? 'Active task in progress'
                       : <>Accept Task<ChevronRight size={18} /></>}
                   </button>
                 </div>
@@ -461,22 +486,22 @@ export default function DeliveryBoyApp() {
           {/* ACTIVE DELIVERY */}
           {activeTab === 'active' && (
             <motion.div key="active" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-6">
-              {activeTask ? (
-                <div className="space-y-5">
+              {activeTasks.length > 0 ? activeTasks.map(task => (
+                <div key={task.id} className="space-y-5 border-b border-zinc-200 pb-8 last:border-0 last:pb-0">
                   {/* Status card */}
                   <div className="bg-emerald-500 text-white p-6 rounded-3xl shadow-lg shadow-emerald-200">
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <p className="text-emerald-100 text-xs font-bold uppercase tracking-wider">Active Delivery</p>
-                        <h3 className="text-2xl font-bold mt-1">{activeTask.hospital_name}</h3>
-                        <p className="text-emerald-100 text-xs">{activeTask.invoice_number}</p>
+                        <p className="text-emerald-100 text-xs font-bold uppercase tracking-wider">Active Task</p>
+                        <h3 className="text-2xl font-bold mt-1">{task.hospital_name}</h3>
+                        <p className="text-emerald-100 text-[10px] font-bold uppercase opacity-80">Task / Entity: {task.invoice_number}</p>
                       </div>
                       <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><Truck size={24} /></div>
                     </div>
                     <div className="flex items-center gap-6 mb-4">
                       <div className="space-y-1">
                         <p className="text-emerald-100 text-[10px]">Delivery Time</p>
-                        <p className="text-2xl font-mono font-bold tabular-nums">{fmtTime(deliverySeconds)}</p>
+                        <p className="text-2xl font-mono font-bold tabular-nums">{fmtTime(deliverySeconds[task.id] || 0)}</p>
                       </div>
                       {waitingSeconds > 0 && (
                         <>
@@ -490,16 +515,21 @@ export default function DeliveryBoyApp() {
                     </div>
                     <div className="flex gap-2">
                       {(['moving', 'waiting', 'at_location'] as const).map(s => (
-                        <button key={s} onClick={() => !submitted && setDeliveryStatus(s)} disabled={submitted}
+                        <button key={s} onClick={() => !submitted[task.id] && setDeliveryStatus(s)} disabled={submitted[task.id]}
                           className={`flex-1 py-1.5 rounded-xl text-[10px] font-bold transition-all ${deliveryStatus === s ? 'bg-white text-emerald-700' : 'bg-white/20 text-white hover:bg-white/30'}`}>
-                          {s === 'moving' ? '🚗 Moving' : s === 'waiting' ? '⏳ Waiting' : '📍 At Location'}
+                          <div className="flex items-center justify-center gap-1.5">
+                            {s === 'moving' && <Truck size={12} />}
+                            {s === 'waiting' && <Clock size={12} />}
+                            {s === 'at_location' && <MapPin size={12} />}
+                            {s === 'moving' ? 'Moving' : s === 'waiting' ? 'Waiting' : 'At Location'}
+                          </div>
                         </button>
                       ))}
                     </div>
                   </div>
 
                   {/* Navigate / Map / Cancel */}
-                  {!submitted && (
+                  {!submitted[task.id] && (
                     <div className="grid grid-cols-3 gap-3">
                       <button className="flex items-center justify-center gap-1.5 py-3 bg-blue-50 text-blue-600 rounded-xl font-bold text-xs">
                         <Navigation size={16} />Navigate
@@ -515,7 +545,7 @@ export default function DeliveryBoyApp() {
                   )}
 
                   {/* Inline Map */}
-                  {showMap && !submitted && (
+                  {showMap && !submitted[task.id] && (
                     <div className="bg-white p-3 rounded-2xl border border-zinc-100 shadow-sm space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="font-bold text-zinc-900 text-sm">Live Location</h4>
@@ -533,7 +563,7 @@ export default function DeliveryBoyApp() {
                           )}
                           {checkpoints.map((cp, idx) => (
                             <Marker key={idx} position={[cp.lat, cp.lng]}>
-                              <Popup>Checkpoint {idx + 1}</Popup>
+                              <Popup>{cp.description || `Checkpoint ${idx + 1}`}</Popup>
                             </Marker>
                           ))}
                         </MapContainer>
@@ -543,25 +573,28 @@ export default function DeliveryBoyApp() {
 
                   {/* Completion Form */}
                   <div className="bg-white p-5 rounded-2xl border border-zinc-100 shadow-sm space-y-4">
-                    <h4 className="font-bold text-zinc-900">Completion Form</h4>
+                    <h4 className="font-bold text-zinc-900">Completion Form - {task.invoice_number}</h4>
 
                     {/* Signed Copy */}
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-zinc-500">
                         Upload Signed Copy <span className="text-red-500">*</span>
                       </label>
-                      {signedCopy ? (
+                      {signedCopy[task.id] ? (
                         <div className="relative">
-                          <img src={signedCopy} alt="Signed copy" className="w-full h-32 object-cover rounded-xl border border-zinc-200" />
-                          {!submitted && (
-                            <button onClick={() => setSignedCopy(null)}
+                          <img src={signedCopy[task.id]!} alt="Signed copy" className="w-full h-32 object-cover rounded-xl border border-zinc-200" />
+                          {!submitted[task.id] && (
+                            <button onClick={() => setSignedCopy(prev => ({ ...prev, [task.id]: null }))}
                               className="absolute top-2 right-2 bg-white rounded-full p-1 shadow border border-zinc-200 text-red-500">
                               <X size={14} />
                             </button>
                           )}
                         </div>
                       ) : (
-                        <button onClick={handleCapture} disabled={submitted}
+                        <button onClick={() => {
+                          const url = `https://picsum.photos/seed/${Date.now()}/400/300`;
+                          setSignedCopy(prev => ({ ...prev, [task.id]: url }));
+                        }} disabled={submitted[task.id]}
                           className="w-full border-2 border-dashed border-zinc-200 rounded-xl p-6 flex flex-col items-center justify-center text-zinc-400 gap-2 hover:border-emerald-400 hover:text-emerald-500 transition-colors">
                           <Camera size={24} />
                           <span className="text-xs font-medium">Tap to take photo</span>
@@ -569,82 +602,86 @@ export default function DeliveryBoyApp() {
                       )}
                     </div>
 
-                    {/* Cash / Cheque */}
+                    {/* Cash / Cheque Buttons */}
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-zinc-500">Cash Received (₹)</label>
-                        <input type="number" placeholder="0.00" value={cash} onChange={e => setCash(e.target.value)}
-                          disabled={submitted}
-                          className="w-full p-3 bg-zinc-50 rounded-xl border border-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm disabled:opacity-50" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-zinc-500">Cheque Received (₹)</label>
-                        <input type="number" placeholder="0.00" value={cheque} onChange={e => setCheque(e.target.value)}
-                          disabled={submitted}
-                          className="w-full p-3 bg-zinc-50 rounded-xl border border-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm disabled:opacity-50" />
-                      </div>
+                      <button
+                        onClick={() => setShowCashInput(prev => ({ ...prev, [task.id]: !prev[task.id] }))}
+                        disabled={submitted[task.id]}
+                        className={`py-3 px-4 rounded-xl border-2 font-bold text-xs transition-all flex items-center justify-center gap-2 ${showCashInput[task.id] ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-zinc-100 bg-zinc-50 text-zinc-500'
+                          }`}
+                      >
+                        <IndianRupee size={14} /> Cash Received
+                      </button>
+                      <button
+                        onClick={() => setShowChequeInput(prev => ({ ...prev, [task.id]: !prev[task.id] }))}
+                        disabled={submitted[task.id]}
+                        className={`py-3 px-4 rounded-xl border-2 font-bold text-xs transition-all flex items-center justify-center gap-2 ${showChequeInput[task.id] ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-zinc-100 bg-zinc-50 text-zinc-500'
+                          }`}
+                      >
+                        <FileCheck size={14} /> Cheque Received
+                      </button>
                     </div>
 
+                    {showCashInput[task.id] && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-1">
+                        <label className="text-[10px] font-bold text-zinc-500">Cash Received (₹)</label>
+                        <input type="number" placeholder="0.00" value={cash[task.id] || ''} onChange={e => setCash(prev => ({ ...prev, [task.id]: e.target.value }))}
+                          disabled={submitted[task.id]}
+                          className="w-full p-3 bg-zinc-50 rounded-xl border border-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm disabled:opacity-50" />
+                      </motion.div>
+                    )}
+
+                    {showChequeInput[task.id] && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-1">
+                        <label className="text-[10px] font-bold text-zinc-500">Cheque Received (₹)</label>
+                        <input type="number" placeholder="0.00" value={cheque[task.id] || ''} onChange={e => setCheque(prev => ({ ...prev, [task.id]: e.target.value }))}
+                          disabled={submitted[task.id]}
+                          className="w-full p-3 bg-zinc-50 rounded-xl border border-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm disabled:opacity-50" />
+                      </motion.div>
+                    )}
+
                     {/* Extended Cheque Fields */}
-                    {Number(cheque) > 0 && (
+                    {showChequeInput[task.id] && Number(cheque[task.id]) > 0 && (
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-3 p-4 bg-zinc-50 border border-zinc-100 rounded-xl overflow-hidden">
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1">
                             <label className="text-[10px] font-bold text-zinc-500">Cheque Number <span className="text-red-500">*</span></label>
-                            <input type="text" placeholder="123456" value={chequeNumber} onChange={e => setChequeNumber(e.target.value)}
-                              disabled={submitted}
+                            <input type="text" placeholder="123456" value={chequeNumber[task.id] || ''} onChange={e => setChequeNumber(prev => ({ ...prev, [task.id]: e.target.value }))}
+                              disabled={submitted[task.id]}
                               className="w-full p-2.5 bg-white rounded-lg border border-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 text-xs disabled:opacity-50" />
                           </div>
                           <div className="space-y-1">
                             <label className="text-[10px] font-bold text-zinc-500">Bank Name <span className="text-red-500">*</span></label>
-                            <input type="text" placeholder="HDFC Bank" value={bankName} onChange={e => setBankName(e.target.value)}
-                              disabled={submitted}
+                            <input type="text" placeholder="HDFC Bank" value={bankName[task.id] || ''} onChange={e => setBankName(prev => ({ ...prev, [task.id]: e.target.value }))}
+                              disabled={submitted[task.id]}
                               className="w-full p-2.5 bg-white rounded-lg border border-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 text-xs disabled:opacity-50" />
                           </div>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-zinc-500">Cheque Photo (Optional)</label>
-                          {chequePhotoUrl ? (
-                            <div className="relative">
-                              <img src={chequePhotoUrl} alt="Cheque" className="w-full h-16 object-cover rounded-lg border border-zinc-200" />
-                              {!submitted && (
-                                <button onClick={() => setChequePhotoUrl(null)} className="absolute top-1 right-1 bg-white rounded-full p-0.5 text-red-500 border border-zinc-200">
-                                  <X size={12} />
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <button onClick={handleCaptureCheque} disabled={submitted}
-                              className="w-full border-2 border-dashed border-zinc-300 rounded-lg py-3 flex items-center justify-center text-zinc-400 gap-2 hover:border-emerald-400 transition-colors disabled:opacity-50 bg-white">
-                              <Camera size={14} /><span className="text-[10px] font-medium">Take Photo</span>
-                            </button>
-                          )}
                         </div>
                       </motion.div>
                     )}
 
-                    {submitError && (
+                    {submitError[task.id] && (
                       <p className="text-xs text-red-500 font-medium flex items-center gap-1">
-                        <AlertCircle size={12} />{submitError}
+                        <AlertCircle size={12} />{submitError[task.id]}
                       </p>
                     )}
 
-                    {submitted ? (
+                    {submitted[task.id] ? (
                       <div className="w-full py-4 bg-emerald-50 text-emerald-700 rounded-xl font-bold flex items-center justify-center gap-2">
                         <CheckCircle2 size={20} />Delivery Submitted!
                       </div>
                     ) : (
-                      <button onClick={handleDeliver}
+                      <button onClick={() => { handleDeliver(task.id); }}
                         className="w-full py-4 bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors">
                         <FileCheck size={20} />Submit Delivery
                       </button>
                     )}
                   </div>
                 </div>
-              ) : (
+              )) : (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-400"><Truck size={32} /></div>
-                  <p className="text-zinc-500 font-medium">No active task</p>
+                  <p className="text-zinc-500 font-medium">No active tasks</p>
                   <p className="text-xs text-zinc-400 mt-1">Accept a task from the available list</p>
                 </div>
               )}
@@ -665,6 +702,7 @@ export default function DeliveryBoyApp() {
                       <div>
                         <p className="text-xs font-bold text-zinc-400">{inv.invoice_number}</p>
                         <h4 className="font-bold text-zinc-900 text-sm">{inv.hospital_name}</h4>
+                        <p className="text-[8px] text-zinc-400 font-bold uppercase">Task / Entity</p>
                       </div>
                     </div>
                     <div className="text-right">

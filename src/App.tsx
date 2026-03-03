@@ -13,9 +13,11 @@ import Reports from './pages/Reports';
 import DeveloperPortal from './pages/DeveloperPortal';
 import Notifications from './pages/Notifications';
 import StaffApp from './pages/StaffApp';
+import Tasks from './pages/Tasks';
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
+  '/tasks': 'Tasks',
   '/invoices': 'Invoices',
   '/tracking': 'Live Tracking',
   '/reports': 'Reports',
@@ -64,6 +66,7 @@ function AppRoutes() {
         <main className="flex-1 p-4 md:p-8 lg:p-10 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/tasks" element={<Tasks />} />
             <Route path="/invoices" element={<Invoices />} />
             <Route path="/tracking" element={<Tracking />} />
             <Route path="/profile" element={<Profile />} />

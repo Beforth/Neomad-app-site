@@ -37,12 +37,23 @@ const INITIAL_USERS: User[] = [
   { id: 4, username: 'staff1', email: 'staff1@example.com', password: 'staff123', role: 'staff', status: 'active' }
 ];
 
-const INITIAL_INVOICES: Invoice[] = [
+// Initial invoices - function so timestamps are always fresh on first load
+const makeInitialInvoices = (): Invoice[] => [
   { id: 1, invoice_number: 'INV-2024-001', hospital_name: 'City Hospital', amount: 4500, status: 'pending', created_at: new Date().toISOString() },
   { id: 2, invoice_number: 'INV-2024-002', hospital_name: 'Metro Clinic', amount: 2800, status: 'pending', created_at: new Date().toISOString() },
   { id: 3, invoice_number: 'INV-2024-003', hospital_name: 'St. Mary Medical', amount: 3200, status: 'delivered', assigned_to: 3, created_at: new Date().toISOString(), delivered_at: new Date().toISOString(), cash_received: 3200 },
   { id: 4, invoice_number: 'INV-2024-004', hospital_name: 'Apollo Health', amount: 1500, status: 'pending', created_at: new Date().toISOString() },
   { id: 5, invoice_number: 'INV-2024-005', hospital_name: 'LifeCare Center', amount: 5600, status: 'pending', created_at: new Date().toISOString() },
+  { id: 6, invoice_number: 'INV-2024-006', hospital_name: 'Sunrise Medical', amount: 1200, status: 'assigned', assigned_to: 3, created_at: new Date().toISOString() },
+  { id: 7, invoice_number: 'TASK-2024-007', hospital_name: 'Pharmacy Restock', amount: 0, status: 'pending', created_at: new Date().toISOString() },
+  { id: 8, invoice_number: 'INV-2024-008', hospital_name: 'General Wellness', amount: 8900, status: 'delivered', assigned_to: 3, created_at: new Date().toISOString(), delivered_at: new Date().toISOString(), cash_received: 8900 },
+  { id: 9, invoice_number: 'TASK-2024-009', hospital_name: 'Document Pickup', amount: 0, status: 'assigned', assigned_to: 3, created_at: new Date().toISOString() },
+  { id: 10, invoice_number: 'INV-2024-010', hospital_name: 'Ortho Care', amount: 4200, status: 'pending', created_at: new Date().toISOString() },
+  { id: 11, invoice_number: 'INV-2024-011', hospital_name: 'Dental Hub', amount: 1800, status: 'pending', created_at: new Date().toISOString() },
+  { id: 12, invoice_number: 'TASK-2024-012', hospital_name: 'Lab Sample Delivery', amount: 0, status: 'pending', created_at: new Date().toISOString() },
+  { id: 13, invoice_number: 'INV-2024-013', hospital_name: 'Vision Plus', amount: 3500, status: 'delivered', assigned_to: 3, created_at: new Date(Date.now() - 3600000).toISOString(), delivered_at: new Date().toISOString(), cash_received: 3500 },
+  { id: 14, invoice_number: 'TASK-2024-014', hospital_name: 'Emergency Supply', amount: 0, status: 'assigned', assigned_to: 3, created_at: new Date().toISOString() },
+  { id: 15, invoice_number: 'INV-2024-015', hospital_name: 'Family Health', amount: 2200, status: 'pending', created_at: new Date().toISOString() },
 ];
 
 // Pre-seeded system-generated notifications shown on first load
@@ -50,7 +61,7 @@ const ago = (mins: number) => new Date(Date.now() - mins * 60 * 1000).toISOStrin
 const INITIAL_NOTIFICATIONS = [
   {
     id: 100001,
-    title: '📧 New Invoice Fetched from Gmail',
+    title: 'New Invoice Fetched from Gmail',
     message: '5 new invoices were automatically imported from admin@example.com. Review them in the Invoices section.',
     targets: ['admin', 'manager'],
     priority: 'normal',
@@ -61,7 +72,7 @@ const INITIAL_NOTIFICATIONS = [
   },
   {
     id: 100002,
-    title: '⚠️ Delivery Boy Waiting Too Long',
+    title: 'Waiting Alert - Delivery Boy Waiting Too Long',
     message: 'delivery1 has been waiting at Metro Clinic for 18 minutes on invoice INV-2024-002. Please investigate.',
     targets: ['admin', 'manager'],
     priority: 'important',
@@ -72,7 +83,7 @@ const INITIAL_NOTIFICATIONS = [
   },
   {
     id: 100003,
-    title: '✅ Invoice INV-2024-003 Delivered',
+    title: 'Invoice INV-2024-003 Delivered',
     message: 'delivery1 successfully delivered INV-2024-003 to St. Mary Medical. Cash collected: ₹3,200.',
     targets: ['admin', 'manager'],
     priority: 'normal',
@@ -83,7 +94,7 @@ const INITIAL_NOTIFICATIONS = [
   },
   {
     id: 100004,
-    title: '💰 Cash Payment Pending Confirmation',
+    title: 'Cash Payment Pending Confirmation',
     message: 'INV-2024-003 — ₹3,200 cash collected by delivery1. Admin action required to confirm receipt.',
     targets: ['admin'],
     priority: 'important',
@@ -94,7 +105,7 @@ const INITIAL_NOTIFICATIONS = [
   },
   {
     id: 100005,
-    title: '📋 New Task Assigned to You',
+    title: 'New Task Assigned to You',
     message: 'You have been assigned invoice INV-2024-001 — City Hospital, ₹4,500. Open the app to accept.',
     targets: ['delivery_boy'],
     priority: 'important',
@@ -105,7 +116,7 @@ const INITIAL_NOTIFICATIONS = [
   },
   {
     id: 100006,
-    title: '🔄 System Sync Complete',
+    title: 'System Sync Complete',
     message: 'Database sync completed at ' + new Date(Date.now() - 35 * 60000).toLocaleTimeString() + '. All invoice records are up to date.',
     targets: ['admin'],
     priority: 'normal',
@@ -116,7 +127,7 @@ const INITIAL_NOTIFICATIONS = [
   },
   {
     id: 100007,
-    title: '📍 Delivery Boy Went Offline',
+    title: 'Delivery Boy Went Offline',
     message: 'delivery1 has gone offline at 10:45 AM. 2 pending invoices may need reassignment.',
     targets: ['admin', 'manager'],
     priority: 'important',
@@ -177,7 +188,7 @@ export const mockApi = {
     users.push(newUser);
     setStored('mock_users', users);
     pushSystemNotif(
-      '👤 New User Created',
+      'New User Created',
       `A new ${userData.role.replace('_', ' ')} account "${userData.username}" (${userData.email}) has been added to the system.`,
       ['admin'],
       'normal'
@@ -185,16 +196,27 @@ export const mockApi = {
     return { success: true };
   },
 
+  seedDemoData: async () => {
+    // Reset invoices and notifications to initial state
+    setStored('mock_invoices', makeInitialInvoices());
+    setStored('mock_notifications', INITIAL_NOTIFICATIONS);
+    // We could reset users too, but usually best to keep them unless requested
+    return { success: true };
+  },
+
   getInvoices: async (user: any) => {
-    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const invoices = getStored('mock_invoices', makeInitialInvoices());
+
     if (user.role === 'delivery_boy') {
-      return invoices.filter((inv: any) => inv.assigned_to === user.id || inv.status === 'pending');
+      return invoices.filter((inv: any) =>
+        inv.assigned_to === user.id || inv.status === 'pending'
+      );
     }
     return invoices;
   },
 
   assignInvoice: async (id: number, deliveryBoyId: number) => {
-    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const invoices = getStored('mock_invoices', makeInitialInvoices());
     const invoice = invoices.find((inv: any) => inv.id === id);
     const users = getStored('mock_users', INITIAL_USERS);
     const boy = users.find((u: any) => u.id === deliveryBoyId);
@@ -204,13 +226,13 @@ export const mockApi = {
       setStored('mock_invoices', invoices);
       // Notify all roles + the delivery boy specifically
       pushSystemNotif(
-        `📋 Invoice Assigned — ${invoice.invoice_number}`,
+        `Invoice Assigned — ${invoice.invoice_number}`,
         `${invoice.invoice_number} (${invoice.hospital_name}, ₹${invoice.amount.toLocaleString()}) has been assigned to ${boy?.username || 'a delivery boy'}.`,
         ['admin', 'manager'],
         'normal'
       );
       pushSystemNotif(
-        `📋 New Task Assigned to You`,
+        `New Task Assigned to You`,
         `You have been assigned ${invoice.invoice_number} — ${invoice.hospital_name}, ₹${invoice.amount.toLocaleString()}. Open the app to accept.`,
         ['delivery_boy'],
         'important'
@@ -220,11 +242,8 @@ export const mockApi = {
   },
 
   acceptInvoice: async (id: number, userId: number) => {
-    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
-    const alreadyActive = invoices.find((inv: any) => inv.status === 'assigned' && inv.assigned_to === userId);
-    if (alreadyActive) {
-      return { success: false, error: 'You already have an active task.' };
-    }
+    const invoices = getStored('mock_invoices', makeInitialInvoices());
+    // Removed alreadyActive check to allow multiple tasks
     const invoice = invoices.find((inv: any) => inv.id === id);
     const users = getStored('mock_users', INITIAL_USERS);
     const boy = users.find((u: any) => u.id === userId);
@@ -234,7 +253,7 @@ export const mockApi = {
       invoice.accepted_at = new Date().toISOString();
       setStored('mock_invoices', invoices);
       pushSystemNotif(
-        `🚀 Task Accepted — ${invoice.invoice_number}`,
+        `Task Accepted — ${invoice.invoice_number}`,
         `${boy?.username || 'A delivery boy'} accepted ${invoice.invoice_number} (${invoice.hospital_name}) and is now heading for delivery.`,
         ['admin', 'manager'],
         'normal'
@@ -244,7 +263,7 @@ export const mockApi = {
   },
 
   deliverInvoice: async (id: number, data: any) => {
-    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const invoices = getStored('mock_invoices', makeInitialInvoices());
     const invoice = invoices.find((inv: any) => inv.id === id);
     if (invoice) {
       invoice.status = 'delivered';
@@ -261,14 +280,14 @@ export const mockApi = {
       if (data.cheque > 0) paymentParts.push(`₹${data.cheque} cheque`);
       const paymentStr = paymentParts.length > 0 ? `Payment collected: ${paymentParts.join(' + ')}.` : 'No payment collected.';
       pushSystemNotif(
-        `✅ Invoice Delivered — ${invoice.invoice_number}`,
+        `Invoice Delivered — ${invoice.invoice_number}`,
         `${invoice.invoice_number} (${invoice.hospital_name}) has been successfully delivered. ${paymentStr}`,
         ['admin', 'manager'],
         'normal'
       );
       if ((data.cash || 0) + (data.cheque || 0) > 0) {
         pushSystemNotif(
-          `💰 Payment Pending Confirmation — ${invoice.invoice_number}`,
+          `Payment Pending Confirmation — ${invoice.invoice_number}`,
           `${invoice.invoice_number}: ${paymentStr} Admin confirmation required before closing this invoice.`,
           ['admin'],
           'important'
@@ -279,7 +298,7 @@ export const mockApi = {
   },
 
   getStats: async () => {
-    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const invoices = getStored('mock_invoices', makeInitialInvoices());
     const delivered = invoices.filter((i: any) => i.status === 'delivered');
     const cashPending = delivered.filter((i: any) => !i.cash_confirmed && !i.cheque_confirmed && (i.cash_received > 0 || i.cheque_received > 0));
     return {
@@ -293,14 +312,14 @@ export const mockApi = {
   },
 
   markCashConfirmed: async (id: number, type: 'cash' | 'cheque') => {
-    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const invoices = getStored('mock_invoices', makeInitialInvoices());
     const inv = invoices.find((i: any) => i.id === id);
     if (inv) {
       if (type === 'cash') inv.cash_confirmed = true;
       else inv.cheque_confirmed = true;
       setStored('mock_invoices', invoices);
       pushSystemNotif(
-        `✔️ ${type === 'cash' ? 'Cash' : 'Cheque'} Confirmed — ${inv.invoice_number}`,
+        `${type === 'cash' ? 'Cash' : 'Cheque'} Confirmed — ${inv.invoice_number}`,
         `Admin confirmed receipt of ${type} payment for ${inv.invoice_number} (${inv.hospital_name}).`,
         ['admin', 'manager'],
         'normal'
@@ -325,7 +344,7 @@ export const mockApi = {
       user.status = newStatus;
       setStored('mock_users', users);
       pushSystemNotif(
-        `👤 User ${newStatus === 'active' ? 'Activated' : 'Deactivated'} — ${user.username}`,
+        `User ${newStatus === 'active' ? 'Activated' : 'Deactivated'} — ${user.username}`,
         `User account "${user.username}" (${user.role.replace('_', ' ')}) has been ${newStatus === 'active' ? 'activated' : 'deactivated'} by an admin.`,
         ['admin'],
         newStatus === 'inactive' ? 'important' : 'normal'
@@ -335,14 +354,14 @@ export const mockApi = {
   },
 
   cancelInvoice: async (id: number, reason?: string) => {
-    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const invoices = getStored('mock_invoices', makeInitialInvoices());
     const inv = invoices.find((i: any) => i.id === id);
     if (inv) {
       inv.status = 'cancelled';
       inv.cancel_reason = reason || '';
       setStored('mock_invoices', invoices);
       pushSystemNotif(
-        `❌ Invoice Cancelled — ${inv.invoice_number}`,
+        `Invoice Cancelled — ${inv.invoice_number}`,
         `${inv.invoice_number} (${inv.hospital_name}, ₹${inv.amount.toLocaleString()}) was cancelled. Reason: ${reason || 'N/A'}`,
         ['admin', 'manager'],
         'important'
@@ -352,7 +371,7 @@ export const mockApi = {
   },
 
   submitFeedback: async (id: number, feedback: 'properly' | 'improperly', reason?: string) => {
-    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const invoices = getStored('mock_invoices', makeInitialInvoices());
     const inv = invoices.find((i: any) => i.id === id);
     if (inv) {
       inv.delivery_feedback = feedback;
@@ -360,7 +379,7 @@ export const mockApi = {
       setStored('mock_invoices', invoices);
       if (feedback === 'improperly') {
         pushSystemNotif(
-          `⚠️ Improper Delivery Feedback — ${inv.invoice_number}`,
+          `Improper Delivery Feedback — ${inv.invoice_number}`,
           `${inv.invoice_number} was marked as improperly delivered by the delivery boy. Reason: ${reason || 'N/A'}`,
           ['admin', 'manager'],
           'important'
@@ -371,22 +390,22 @@ export const mockApi = {
   },
 
   createTask: async (data: any) => {
-    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const invoices = getStored('mock_invoices', makeInitialInvoices());
     const newInvoice = {
       id: invoices.length + 1,
       invoice_number: `TASK-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(3, '0')}`,
-      hospital_name: data.task_name,
+      hospital_name: data.hospital_name || data.task_name || 'New Task',
       amount: data.amount || 0,
-      status: data.assignee ? 'assigned' : 'pending',
+      status: data.assigned_to ? 'assigned' : 'pending',
       created_at: new Date().toISOString(),
-      assigned_to: data.assignee ? Number(data.assignee) : undefined,
+      assigned_to: data.assigned_to ? Number(data.assigned_to) : undefined,
     };
     invoices.push(newInvoice);
     setStored('mock_invoices', invoices);
-    
+
     if (data.assignee) {
       pushSystemNotif(
-        `📋 New Task Created & Assigned — ${newInvoice.invoice_number}`,
+        `New Task Created & Assigned — ${newInvoice.invoice_number}`,
         `Task "${data.task_name}" has been created and assigned.`,
         ['admin', 'manager', 'delivery_boy'],
         'normal'
@@ -396,9 +415,9 @@ export const mockApi = {
   },
 
   getDeliveryBoyStats: async (boyId: number) => {
-    const invoices = getStored('mock_invoices', INITIAL_INVOICES);
+    const invoices = getStored('mock_invoices', makeInitialInvoices());
     const delivered = invoices.filter((i: any) => i.status === 'delivered' && i.assigned_to === boyId);
-    
+
     // Mock km calculation based on number of deliveries (e.g. 5.2km per delivery average)
     const kmDriven = delivered.length * 5.2;
 
@@ -460,7 +479,7 @@ export const mockApi = {
   // Push a waiting alert (called from DeliveryBoyApp when status changes to 'waiting')
   pushWaitingAlert: (invoiceNumber: string, hospitalName: string, boyName: string) => {
     pushSystemNotif(
-      `⏳ Delivery Boy Waiting — ${invoiceNumber}`,
+      `Delivery Boy Waiting — ${invoiceNumber}`,
       `${boyName} has been waiting at ${hospitalName} for over 5 minutes on ${invoiceNumber}. Consider following up.`,
       ['admin', 'manager'],
       'important'

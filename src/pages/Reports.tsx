@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
-import { Calendar, Download, Clock, TrendingUp, Users, AlertCircle, TrendingDown, Gauge, CheckCircle2, Map as MapIcon, Navigation } from 'lucide-react';
+import { Calendar, Download, Clock, TrendingUp, Users, AlertCircle, TrendingDown, Gauge, CheckCircle2, Map as MapIcon, Navigation, Package, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { mockApi } from '../lib/mockApi';
 import MapPreview, { DEFAULT_RIDERS } from '../components/MapPreview';
@@ -42,7 +42,7 @@ export default function Reports() {
   const [tab, setTab] = useState<'delivery' | 'availability'>('delivery');
   const [dateRange, setDateRange] = useState('7d');
   const [boyFilter, setBoyFilter] = useState('All');
-  
+
   const [deliveryBoys, setDeliveryBoys] = useState<any[]>([]);
   const [globalStats, setGlobalStats] = useState({ totalBoys: 0, totalDelivered: 0 });
   const [boyStats, setBoyStats] = useState({ delivered: 0, kmDriven: '0.0', daily_distance: [] as any[] });
@@ -113,7 +113,10 @@ export default function Reports() {
         {(['delivery', 'availability'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${tab === t ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
-            {t === 'delivery' ? '📦 Delivery Duration' : '📊 Availability'}
+            <div className="flex items-center gap-1.5">
+              {t === 'delivery' ? <Package size={14} /> : <BarChart3 size={14} />}
+              {t === 'delivery' ? 'Delivery Duration' : 'Availability'}
+            </div>
           </button>
         ))}
       </div>
@@ -146,18 +149,18 @@ export default function Reports() {
           <div className="bg-white p-4 md:p-6 rounded-2xl border border-zinc-100 shadow-sm mb-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                 <MapIcon size={18} className="text-zinc-400" />
-                 <h3 className="font-bold text-zinc-900">
-                   {boyFilter === 'All' ? 'Fleet Locations' : "Today's Delivery Route"}
-                 </h3>
+                <MapIcon size={18} className="text-zinc-400" />
+                <h3 className="font-bold text-zinc-900">
+                  {boyFilter === 'All' ? 'Fleet Locations' : "Today's Delivery Route"}
+                </h3>
               </div>
               {boyFilter !== 'All' && boyRoute.path.length > 0 && (
                 <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full uppercase tracking-wider">
-                   {boyRoute.checkpoints.filter(c => c.status === 'completed').length} Checkpoints Completed
+                  {boyRoute.checkpoints.filter(c => c.status === 'completed').length} Checkpoints Completed
                 </span>
               )}
             </div>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className={boyFilter === 'All' ? "lg:col-span-4 h-[400px] rounded-xl overflow-hidden relative" : "lg:col-span-3 h-[400px] rounded-xl overflow-hidden relative"}>
                 {loadingRoute ? (
@@ -165,34 +168,33 @@ export default function Reports() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-900"></div>
                   </div>
                 ) : null}
-                <MapPreview 
+                <MapPreview
                   riders={boyFilter === 'All' ? DEFAULT_RIDERS : DEFAULT_RIDERS.filter(r => r.id === Number(boyFilter))}
-                  route={boyRoute.path} 
+                  route={boyRoute.path}
                   checkpoints={boyRoute.checkpoints}
                   center={boyRoute.path[0] || [19.9975, 73.7898]}
                   zoom={boyFilter === 'All' ? 12 : 14}
                 />
               </div>
-              
+
               {boyFilter !== 'All' && (
                 <div className="space-y-4">
-                   <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Timeline</h4>
-                   <div className="space-y-4 relative">
-                      <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-zinc-100" />
-                      {boyRoute.checkpoints.map((cp, i) => (
-                        <div key={i} className="flex gap-3 relative z-10">
-                           <div className={`w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center shrink-0 ${
-                             cp.status === 'completed' ? 'bg-emerald-500' : 'bg-blue-500'
-                           }`}>
-                             {cp.status === 'completed' ? <CheckCircle2 size={12} className="text-white" /> : <Navigation size={12} className="text-white" />}
-                           </div>
-                           <div>
-                             <p className="text-sm font-bold text-zinc-900 leading-tight">{cp.label}</p>
-                             <p className="text-[10px] text-zinc-500">{cp.time}</p>
-                           </div>
+                  <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Timeline</h4>
+                  <div className="space-y-4 relative">
+                    <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-zinc-100" />
+                    {boyRoute.checkpoints.map((cp, i) => (
+                      <div key={i} className="flex gap-3 relative z-10">
+                        <div className={`w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center shrink-0 ${cp.status === 'completed' ? 'bg-emerald-500' : 'bg-blue-500'
+                          }`}>
+                          {cp.status === 'completed' ? <CheckCircle2 size={12} className="text-white" /> : <Navigation size={12} className="text-white" />}
                         </div>
-                      ))}
-                   </div>
+                        <div>
+                          <p className="text-sm font-bold text-zinc-900 leading-tight">{cp.label}</p>
+                          <p className="text-[10px] text-zinc-500">{cp.time}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

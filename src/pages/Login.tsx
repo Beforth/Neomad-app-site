@@ -73,7 +73,13 @@ export default function Login() {
                 </div>
               )}
               <div className="bg-zinc-50 border border-zinc-100 rounded-xl p-4 space-y-2">
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Test Credentials</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Test Credentials</p>
+                  <button type="button" onClick={async () => { await mockApi.seedDemoData(); alert('Demo data seeded successfully!'); }}
+                    className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 uppercase tracking-widest flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-md transition-colors">
+                    <CheckCircle2 size={10} /> Seed Demo Data
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
                     <p className="text-[10px] text-zinc-500 font-medium">Admin</p>
