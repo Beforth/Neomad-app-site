@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
 import NotificationBell from './components/NotificationBell';
+import { LogOut } from 'lucide-react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Invoices from './pages/Invoices';
@@ -14,6 +15,8 @@ import DeveloperPortal from './pages/DeveloperPortal';
 import Notifications from './pages/Notifications';
 import StaffApp from './pages/StaffApp';
 import Tasks from './pages/Tasks';
+import { useNotifications } from './hooks/useNotifications';
+import BottomNav from './components/BottomNav';
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
@@ -27,17 +30,22 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 function TopBar() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
   const title = PAGE_TITLES[location.pathname] || 'Dashboard';
   return (
-    <header className="h-14 bg-white border-b border-zinc-100 px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm">
-      <h2 className="text-sm font-bold text-zinc-400 tracking-tight">{title}</h2>
+    <header className="h-16 bg-white border-b border-zinc-100 px-5 flex items-center justify-between sticky top-0 z-30 shadow-sm grow-0 shrink-0">
       <div className="flex items-center gap-3">
-        <NotificationBell />
-        <div className="w-8 h-8 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-xs font-bold text-zinc-600 shadow-sm">
-          {user?.username[0].toUpperCase()}
+        <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-4 ring-emerald-50">
+          M
         </div>
+        <h2 className="text-base font-extrabold text-zinc-900 tracking-tight">{title}</h2>
+      </div>
+      <div className="flex items-center gap-2">
+        <NotificationBell />
+        <button onClick={logout} className="p-2 rounded-xl text-zinc-400 hover:text-red-500 transition-colors">
+          <LogOut size={20} />
+        </button>
       </div>
     </header>
   );
@@ -46,24 +54,35 @@ function TopBar() {
 function AppRoutes() {
   const { user, loading } = useAuth();
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  useNotifications();
+
+  if (loading) return <div className="min-h-[100dvh] flex items-center justify-center bg-white font-bold text-zinc-400 animate-pulse">Loading...</div>;
 
   if (!user) return <Login />;
 
-  if (user.role === 'delivery_boy') {
-    return <DeliveryBoyApp />;
+  // Roles like delivery_boy and staff use a clean bottom-nav layout
+  if (user.role === 'delivery_boy' || user.role === 'staff') {
+    return (
+      <div className="flex flex-col min-h-[100dvh] max-h-[100dvh] overflow-hidden bg-zinc-50">
+        <Routes>
+          <Route path="/" element={user.role === 'delivery_boy' ? <DeliveryBoyApp /> : <StaffApp />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </div>
+    );
   }
 
-  if (user.role === 'staff') {
-    return <StaffApp />;
-  }
-
+  // Admin/Manager layout (Desktop has Sidebar, Mobile has BottomNav)
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F8F9FA]">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex min-h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#F8F9FA]">
+      <div className="hidden lg:block">
+        <Sidebar />
+      </div>
+      <div className="flex-1 flex flex-col overflow-hidden relative">
         <TopBar />
-        <main className="flex-1 p-4 md:p-8 lg:p-10 overflow-y-auto">
+        <main className="flex-1 p-4 md:p-8 lg:p-10 overflow-y-auto pb-20 lg:pb-10">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/tasks" element={<Tasks />} />
@@ -72,10 +91,13 @@ function AppRoutes() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/users" element={user.role === 'admin' ? <UserManagement /> : <Navigate to="/" />} />
             <Route path="/reports" element={<Reports />} />
-            <Route path="/notifications" element={user.role === 'admin' ? <Notifications /> : <Navigate to="/" />} />
+            <Route path="/notifications" element={<Notifications />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
+        <div className="lg:hidden">
+          <BottomNav />
+        </div>
       </div>
     </div>
   );

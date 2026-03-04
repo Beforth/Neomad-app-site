@@ -10,4 +10,21 @@
   body {
     @apply bg-zinc-50 text-zinc-900 antialiased;
   }
+  
+  /* Mobile-optimized scrolling */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Remove default mobile styles */
+  input, textarea, button, select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
+  
+  /* Smooth scrolling for mobile */
+  html {
+    scroll-behavior: smooth;
+  }
 }

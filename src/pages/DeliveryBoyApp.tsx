@@ -70,6 +70,7 @@ export default function DeliveryBoyApp() {
   const [submitError, setSubmitError] = useState<Record<number, string>>({});
   const [showNotifs, setShowNotifs] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null);
 
   // Modals
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -179,7 +180,14 @@ export default function DeliveryBoyApp() {
     return data;
   }, [user]);
 
-  useEffect(() => { fetchInvoices(); }, []);
+  useEffect(() => {
+    fetchInvoices().then(data => {
+      const active = data.filter((inv: any) => inv.status === 'assigned' && inv.assigned_to === user?.id);
+      if (active.length > 0 && expandedTaskId === null) {
+        setExpandedTaskId(active[0].id);
+      }
+    });
+  }, []);
 
   const handleAccept = async (id: number) => {
     if (!user) return;
@@ -188,6 +196,7 @@ export default function DeliveryBoyApp() {
       const res = await mockApi.acceptInvoice(id, user.id);
       if (res.success) {
         await fetchInvoices();
+        setExpandedTaskId(id);
         setActiveTab('active');
         setShowMap(true);
         setDeliveryStatus('moving');
@@ -278,79 +287,81 @@ export default function DeliveryBoyApp() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col max-w-md mx-auto border-x border-zinc-200 shadow-xl relative">
-      {/* Header */}
-      <header className="bg-white p-4 border-b border-zinc-100 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold">
-            {user?.username[0].toUpperCase()}
-          </div>
-          <div>
-            <h2 className="font-bold text-zinc-900">{user?.username}</h2>
-            <div className="flex items-center gap-2 text-[10px] text-zinc-500">
-              <div className="flex items-center gap-1">
-                <span className={`w-1.5 h-1.5 rounded-full ${isAvailable ? 'bg-emerald-500' : 'bg-zinc-300'}`} />
-                {isAvailable ? 'Available' : 'Offline'}
-              </div>
-              {isAvailable && (
-                <div className="flex items-center gap-1 border-l border-zinc-200 pl-2">
-                  <Clock size={10} />
-                  <span className="font-mono font-bold text-zinc-700">{fmtTime(availableSeconds)}</span>
-                </div>
-              )}
-            </div>
-          </div>
+    <div className="h-[100dvh] bg-zinc-50 flex flex-col relative w-full max-w-md mx-auto overflow-hidden">
+      {/* Mobile Status Bar */}
+      <div className="bg-white border-b border-zinc-100 px-3 py-2.5 flex items-center justify-between z-10 shadow-sm shrink-0">
+        <div className="flex items-center gap-2">
+          <span className={`w-2.5 h-2.5 rounded-full ${isAvailable ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-300'}`} />
+          <span className="text-[11px] font-bold text-zinc-600">{isAvailable ? 'Available' : 'Offline'}</span>
+          {isAvailable && (
+            <span className="font-mono text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+              {fmtTime(availableSeconds)}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          {/* Notification Bell */}
-          <button onClick={() => setShowNotifs(true)} className="relative p-2 rounded-xl bg-zinc-100 text-zinc-500 hover:bg-zinc-200 transition-colors">
-            <Bell size={18} />
+          <button onClick={() => setShowNotifs(true)} className="relative p-2 rounded-lg text-zinc-400 hover:text-zinc-600 active:scale-95 transition-all">
+            <Bell size={20} />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                 {unreadCount}
               </span>
             )}
           </button>
           <button onClick={() => setIsAvailable(a => !a)}
-            className={`p-2 rounded-xl transition-colors ${isAvailable ? 'bg-emerald-100 text-emerald-600' : 'bg-zinc-100 text-zinc-400'}`}>
-            <Power size={20} />
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-[11px] font-bold transition-all active:scale-95 ${isAvailable ? 'bg-emerald-500 text-white' : 'bg-zinc-200 text-zinc-600'
+              }`}>
+            <Power size={14} />{isAvailable ? 'Offline' : 'Online'}
           </button>
         </div>
-      </header>
+      </div>
 
-      {/* Notification Panel */}
+      {/* Notifications Panel */}
       <AnimatePresence>
         {showNotifs && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-zinc-900/50 flex justify-end" onClick={() => setShowNotifs(false)}>
-            <motion.div initial={{ x: 320 }} animate={{ x: 0 }} exit={{ x: 320 }}
-              className="w-80 h-full bg-white shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
-              <div className="p-4 border-b flex items-center justify-between">
-                <h3 className="font-bold text-zinc-900">Notifications</h3>
-                <button onClick={() => setShowNotifs(false)}><X size={20} className="text-zinc-400" /></button>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-zinc-900/50 flex items-end" onClick={() => setShowNotifs(false)}>
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 300 }} 
+              onClick={(e) => e.stopPropagation()} className="bg-white rounded-t-3xl w-full max-w-md mx-auto max-h-[80vh] overflow-hidden flex flex-col">
+              <div className="p-4 border-b border-zinc-100 flex items-center justify-between shrink-0">
+                <h3 className="text-lg font-bold text-zinc-900">Notifications</h3>
+                <button onClick={() => setShowNotifs(false)} className="p-2 rounded-lg text-zinc-400 hover:text-zinc-600 active:scale-95 transition-all">
+                  <X size={20} />
+                </button>
               </div>
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {notifications.length === 0 ? (
-                  <div className="text-center py-12 text-zinc-400">
-                    <Bell size={32} className="mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No notifications</p>
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-400">
+                      <Bell size={32} />
+                    </div>
+                    <p className="text-zinc-500 font-medium">No notifications</p>
                   </div>
-                ) : notifications.map((n: any) => {
-                  const isRead = (n.readBy || []).includes(user?.id);
-                  return (
-                    <div key={n.id} onClick={() => { mockApi.markNotifRead(n.id, user!.id); setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, readBy: [...(x.readBy || []), user!.id] } : x)); }}
-                      className={`p-4 border-b cursor-pointer transition-colors ${isRead ? 'bg-white' : 'bg-blue-50'}`}>
-                      <div className="flex gap-2 items-start">
-                        {!isRead && <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0" />}
-                        <div>
-                          <p className="text-sm font-bold text-zinc-900">{n.title}</p>
-                          <p className="text-xs text-zinc-500 mt-0.5">{n.message}</p>
-                          <p className="text-[10px] text-zinc-400 mt-1">{new Date(n.created_at).toLocaleString()}</p>
+                ) : (
+                  notifications.map((notif: any) => {
+                    const isRead = (notif.readBy || []).includes(user?.id);
+                    return (
+                      <div key={notif.id} className={`p-3 rounded-xl border transition-all ${isRead ? 'bg-white border-zinc-100' : 'bg-blue-50 border-blue-200'}`}
+                        onClick={() => {
+                          if (!isRead) {
+                            mockApi.markNotificationRead(notif.id, user?.id);
+                            setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, readBy: [...(n.readBy || []), user?.id] } : n));
+                          }
+                        }}>
+                        <div className="flex items-start gap-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${notif.priority === 'urgent' ? 'bg-red-100 text-red-600' : notif.priority === 'important' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                            <Bell size={16} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-bold text-zinc-900">{notif.title}</h4>
+                            <p className="text-xs text-zinc-600 mt-0.5">{notif.message}</p>
+                            <p className="text-[10px] text-zinc-400 mt-1">{new Date(notif.created_at).toLocaleString()}</p>
+                          </div>
+                          {!isRead && <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-1" />}
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </motion.div>
           </motion.div>
@@ -442,32 +453,33 @@ export default function DeliveryBoyApp() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 overflow-y-auto pb-24">
+      <main className="flex-1 overflow-y-auto pb-[72px]">
+        <div className="p-3 space-y-3">
         <AnimatePresence mode="wait">
           {/* AVAILABLE INVOICES */}
           {activeTab === 'available' && (
-            <motion.div key="available" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-4">
+            <motion.div key="available" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-3">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-bold text-zinc-900">Available Tasks</h3>
                 <span className="text-xs text-zinc-500">{invoices.filter(i => i.status === 'pending').length} found</span>
               </div>
               {invoices.filter(i => i.status === 'pending').map(inv => (
-                <div key={inv.id} className="bg-white p-4 rounded-2xl border border-zinc-100 shadow-sm space-y-4">
+                <div key={inv.id} className="bg-white p-3.5 rounded-xl border border-zinc-100 shadow-sm space-y-3 active:scale-[0.98] transition-transform">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-xs font-bold text-emerald-600">{inv.invoice_number}</p>
-                      <h4 className="font-bold text-zinc-900 mt-1">{inv.hospital_name}</h4>
-                      <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">Task / Entity</p>
+                      <p className="text-[10px] font-bold text-emerald-600">{inv.invoice_number}</p>
+                      <h4 className="font-bold text-zinc-900 mt-0.5 text-[15px]">{inv.hospital_name}</h4>
+                      <p className="text-[8px] text-zinc-400 font-bold uppercase mt-0.5">Task / Entity</p>
                     </div>
-                    <p className="font-bold text-zinc-900">₹{inv.amount.toLocaleString()}</p>
+                    <p className="font-bold text-zinc-900 text-[15px]">₹{inv.amount.toLocaleString()}</p>
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-zinc-500">
-                    <div className="flex items-center gap-1"><MapPin size={14} /><span>2.4 km</span></div>
-                    <div className="flex items-center gap-1"><Clock size={14} /><span>~15 mins</span></div>
+                  <div className="flex items-center gap-3 text-[11px] text-zinc-500">
+                    <div className="flex items-center gap-1"><MapPin size={13} /><span>2.4 km</span></div>
+                    <div className="flex items-center gap-1"><Clock size={13} /><span>~15 mins</span></div>
                   </div>
                   <button onClick={() => handleAccept(inv.id)} disabled={acceptingId === inv.id}
-                    className={`w-full py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 ${acceptingId === inv.id ? 'bg-emerald-400 text-white cursor-wait'
-                      : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}>
+                    className={`w-full py-3.5 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 text-[13px] ${acceptingId === inv.id ? 'bg-emerald-400 text-white cursor-wait'
+                      : 'bg-zinc-900 text-white'}`}>
                     {acceptingId === inv.id ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Accepting...</>
                       : <>Accept Task<ChevronRight size={18} /></>}
                   </button>
@@ -485,200 +497,253 @@ export default function DeliveryBoyApp() {
 
           {/* ACTIVE DELIVERY */}
           {activeTab === 'active' && (
-            <motion.div key="active" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-6">
-              {activeTasks.length > 0 ? activeTasks.map(task => (
-                <div key={task.id} className="space-y-5 border-b border-zinc-200 pb-8 last:border-0 last:pb-0">
-                  {/* Status card */}
-                  <div className="bg-emerald-500 text-white p-6 rounded-3xl shadow-lg shadow-emerald-200">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <p className="text-emerald-100 text-xs font-bold uppercase tracking-wider">Active Task</p>
-                        <h3 className="text-2xl font-bold mt-1">{task.hospital_name}</h3>
-                        <p className="text-emerald-100 text-[10px] font-bold uppercase opacity-80">Task / Entity: {task.invoice_number}</p>
-                      </div>
-                      <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><Truck size={24} /></div>
-                    </div>
-                    <div className="flex items-center gap-6 mb-4">
-                      <div className="space-y-1">
-                        <p className="text-emerald-100 text-[10px]">Delivery Time</p>
-                        <p className="text-2xl font-mono font-bold tabular-nums">{fmtTime(deliverySeconds[task.id] || 0)}</p>
-                      </div>
-                      {waitingSeconds > 0 && (
-                        <>
-                          <div className="h-8 w-px bg-white/20" />
-                          <div className="space-y-1">
-                            <p className="text-amber-200 text-[10px]">Total Waiting</p>
-                            <p className="text-xl font-mono font-bold text-amber-200 tabular-nums">{fmtTime(waitingSeconds)}</p>
+            <motion.div key="active" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-3">
+              {activeTasks.length > 0 ? activeTasks.map(task => {
+                const isExpanded = expandedTaskId === task.id;
+                return (
+                  <div key={task.id} className={`bg-white rounded-3xl border transition-all duration-300 overflow-hidden ${isExpanded ? 'border-emerald-200 shadow-xl shadow-emerald-500/5' : 'border-zinc-100 shadow-sm'}`}>
+                    {/* Accordion Header */}
+                    <button
+                      onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}
+                      className={`w-full p-5 flex items-center justify-between text-left transition-colors ${isExpanded ? 'bg-emerald-50/30' : 'bg-white'}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isExpanded ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 rotate-3' : 'bg-zinc-100 text-zinc-400'}`}>
+                          <Truck size={20} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{task.invoice_number}</p>
+                            {isExpanded && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
                           </div>
-                        </>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      {(['moving', 'waiting', 'at_location'] as const).map(s => (
-                        <button key={s} onClick={() => !submitted[task.id] && setDeliveryStatus(s)} disabled={submitted[task.id]}
-                          className={`flex-1 py-1.5 rounded-xl text-[10px] font-bold transition-all ${deliveryStatus === s ? 'bg-white text-emerald-700' : 'bg-white/20 text-white hover:bg-white/30'}`}>
-                          <div className="flex items-center justify-center gap-1.5">
-                            {s === 'moving' && <Truck size={12} />}
-                            {s === 'waiting' && <Clock size={12} />}
-                            {s === 'at_location' && <MapPin size={12} />}
-                            {s === 'moving' ? 'Moving' : s === 'waiting' ? 'Waiting' : 'At Location'}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Navigate / Map / Cancel */}
-                  {!submitted[task.id] && (
-                    <div className="grid grid-cols-3 gap-3">
-                      <button className="flex items-center justify-center gap-1.5 py-3 bg-blue-50 text-blue-600 rounded-xl font-bold text-xs">
-                        <Navigation size={16} />Navigate
-                      </button>
-                      <button onClick={() => setShowMap(!showMap)} className="flex items-center justify-center gap-1.5 py-3 bg-zinc-100 text-zinc-700 rounded-xl font-bold text-xs">
-                        <MapIcon size={16} />{showMap ? 'Hide Map' : 'Show Map'}
-                      </button>
-                      <button onClick={() => setShowCancelModal(true)}
-                        className="flex items-center justify-center gap-1.5 py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs">
-                        <XCircle size={16} />Cancel
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Inline Map */}
-                  {showMap && !submitted[task.id] && (
-                    <div className="bg-white p-3 rounded-2xl border border-zinc-100 shadow-sm space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-bold text-zinc-900 text-sm">Live Location</h4>
-                        <button onClick={handleAddCheckpoint} className="text-[10px] font-bold bg-zinc-100 text-zinc-600 px-2 py-1 rounded-lg flex items-center gap-1">
-                          <Flag size={12} /> Add Checkpoint
-                        </button>
-                      </div>
-                      <div className="h-48 rounded-xl overflow-hidden border border-zinc-200 relative z-0">
-                        <MapContainer center={[19.9975, 73.7898]} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false}>
-                          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                          {locationRef.current && (
-                            <Marker position={[locationRef.current.coords.latitude, locationRef.current.coords.longitude]}>
-                              <Popup>You are here</Popup>
-                            </Marker>
-                          )}
-                          {checkpoints.map((cp, idx) => (
-                            <Marker key={idx} position={[cp.lat, cp.lng]}>
-                              <Popup>{cp.description || `Checkpoint ${idx + 1}`}</Popup>
-                            </Marker>
-                          ))}
-                        </MapContainer>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Completion Form */}
-                  <div className="bg-white p-5 rounded-2xl border border-zinc-100 shadow-sm space-y-4">
-                    <h4 className="font-bold text-zinc-900">Completion Form - {task.invoice_number}</h4>
-
-                    {/* Signed Copy */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-zinc-500">
-                        Upload Signed Copy <span className="text-red-500">*</span>
-                      </label>
-                      {signedCopy[task.id] ? (
-                        <div className="relative">
-                          <img src={signedCopy[task.id]!} alt="Signed copy" className="w-full h-32 object-cover rounded-xl border border-zinc-200" />
-                          {!submitted[task.id] && (
-                            <button onClick={() => setSignedCopy(prev => ({ ...prev, [task.id]: null }))}
-                              className="absolute top-2 right-2 bg-white rounded-full p-1 shadow border border-zinc-200 text-red-500">
-                              <X size={14} />
-                            </button>
+                          <h4 className="font-bold text-zinc-900 text-base mt-0.5">{task.hospital_name}</h4>
+                          {!isExpanded && (
+                            <div className="flex items-center gap-3 mt-1.5">
+                              <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600">
+                                <Clock size={10} /> {fmtTime(deliverySeconds[task.id] || 0)}
+                              </span>
+                              <span className="flex items-center gap-1 text-[10px] font-bold text-zinc-400">
+                                <MapPin size={10} /> 2.4km
+                              </span>
+                            </div>
                           )}
                         </div>
-                      ) : (
-                        <button onClick={() => {
-                          const url = `https://picsum.photos/seed/${Date.now()}/400/300`;
-                          setSignedCopy(prev => ({ ...prev, [task.id]: url }));
-                        }} disabled={submitted[task.id]}
-                          className="w-full border-2 border-dashed border-zinc-200 rounded-xl p-6 flex flex-col items-center justify-center text-zinc-400 gap-2 hover:border-emerald-400 hover:text-emerald-500 transition-colors">
-                          <Camera size={24} />
-                          <span className="text-xs font-medium">Tap to take photo</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Cash / Cheque Buttons */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <button
-                        onClick={() => setShowCashInput(prev => ({ ...prev, [task.id]: !prev[task.id] }))}
-                        disabled={submitted[task.id]}
-                        className={`py-3 px-4 rounded-xl border-2 font-bold text-xs transition-all flex items-center justify-center gap-2 ${showCashInput[task.id] ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-zinc-100 bg-zinc-50 text-zinc-500'
-                          }`}
-                      >
-                        <IndianRupee size={14} /> Cash Received
-                      </button>
-                      <button
-                        onClick={() => setShowChequeInput(prev => ({ ...prev, [task.id]: !prev[task.id] }))}
-                        disabled={submitted[task.id]}
-                        className={`py-3 px-4 rounded-xl border-2 font-bold text-xs transition-all flex items-center justify-center gap-2 ${showChequeInput[task.id] ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-zinc-100 bg-zinc-50 text-zinc-500'
-                          }`}
-                      >
-                        <FileCheck size={14} /> Cheque Received
-                      </button>
-                    </div>
-
-                    {showCashInput[task.id] && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-1">
-                        <label className="text-[10px] font-bold text-zinc-500">Cash Received (₹)</label>
-                        <input type="number" placeholder="0.00" value={cash[task.id] || ''} onChange={e => setCash(prev => ({ ...prev, [task.id]: e.target.value }))}
-                          disabled={submitted[task.id]}
-                          className="w-full p-3 bg-zinc-50 rounded-xl border border-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm disabled:opacity-50" />
-                      </motion.div>
-                    )}
-
-                    {showChequeInput[task.id] && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-1">
-                        <label className="text-[10px] font-bold text-zinc-500">Cheque Received (₹)</label>
-                        <input type="number" placeholder="0.00" value={cheque[task.id] || ''} onChange={e => setCheque(prev => ({ ...prev, [task.id]: e.target.value }))}
-                          disabled={submitted[task.id]}
-                          className="w-full p-3 bg-zinc-50 rounded-xl border border-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm disabled:opacity-50" />
-                      </motion.div>
-                    )}
-
-                    {/* Extended Cheque Fields */}
-                    {showChequeInput[task.id] && Number(cheque[task.id]) > 0 && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-3 p-4 bg-zinc-50 border border-zinc-100 rounded-xl overflow-hidden">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-zinc-500">Cheque Number <span className="text-red-500">*</span></label>
-                            <input type="text" placeholder="123456" value={chequeNumber[task.id] || ''} onChange={e => setChequeNumber(prev => ({ ...prev, [task.id]: e.target.value }))}
-                              disabled={submitted[task.id]}
-                              className="w-full p-2.5 bg-white rounded-lg border border-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 text-xs disabled:opacity-50" />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-zinc-500">Bank Name <span className="text-red-500">*</span></label>
-                            <input type="text" placeholder="HDFC Bank" value={bankName[task.id] || ''} onChange={e => setBankName(prev => ({ ...prev, [task.id]: e.target.value }))}
-                              disabled={submitted[task.id]}
-                              className="w-full p-2.5 bg-white rounded-lg border border-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 text-xs disabled:opacity-50" />
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {submitError[task.id] && (
-                      <p className="text-xs text-red-500 font-medium flex items-center gap-1">
-                        <AlertCircle size={12} />{submitError[task.id]}
-                      </p>
-                    )}
-
-                    {submitted[task.id] ? (
-                      <div className="w-full py-4 bg-emerald-50 text-emerald-700 rounded-xl font-bold flex items-center justify-center gap-2">
-                        <CheckCircle2 size={20} />Delivery Submitted!
                       </div>
-                    ) : (
-                      <button onClick={() => { handleDeliver(task.id); }}
-                        className="w-full py-4 bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors">
-                        <FileCheck size={20} />Submit Delivery
-                      </button>
-                    )}
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isExpanded ? 'bg-emerald-100 text-emerald-600' : 'bg-zinc-50 text-zinc-300'}`}>
+                        <ChevronRight size={18} className={`transition-transform duration-300 ${isExpanded ? 'rotate-90' : ''}`} />
+                      </div>
+                    </button>
+
+                    {/* Accordion Content */}
+                    <AnimatePresence initial={false}>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: 'easeInOut' }}
+                        >
+                          <div className="p-5 pt-0 space-y-6">
+                            {/* Status card */}
+                            <div className="bg-emerald-500 text-white p-6 rounded-3xl shadow-lg shadow-emerald-200 mt-2">
+                              <div className="flex justify-between items-start mb-4">
+                                <div>
+                                  <p className="text-emerald-100 text-xs font-bold uppercase tracking-wider">Status Overview</p>
+                                  <h3 className="text-xl font-bold mt-1">Delivery in Progress</h3>
+                                </div>
+                                <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><Navigation size={20} /></div>
+                              </div>
+                              <div className="flex items-center gap-6 mb-4">
+                                <div className="space-y-1">
+                                  <p className="text-emerald-100 text-[10px]">Delivery Time</p>
+                                  <p className="text-2xl font-mono font-bold tabular-nums">{fmtTime(deliverySeconds[task.id] || 0)}</p>
+                                </div>
+                                {waitingSeconds > 0 && (
+                                  <>
+                                    <div className="h-8 w-px bg-white/20" />
+                                    <div className="space-y-1">
+                                      <p className="text-amber-200 text-[10px]">Total Waiting</p>
+                                      <p className="text-xl font-mono font-bold text-amber-200 tabular-nums">{fmtTime(waitingSeconds)}</p>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                              <div className="flex gap-2">
+                                {(['moving', 'waiting', 'at_location'] as const).map(s => (
+                                  <button key={s} onClick={() => !submitted[task.id] && setDeliveryStatus(s)} disabled={submitted[task.id]}
+                                    className={`flex-1 py-1.5 rounded-xl text-[10px] font-bold transition-all ${deliveryStatus === s ? 'bg-white text-emerald-700' : 'bg-white/20 text-white hover:bg-white/30'}`}>
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      {s === 'moving' && <Truck size={12} />}
+                                      {s === 'waiting' && <Clock size={12} />}
+                                      {s === 'at_location' && <MapPin size={12} />}
+                                      {s === 'moving' ? 'Moving' : s === 'waiting' ? 'Waiting' : 'Arrived'}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Navigate / Map / Cancel */}
+                            {!submitted[task.id] && (
+                              <div className="grid grid-cols-3 gap-3">
+                                <button className="flex items-center justify-center gap-1.5 py-3 bg-blue-50 text-blue-600 rounded-xl font-bold text-xs">
+                                  <Navigation size={16} />Nav
+                                </button>
+                                <button onClick={() => setShowMap(!showMap)} className="flex items-center justify-center gap-1.5 py-3 bg-zinc-100 text-zinc-700 rounded-xl font-bold text-xs">
+                                  <MapIcon size={16} />{showMap ? 'Map' : 'Map'}
+                                </button>
+                                <button onClick={() => setShowCancelModal(true)}
+                                  className="flex items-center justify-center gap-1.5 py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs">
+                                  <XCircle size={16} />Cancel
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Inline Map */}
+                            {showMap && !submitted[task.id] && (
+                              <div className="bg-white p-3 rounded-2xl border border-zinc-100 shadow-sm space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="font-bold text-zinc-900 text-xs uppercase tracking-wider">Live Route</h4>
+                                  <button onClick={handleAddCheckpoint} className="text-[9px] font-bold bg-zinc-100 text-zinc-600 px-2 py-1 rounded-lg flex items-center gap-1">
+                                    <Flag size={10} /> Checkpoint
+                                  </button>
+                                </div>
+                                <div className="h-48 rounded-2xl overflow-hidden border border-zinc-200 relative z-0">
+                                  <MapContainer center={[19.9975, 73.7898]} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+                                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                                    {locationRef.current && (
+                                      <Marker position={[locationRef.current.coords.latitude, locationRef.current.coords.longitude]}>
+                                        <Popup>You are here</Popup>
+                                      </Marker>
+                                    )}
+                                    {checkpoints.map((cp, idx) => (
+                                      <Marker key={idx} position={[cp.lat, cp.lng]}>
+                                        <Popup>{cp.description || `Checkpoint ${idx + 1}`}</Popup>
+                                      </Marker>
+                                    ))}
+                                  </MapContainer>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Completion Form */}
+                            <div className="bg-zinc-50/50 p-5 rounded-3xl border border-zinc-100 space-y-5">
+                              <h4 className="font-bold text-zinc-900 text-sm">Delivery Confirmation</h4>
+
+                              {/* Signed Copy */}
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1">
+                                  <FileCheck size={12} /> Signed Copy <span className="text-red-500">*</span>
+                                </label>
+                                {signedCopy[task.id] ? (
+                                  <div className="relative">
+                                    <img src={signedCopy[task.id]!} alt="Signed copy" className="w-full h-32 object-cover rounded-xl border border-zinc-200" />
+                                    {!submitted[task.id] && (
+                                      <button onClick={() => setSignedCopy(prev => ({ ...prev, [task.id]: null }))}
+                                        className="absolute top-2 right-2 bg-white rounded-full p-1 shadow border border-zinc-200 text-red-500">
+                                        <X size={14} />
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <button onClick={() => {
+                                    const url = `https://picsum.photos/seed/${Date.now()}/400/300`;
+                                    setSignedCopy(prev => ({ ...prev, [task.id]: url }));
+                                  }} disabled={submitted[task.id]}
+                                    className="w-full border-2 border-dashed border-zinc-200 rounded-2xl p-6 flex flex-col items-center justify-center text-zinc-400 gap-2 hover:border-emerald-400 hover:text-emerald-500 transition-all bg-white">
+                                    <Camera size={24} />
+                                    <span className="text-xs font-medium">Capture Signature/Photo</span>
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Cash / Cheque Buttons */}
+                              <div className="grid grid-cols-2 gap-3">
+                                <button
+                                  onClick={() => {
+                                    setShowCashInput(prev => ({ ...prev, [task.id]: !prev[task.id] }));
+                                    setShowChequeInput(prev => ({ ...prev, [task.id]: false }));
+                                  }}
+                                  disabled={submitted[task.id]}
+                                  className={`py-3 px-4 rounded-xl border font-bold text-[10px] transition-all flex items-center justify-center gap-2 ${showCashInput[task.id] ? 'border-emerald-500 bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'border-zinc-200 bg-white text-zinc-500'}`}
+                                >
+                                  <IndianRupee size={12} /> Cash
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setShowChequeInput(prev => ({ ...prev, [task.id]: !prev[task.id] }));
+                                    setShowCashInput(prev => ({ ...prev, [task.id]: false }));
+                                  }}
+                                  disabled={submitted[task.id]}
+                                  className={`py-3 px-4 rounded-xl border font-bold text-[10px] transition-all flex items-center justify-center gap-2 ${showChequeInput[task.id] ? 'border-blue-500 bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'border-zinc-200 bg-white text-zinc-500'}`}
+                                >
+                                  <FileCheck size={12} /> Cheque
+                                </button>
+                              </div>
+
+                              {showCashInput[task.id] && (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-1">
+                                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount in Cash</label>
+                                  <input type="number" placeholder="₹ 0.00" value={cash[task.id] || ''} onChange={e => setCash(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                    disabled={submitted[task.id]}
+                                    className="w-full p-3 bg-white rounded-xl border border-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm disabled:opacity-50" />
+                                </motion.div>
+                              )}
+
+                              {showChequeInput[task.id] && (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4">
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Cheque Amount</label>
+                                    <input type="number" placeholder="₹ 0.00" value={cheque[task.id] || ''} onChange={e => setCheque(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                      disabled={submitted[task.id]}
+                                      className="w-full p-3 bg-white rounded-xl border border-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm disabled:opacity-50" />
+                                  </div>
+
+                                  {Number(cheque[task.id]) > 0 && (
+                                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 p-4 bg-blue-50/50 border border-blue-100 rounded-2xl overflow-hidden">
+                                      <div className="grid grid-cols-1 gap-3">
+                                        <div className="space-y-1">
+                                          <label className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Cheque No. *</label>
+                                          <input type="text" placeholder="123456" value={chequeNumber[task.id] || ''} onChange={e => setChequeNumber(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                            disabled={submitted[task.id]}
+                                            className="w-full p-2.5 bg-white rounded-lg border border-blue-200 outline-none focus:ring-2 focus:ring-blue-500/20 text-xs disabled:opacity-50" />
+                                        </div>
+                                        <div className="space-y-1">
+                                          <label className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Bank Name *</label>
+                                          <input type="text" placeholder="HDFC, SBI..." value={bankName[task.id] || ''} onChange={e => setBankName(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                            disabled={submitted[task.id]}
+                                            className="w-full p-2.5 bg-white rounded-lg border border-blue-200 outline-none focus:ring-2 focus:ring-blue-500/20 text-xs disabled:opacity-50" />
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </motion.div>
+                              )}
+
+                              {submitError[task.id] && (
+                                <p className="text-[10px] text-red-500 font-bold flex items-center gap-1 bg-red-50 p-2 rounded-lg">
+                                  <AlertCircle size={10} />{submitError[task.id]}
+                                </p>
+                              )}
+
+                              {submitted[task.id] ? (
+                                <div className="w-full py-4 bg-emerald-50 text-emerald-700 rounded-2xl font-bold flex items-center justify-center gap-2 border border-emerald-100">
+                                  <CheckCircle2 size={20} />Completed
+                                </div>
+                              ) : (
+                                <button onClick={() => { handleDeliver(task.id); }}
+                                  className="w-full py-4 bg-zinc-900 text-white rounded-2xl font-bold shadow-lg shadow-zinc-200 flex items-center justify-center gap-2 hover:bg-zinc-800 transition-all">
+                                  Submit Delivery Task
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                </div>
-              )) : (
+                );
+              }) : (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-400"><Truck size={32} /></div>
                   <p className="text-zinc-500 font-medium">No active tasks</p>
@@ -690,54 +755,54 @@ export default function DeliveryBoyApp() {
 
           {/* COMPLETED DELIVERIES */}
           {activeTab === 'completed' && (
-            <motion.div key="completed" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-4">
+            <motion.div key="completed" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-3">
               <h3 className="font-bold text-zinc-900 mb-2">Today's History</h3>
               {invoices.filter(i => i.status === 'delivered' && i.assigned_to === user?.id && isToday(i.delivered_at)).map(inv => (
-                <div key={inv.id} className="bg-white p-4 rounded-2xl border border-zinc-100 shadow-sm space-y-3">
+                <div key={inv.id} className="bg-white p-3.5 rounded-xl border border-zinc-100 shadow-sm space-y-2.5 active:scale-[0.98] transition-transform">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500">
-                        <CheckCircle2 size={20} />
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
+                        <CheckCircle2 size={18} />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-zinc-400">{inv.invoice_number}</p>
-                        <h4 className="font-bold text-zinc-900 text-sm">{inv.hospital_name}</h4>
-                        <p className="text-[8px] text-zinc-400 font-bold uppercase">Task / Entity</p>
+                        <p className="text-[10px] font-bold text-zinc-400">{inv.invoice_number}</p>
+                        <h4 className="font-bold text-zinc-900 text-[13px]">{inv.hospital_name}</h4>
+                        <p className="text-[7px] text-zinc-400 font-bold uppercase">Task / Entity</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-zinc-900">₹{inv.amount.toLocaleString()}</p>
-                      <p className="text-[10px] text-zinc-500">{new Date(inv.delivered_at).toLocaleDateString()}</p>
+                      <p className="text-[13px] font-bold text-zinc-900">₹{inv.amount.toLocaleString()}</p>
+                      <p className="text-[9px] text-zinc-500">{new Date(inv.delivered_at).toLocaleDateString()}</p>
                     </div>
                   </div>
 
                   {/* Signed copy preview */}
                   {inv.signed_copy_url && (
                     <div>
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase mb-1.5">Signed Copy</p>
-                      <img src={inv.signed_copy_url} alt="Signed" className="w-full h-28 object-cover rounded-xl border border-zinc-200" />
+                      <p className="text-[9px] font-bold text-zinc-400 uppercase mb-1">Signed Copy</p>
+                      <img src={inv.signed_copy_url} alt="Signed" className="w-full h-24 object-cover rounded-lg border border-zinc-200" />
                     </div>
                   )}
 
                   {/* Duration chips */}
-                  <div className="flex gap-2 flex-wrap pt-2 border-t border-zinc-50">
-                    <span className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
-                      <Clock size={10} />Travel: 18 min
+                  <div className="flex gap-1.5 flex-wrap pt-2 border-t border-zinc-50">
+                    <span className="flex items-center gap-1 text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
+                      <Clock size={9} />Travel: 18 min
                     </span>
-                    <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">
-                      <Clock size={10} />Waiting: 6 min
+                    <span className="flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">
+                      <Clock size={9} />Waiting: 6 min
                     </span>
-                    <span className="flex items-center gap-1 text-[10px] font-bold text-zinc-600 bg-zinc-100 px-2 py-1 rounded-lg">
+                    <span className="flex items-center gap-1 text-[9px] font-bold text-zinc-600 bg-zinc-100 px-2 py-1 rounded-md">
                       Total: 24 min
                     </span>
                     {inv.cash_received > 0 && (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">
-                        <IndianRupee size={10} />Cash: ₹{inv.cash_received}
+                      <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
+                        <IndianRupee size={9} />Cash: ₹{inv.cash_received}
                       </span>
                     )}
                     {inv.cheque_received > 0 && (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-lg">
-                        <IndianRupee size={10} />Cheque: ₹{inv.cheque_received}
+                      <span className="flex items-center gap-1 text-[9px] font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-md">
+                        <IndianRupee size={9} />Cheque: ₹{inv.cheque_received}
                       </span>
                     )}
                   </div>
@@ -752,26 +817,27 @@ export default function DeliveryBoyApp() {
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </main>
 
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-zinc-100 p-2 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+      {/* Mobile Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-zinc-100 px-1 py-1.5 flex items-center justify-around shadow-[0_-2px_10px_rgba(0,0,0,0.08)]" style={{ paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom))' }}>
         {([
           { tab: 'available', icon: LayoutGrid, label: 'Available' },
           { tab: 'active', icon: Truck, label: 'Active' },
           { tab: 'completed', icon: History, label: 'History' },
         ] as const).map(({ tab, icon: Icon, label }) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${activeTab === tab ? 'text-emerald-500' : 'text-zinc-400'}`}>
-            <Icon size={20} />
-            <span className="text-[10px] font-bold">{label}</span>
+            className={`flex flex-col items-center gap-0.5 py-2 px-4 rounded-xl transition-all active:scale-95 ${activeTab === tab ? 'text-emerald-500 bg-emerald-50' : 'text-zinc-400'}`}>
+            <Icon size={22} strokeWidth={2.5} />
+            <span className="text-[9px] font-bold uppercase tracking-wide">{label}</span>
           </button>
         ))}
-        <button onClick={logout} className="flex flex-col items-center gap-1 p-2 rounded-xl text-zinc-400">
-          <LogOut size={20} />
-          <span className="text-[10px] font-bold">Logout</span>
+        <button onClick={logout} className="flex flex-col items-center gap-0.5 py-2 px-4 rounded-xl text-red-500 active:scale-95 active:bg-red-50 transition-all">
+          <LogOut size={22} strokeWidth={2.5} />
+          <span className="text-[9px] font-bold uppercase tracking-wide">Logout</span>
         </button>
       </nav>
-    </div>
+    </div >
   );
 }
