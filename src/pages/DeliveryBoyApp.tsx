@@ -343,7 +343,7 @@ export default function DeliveryBoyApp() {
                       <div key={notif.id} className={`p-3 rounded-xl border transition-all ${isRead ? 'bg-white border-zinc-100' : 'bg-blue-50 border-blue-200'}`}
                         onClick={() => {
                           if (!isRead) {
-                            mockApi.markNotificationRead(notif.id, user?.id);
+                            mockApi.markNotifRead(notif.id, user?.id);
                             setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, readBy: [...(n.readBy || []), user?.id] } : n));
                           }
                         }}>
