@@ -392,7 +392,7 @@ export default function Invoices() {
                     )}
                   </div>
                 </div>
-              </div>
+              </div>I
 
               {/* Footer actions */}
               <div className="p-4 bg-zinc-50 border-t border-zinc-100 flex flex-wrap justify-end gap-3 shrink-0">
