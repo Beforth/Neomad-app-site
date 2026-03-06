@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
-import { Calendar, Download, Clock, TrendingUp, Users, AlertCircle, TrendingDown, Gauge, CheckCircle2, Map as MapIcon, Navigation, Package, BarChart3 } from 'lucide-react';
+import { Calendar, Download, Clock, TrendingUp, Users, AlertCircle, TrendingDown, Gauge, CheckCircle2, Map as MapIcon, Navigation, Package, BarChart3, Search, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { mockApi } from '../lib/mockApi';
 import MapPreview, { DEFAULT_RIDERS } from '../components/MapPreview';
@@ -41,6 +41,9 @@ const CHART_STYLE = {
 export default function Reports() {
   const [tab, setTab] = useState<'delivery' | 'availability'>('delivery');
   const [dateRange, setDateRange] = useState('7d');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [boyFilter, setBoyFilter] = useState('All');
 
   const [deliveryBoys, setDeliveryBoys] = useState<any[]>([]);
@@ -81,29 +84,77 @@ export default function Reports() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Reports</h1>
-          <p className="text-xs text-zinc-500 font-medium">Analyze delivery efficiency and performance</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-zinc-600 shadow-sm">
-            <Calendar size={14} className="text-zinc-400" />
-            <select className="bg-transparent outline-none cursor-pointer" value={dateRange} onChange={e => setDateRange(e.target.value)}>
-              <option value="today">Today</option>
-              <option value="7d">Last 7 Days</option>
-              <option value="30d">Last 30 Days</option>
-            </select>
+      <div className="bg-white p-4 rounded-2xl border border-zinc-100 shadow-sm">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search */}
+            <div className="relative min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
+              <input type="text" placeholder="Search Entity..." className="w-full pl-9 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-bold" />
+            </div>
+
+            {/* Date Range Group */}
+            <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-xl p-1">
+              <div className="flex items-center gap-2 px-2 py-1">
+                <Calendar size={14} className="text-zinc-400" />
+                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-tighter">Period</span>
+              </div>
+              <input 
+                type="date" 
+                value={startDate} 
+                onChange={e => setStartDate(e.target.value)}
+                className="bg-white border border-zinc-100 px-2 py-1 rounded-lg text-[11px] font-bold text-zinc-600 outline-none focus:border-emerald-500"
+              />
+              <span className="text-zinc-300">→</span>
+              <input 
+                type="date" 
+                value={endDate} 
+                onChange={e => setEndDate(e.target.value)}
+                className="bg-white border border-zinc-100 px-2 py-1 rounded-lg text-[11px] font-bold text-zinc-600 outline-none focus:border-emerald-500"
+              />
+              <select 
+                className="bg-transparent text-[11px] font-bold text-zinc-500 outline-none px-2 cursor-pointer border-l border-zinc-200"
+                value={dateRange}
+                onChange={e => setDateRange(e.target.value)}
+              >
+                <option value="custom">Custom</option>
+                <option value="today">Today</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-1.5">
+              <Filter size={14} className="text-zinc-400" />
+              <select 
+                className="bg-transparent outline-none cursor-pointer text-[11px] font-bold text-zinc-600"
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+              >
+                <option value="all">All Status</option>
+                <option value="delivered">Delivered</option>
+                <option value="pending">Pending</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+
+            {/* Boy Filter */}
+            <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-1.5">
+              <Users size={14} className="text-zinc-400" />
+              <select 
+                className="bg-transparent outline-none cursor-pointer text-[11px] font-bold text-zinc-600"
+                value={boyFilter}
+                onChange={e => setBoyFilter(e.target.value)}
+              >
+                <option value="All">All Delivery Boys</option>
+                {deliveryBoys.map(b => <option key={b.id} value={b.id}>{b.username}</option>)}
+              </select>
+            </div>
           </div>
-          <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-zinc-600 shadow-sm">
-            <Users size={14} className="text-zinc-400" />
-            <select className="bg-transparent outline-none cursor-pointer" value={boyFilter} onChange={e => setBoyFilter(e.target.value)}>
-              <option value="All">All Boys</option>
-              {deliveryBoys.map(b => <option key={b.id} value={b.id}>{b.username}</option>)}
-            </select>
-          </div>
-          <button className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
-            <Download size={14} />Export
+
+          <button className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-black hover:bg-emerald-600 transition-all shadow-md active:scale-95 shrink-0">
+            <Download size={14} /> EXPORT DATA
           </button>
         </div>
       </div>
@@ -128,7 +179,7 @@ export default function Reports() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'Total Delivery Boys', value: globalStats.totalBoys.toString(), icon: Users, color: 'blue', delta: 'Active' },
-              { label: 'Total Orders Delivered', value: globalStats.totalDelivered.toString(), icon: CheckCircle2, color: 'emerald', delta: 'All time' },
+              { label: 'Orders Delivered', value: globalStats.totalDelivered.toString(), icon: CheckCircle2, color: 'emerald', delta: 'All time' },
               { label: 'Boy Orders Delivered', value: boyFilter === 'All' ? '-' : boyStats.delivered.toString(), icon: TrendingUp, color: 'emerald', delta: boyFilter === 'All' ? 'Select a boy' : 'All time' },
               { label: 'Boy Km Driven', value: boyFilter === 'All' ? '-' : `${boyStats.kmDriven} km`, icon: Gauge, color: 'purple', delta: boyFilter === 'All' ? 'Select a boy' : 'Estimated distance' },
             ].map(card => (

@@ -95,7 +95,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                '© 2026 Neomad App',
+                '© 2026 Neomed App',
                 style: TextStyle(
                   fontSize: 12,
                   color: AppColors.neutral.withValues(alpha: 0.5),

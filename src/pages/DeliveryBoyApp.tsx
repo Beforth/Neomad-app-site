@@ -287,7 +287,7 @@ export default function DeliveryBoyApp() {
   };
 
   return (
-    <div className="h-[100dvh] bg-zinc-50 flex flex-col relative w-full max-w-md mx-auto overflow-hidden">
+    <div className="h-dvh bg-zinc-50 flex flex-col relative w-full max-w-md mx-auto overflow-hidden">
       {/* Mobile Status Bar */}
       <div className="bg-white border-b border-zinc-100 px-3 py-2.5 flex items-center justify-between z-10 shadow-sm shrink-0">
         <div className="flex items-center gap-2">
@@ -383,7 +383,7 @@ export default function DeliveryBoyApp() {
               <div className="space-y-3 pt-4">
                 <button onClick={() => { setIsAvailable(true); setShowShiftModal(false); setActiveTab('available'); }}
                   className="w-full py-3 bg-zinc-900 text-white font-bold rounded-xl hover:bg-zinc-800 transition-colors">
-                  Return to neomed (Available)
+                  Return to Neomed (Available)
                 </button>
                 <button onClick={() => { setIsAvailable(false); setShowShiftModal(false); setActiveTab('completed'); }}
                   className="w-full py-3 bg-zinc-100 text-zinc-600 font-bold rounded-xl hover:bg-zinc-200 transition-colors">

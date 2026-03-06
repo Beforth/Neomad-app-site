@@ -25,6 +25,7 @@ export interface Invoice {
   bank_name?: string;
   cheque_photo_url?: string;
   signed_copy_url?: string;
+  description?: string;
   cancel_reason?: string;
   delivery_feedback?: 'properly' | 'improperly';
   feedback_reason?: string;
@@ -41,7 +42,7 @@ const INITIAL_USERS: User[] = [
 const makeInitialInvoices = (): Invoice[] => [
   { id: 1, invoice_number: 'INV-2024-001', hospital_name: 'City Hospital', amount: 4500, status: 'pending', created_at: new Date().toISOString() },
   { id: 2, invoice_number: 'INV-2024-002', hospital_name: 'Metro Clinic', amount: 2800, status: 'pending', created_at: new Date().toISOString() },
-  { id: 3, invoice_number: 'INV-2024-003', hospital_name: 'St. Mary Medical', amount: 3200, status: 'delivered', assigned_to: 3, created_at: new Date().toISOString(), delivered_at: new Date().toISOString(), cash_received: 3200 },
+  { id: 3, invoice_number: 'INV-2024-003', hospital_name: 'St. Mary Medical', amount: 3200, status: 'delivered', assigned_to: 3, created_at: new Date().toISOString(), delivered_at: new Date().toISOString(), cash_received: 3200, signed_copy_url: 'https://images.unsplash.com/photo-1586282391129-59a998fd6a90?auto=format&fit=crop&q=80&w=800' },
   { id: 4, invoice_number: 'INV-2024-004', hospital_name: 'Apollo Health', amount: 1500, status: 'pending', created_at: new Date().toISOString() },
   { id: 5, invoice_number: 'INV-2024-005', hospital_name: 'LifeCare Center', amount: 5600, status: 'pending', created_at: new Date().toISOString() },
   { id: 6, invoice_number: 'INV-2024-006', hospital_name: 'Sunrise Medical', amount: 1200, status: 'assigned', assigned_to: 3, created_at: new Date().toISOString() },
@@ -299,8 +300,15 @@ export const mockApi = {
 
   getStats: async () => {
     const invoices = getStored('mock_invoices', makeInitialInvoices());
+    const users = getStored('mock_users', INITIAL_USERS);
     const delivered = invoices.filter((i: any) => i.status === 'delivered');
     const cashPending = delivered.filter((i: any) => !i.cash_confirmed && !i.cheque_confirmed && (i.cash_received > 0 || i.cheque_received > 0));
+    
+    // Calculate total collection (cash + cheque)
+    const totalCollected = delivered.reduce((sum: number, inv: any) => {
+      return sum + (inv.cash_received || 0) + (inv.cheque_received || 0);
+    }, 0);
+
     return {
       total_today: { count: invoices.length },
       pending: { count: invoices.filter((i: any) => i.status === 'pending').length },
@@ -308,6 +316,9 @@ export const mockApi = {
       delivered: { count: delivered.length },
       cancelled: { count: invoices.filter((i: any) => i.status === 'cancelled').length },
       cash_pending: { count: cashPending.length },
+      total_boys: { count: users.filter((u: any) => u.role === 'delivery_boy').length },
+      total_staff: { count: users.filter((u: any) => u.role === 'staff' || u.role === 'manager').length },
+      total_collected: { count: totalCollected },
     };
   },
 
@@ -399,6 +410,7 @@ export const mockApi = {
       status: data.assigned_to ? 'assigned' : 'pending',
       created_at: new Date().toISOString(),
       assigned_to: data.assigned_to ? Number(data.assigned_to) : undefined,
+      description: data.description || '',
     };
     invoices.push(newInvoice);
     setStored('mock_invoices', invoices);

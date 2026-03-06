@@ -2,7 +2,7 @@
 <img width="1200" height="475" alt="GHBanner" >
 </div>
 
-# Neomad Delivery Management System
+# Neomed Delivery Management System
 
 A comprehensive system for managing invoices, tracking deliveries in real-time, and managing delivery personnel.
 

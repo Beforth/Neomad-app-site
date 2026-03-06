@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import {
     Search, Eye, XCircle, ChevronLeft, ChevronRight,
     Plus, ClipboardCheck, Building, Hash, Banknote,
-    UserPlus, Package, Filter, LayoutGrid, Clock
+    UserPlus, Package, Filter, LayoutGrid, Clock, List, FileText,
+    MapPin, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { mockApi } from '../lib/mockApi';
@@ -21,12 +22,15 @@ export default function Tasks() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
+    const [selectedTask, setSelectedTask] = useState<any>(null);
 
     // Create task state
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [createData, setCreateData] = useState({
         task_name: '',
-        assigned_to: ''
+        assigned_to: '',
+        description: ''
     });
     const [creating, setCreating] = useState(false);
     const [availableAssignees, setAvailableAssignees] = useState<any[]>([]);
@@ -58,9 +62,10 @@ export default function Tasks() {
             await mockApi.createTask({
                 task_name: createData.task_name,
                 assigned_to: createData.assigned_to ? Number(createData.assigned_to) : undefined,
+                description: createData.description,
             });
             setShowCreateModal(false);
-            setCreateData({ task_name: '', assigned_to: '' });
+            setCreateData({ task_name: '', assigned_to: '', description: '' });
             fetchTasks();
         } finally {
             setCreating(false);
@@ -82,6 +87,14 @@ export default function Tasks() {
                     <p className="text-xs text-zinc-500 font-medium">Create and manage generic tasks</p>
                 </div>
                 <div className="flex items-center gap-3 self-start sm:self-auto">
+                    <div className="flex bg-zinc-100 p-1 rounded-xl">
+                        <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-emerald-600' : 'text-zinc-400 hover:text-zinc-600'}`}>
+                            <LayoutGrid size={16} />
+                        </button>
+                        <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'table' ? 'bg-white shadow-sm text-emerald-600' : 'text-zinc-400 hover:text-zinc-600'}`}>
+                            <List size={16} />
+                        </button>
+                    </div>
                     <button onClick={() => setShowCreateModal(true)} className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors flex items-center gap-2 shadow-sm shadow-emerald-100">
                         <Plus size={16} /> New Task
                     </button>
@@ -111,48 +124,91 @@ export default function Tasks() {
                 )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {loading ? (
-                    <div className="col-span-full py-12 text-center text-zinc-400 text-sm">Loading tasks...</div>
-                ) : filtered.length === 0 ? (
-                    <div className="col-span-full py-12 text-center">
-                        <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-300">
-                            <Package size={32} />
-                        </div>
-                        <p className="text-zinc-500 font-medium">No tasks found</p>
-                        <p className="text-xs text-zinc-400 mt-1">Try creating a new task</p>
+            {loading ? (
+                <div className="py-12 text-center text-zinc-400 text-sm animate-pulse flex flex-col items-center gap-2">
+                    <Clock className="animate-spin text-zinc-200" size={24} />
+                    Loading tasks...
+                </div>
+            ) : filtered.length === 0 ? (
+                <div className="py-12 text-center">
+                    <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-300">
+                        <Package size={32} />
                     </div>
-                ) : filtered.map((task, i) => (
-                    <motion.div key={task.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
-                        className="bg-white p-5 rounded-2xl border border-zinc-100 shadow-sm hover:shadow-md transition-all group">
-                        <div className="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 className="font-bold text-zinc-900 group-hover:text-emerald-600 transition-colors uppercase text-lg">{task.hospital_name}</h3>
-                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">{task.invoice_number}</p>
-                            </div>
-                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize ${STATUS_COLORS[task.status]}`}>
-                                {task.status}
-                            </span>
-                        </div>
-
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="text-zinc-500">Assigned To</span>
-                                <span className="font-medium text-zinc-700">
-                                    {availableAssignees.find(a => a.id === task.assigned_to)?.name || <span className="text-zinc-300 italic">Unassigned</span>}
+                    <p className="text-zinc-500 font-medium">No tasks found</p>
+                    <p className="text-xs text-zinc-400 mt-1">Try creating a new task</p>
+                </div>
+            ) : viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {filtered.map((task, i) => (
+                        <motion.div key={task.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
+                            className="bg-white p-5 rounded-2xl border border-zinc-100 shadow-sm hover:shadow-md transition-all group">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="font-bold text-zinc-900 group-hover:text-emerald-600 transition-colors uppercase text-lg">{task.hospital_name}</h3>
+                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">{task.invoice_number}</p>
+                                </div>
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize ${STATUS_COLORS[task.status]}`}>
+                                    {task.status}
                                 </span>
                             </div>
-                            <div className="flex items-center justify-between text-xs pt-3 border-t border-zinc-50">
-                                <div className="flex items-center gap-1.5 text-zinc-400">
-                                    <Clock size={12} />
-                                    <span>{new Date(task.created_at).toLocaleDateString()}</span>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="text-zinc-500">Assigned To</span>
+                                    <span className="font-medium text-zinc-700">
+                                        {availableAssignees.find(a => a.id === task.assigned_to)?.name || <span className="text-zinc-300 italic">Unassigned</span>}
+                                    </span>
                                 </div>
-                                <button className="text-emerald-500 font-bold hover:underline">View Details</button>
+                                <div className="flex items-center justify-between text-xs pt-3 border-t border-zinc-50">
+                                    <div className="flex items-center gap-1.5 text-zinc-400">
+                                        <Clock size={12} />
+                                        <span>{new Date(task.created_at).toLocaleDateString()}</span>
+                                    </div>
+                                    <button onClick={() => setSelectedTask(task)} className="text-emerald-500 font-bold hover:underline">View Details</button>
+                                </div>
                             </div>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
+                        </motion.div>
+                    ))}
+                </div>
+            ) : (
+                <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead className="bg-zinc-50/50 border-b border-zinc-100">
+                            <tr>
+                                {['ID', 'Task Name', 'Status', 'Assigned To', 'Created Date', 'Actions'].map(h => (
+                                    <th key={h} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-50">
+                            {filtered.map((task, i) => (
+                                <motion.tr key={task.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.01 }}
+                                    className="hover:bg-zinc-50/50 transition-colors cursor-pointer" onClick={() => setSelectedTask(task)}>
+                                    <td className="px-4 py-3 text-xs font-bold text-zinc-400">{task.invoice_number}</td>
+                                    <td className="px-4 py-3">
+                                        <p className="text-xs font-bold text-zinc-900">{task.hospital_name}</p>
+                                        {task.description && <p className="text-[10px] text-zinc-400 line-clamp-1">{task.description}</p>}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold capitalize ${STATUS_COLORS[task.status]}`}>
+                                            {task.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-xs text-zinc-600">
+                                        {availableAssignees.find(a => a.id === task.assigned_to)?.name || <span className="text-zinc-300 italic">Unassigned</span>}
+                                    </td>
+                                    <td className="px-4 py-3 text-[10px] text-zinc-400">{new Date(task.created_at).toLocaleDateString()}</td>
+                                    <td className="px-4 py-3">
+                                        <button onClick={(e) => { e.stopPropagation(); setSelectedTask(task); }} className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors">
+                                            <Eye size={14} />
+                                        </button>
+                                    </td>
+                                </motion.tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {/* Create Task Modal */}
             <AnimatePresence>
@@ -184,6 +240,15 @@ export default function Tasks() {
 
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                                            <FileText size={12} /> Task Description
+                                        </label>
+                                        <textarea rows={3} placeholder="Provide details about the task..." value={createData.description}
+                                            onChange={e => setCreateData({ ...createData, description: e.target.value })}
+                                            className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium resize-none" />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                                             <UserPlus size={12} /> Assign To (Optional)
                                         </label>
                                         <select value={createData.assigned_to}
@@ -203,11 +268,113 @@ export default function Tasks() {
                                         Cancel
                                     </button>
                                     <button type="submit" disabled={creating}
-                                        className="flex-3 py-3 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100 disabled:opacity-50 flex items-center justify-center gap-2">
-                                        {creating ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Creating...</> : 'Create & Assign'}
+                                        className="flex-2 py-3 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100 disabled:opacity-50 flex items-center justify-center gap-2">
+                                        {creating ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Creating...</> : 'Create Task'}
                                     </button>
                                 </div>
                             </form>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Task Details Modal */}
+            <AnimatePresence>
+                {selectedTask && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <motion.div initial={{ scale: 0.95, opacity: 0, y: 10 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                            className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-zinc-100 flex flex-col max-h-[85vh]">
+                            
+                            {/* Simple Clean Header */}
+                            <div className="p-6 border-b border-zinc-100 flex items-center justify-between shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-zinc-50 rounded-xl flex items-center justify-center border border-zinc-100">
+                                        <ClipboardCheck size={20} className="text-zinc-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-zinc-900 leading-tight">{selectedTask.hospital_name}</h3>
+                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">{selectedTask.invoice_number}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setSelectedTask(null)} className="p-2 hover:bg-zinc-50 rounded-xl transition-colors text-zinc-400">
+                                    <XCircle size={22} />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Core Info */}
+                                    <div className="space-y-5">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                <List size={12} /> Task Description
+                                            </label>
+                                            <div className="text-sm text-zinc-600 bg-zinc-50/50 p-4 rounded-2xl border border-zinc-100/50 leading-relaxed font-medium min-h-[100px]">
+                                                {selectedTask.description || 'No additional details project for this task.'}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                <MapPin size={12} /> Delivery Destination
+                                            </label>
+                                            <div className="flex items-start gap-3 p-3.5 bg-zinc-50/50 rounded-2xl border border-zinc-100/50">
+                                                <Building size={16} className="text-zinc-400 mt-0.5" />
+                                                <span className="text-sm font-semibold text-zinc-700">Nashik Partner Hub — MH</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Logistics & Assignment */}
+                                    <div className="space-y-5">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Live Status</label>
+                                            <div className={`w-fit flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-xs capitalize ${STATUS_COLORS[selectedTask.status]} border border-current/10`}>
+                                                <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                                                {selectedTask.status}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white border border-zinc-100 rounded-2xl overflow-hidden shadow-sm">
+                                            <div className="p-4 border-b border-zinc-50 bg-zinc-50/30">
+                                                <p className="text-[10px] font-bold text-zinc-400 uppercase mb-3">Current fulfillment</p>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500 border border-zinc-200">
+                                                        {availableAssignees.find(a => a.id === selectedTask.assigned_to)?.name[0] || '?'}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-zinc-800">
+                                                            {availableAssignees.find(a => a.id === selectedTask.assigned_to)?.name || 'Unassigned'}
+                                                        </p>
+                                                        <p className="text-[10px] text-zinc-400 font-medium tracking-wide">Primary Delivery Boy</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="p-4 space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[11px] text-zinc-400 font-bold flex items-center gap-1.5"><Clock size={12} /> Created</span>
+                                                    <span className="text-xs font-bold text-zinc-700">{new Date(selectedTask.created_at).toLocaleDateString()}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[11px] text-zinc-400 font-bold flex items-center gap-1.5"><Hash size={12} /> Reference</span>
+                                                    <span className="text-xs font-bold text-zinc-700">{selectedTask.invoice_number}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-5 bg-zinc-50/50 border-t border-zinc-100 flex gap-3 shrink-0">
+                                <button onClick={() => setSelectedTask(null)}
+                                    className="flex-1 px-5 py-2.5 bg-white border border-zinc-200 text-zinc-600 rounded-xl font-bold text-sm hover:bg-zinc-50 transition-colors">
+                                    Dismiss
+                                </button>
+                                <button className="flex-1 px-5 py-2.5 bg-zinc-900 text-white rounded-xl font-bold text-sm hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2">
+                                    <Download size={16} /> Export
+                                </button>
+                            </div>
                         </motion.div>
                     </motion.div>
                 )}

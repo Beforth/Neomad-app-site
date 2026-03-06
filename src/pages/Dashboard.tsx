@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
   FileText, Clock, CheckCircle2, XCircle, Truck,
-  ArrowUpRight, TrendingUp, IndianRupee, AlertCircle
+  ArrowUpRight, TrendingUp, IndianRupee, AlertCircle, Users,
+  ShieldCheck, Wallet
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
@@ -9,32 +10,80 @@ import { mockApi } from '../lib/mockApi';
 import MapPreview from '../components/MapPreview';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<any>(null);
   const { user } = useAuth();
+  const [selectedBoyId, setSelectedBoyId] = useState<string>('all');
+  const [customBoyName, setCustomBoyName] = useState<string>('');
+  const [deliveryBoys, setDeliveryBoys] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [recentDeliveries, setRecentDeliveries] = useState<any[]>([]);
 
   useEffect(() => {
+    mockApi.getUsers().then(users => {
+      setDeliveryBoys(users.filter((u: any) => u.role === 'delivery_boy'));
+    });
     mockApi.getStats().then(setStats);
-  }, []);
-
+    mockApi.getInvoices(user).then(invoices => {
+      const delivered = invoices
+        .filter((i: any) => i.status === 'delivered')
+        .sort((a, b) => new Date(b.delivered_at || b.created_at).getTime() - new Date(a.delivered_at || a.created_at).getTime())
+        .slice(0, 5);
+      setRecentDeliveries(delivered);
+    });
+  }, [user]);
   const allCards = [
-    { label: 'Total Today', value: stats?.total_today?.count || 0, icon: FileText, color: 'blue', roles: ['admin', 'manager'] },
+    { label: 'Total Boys', value: stats?.total_boys?.count || 0, icon: Users, color: 'blue', roles: ['admin', 'manager'], hideIfBoySelected: true },
     { label: 'Pending', value: stats?.pending?.count || 0, icon: Clock, color: 'amber', roles: ['admin', 'manager'] },
     { label: 'Assigned', value: stats?.assigned?.count || 0, icon: Truck, color: 'indigo', roles: ['admin', 'manager'] },
     { label: 'Delivered', value: stats?.delivered?.count || 0, icon: CheckCircle2, color: 'emerald', roles: ['admin', 'manager'] },
     { label: 'Cancelled', value: stats?.cancelled?.count || 0, icon: XCircle, color: 'red', roles: ['admin', 'manager'] },
-    { label: 'Cash Pending', value: stats?.cash_pending?.count || 0, icon: IndianRupee, color: 'orange', roles: ['admin'] },
+    { label: 'Total Collection', value: `₹${(stats?.total_collected?.count || 0).toLocaleString()}`, icon: Wallet, color: 'purple', roles: ['admin'] },
   ];
 
-  const cards = allCards.filter(c => c.roles.includes(user?.role || ''));
+  const cards = allCards.filter(c => 
+    c.roles.includes(user?.role || '') && 
+    !(c.hideIfBoySelected && selectedBoyId !== 'all')
+  );
 
   return (
     <div className="space-y-8">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-zinc-900">Dashboard</h1>
           <p className="text-zinc-500">Welcome back! Here's what's happening today.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {user?.role === 'admin' && (
+            <div className="flex items-center gap-2">
+              <div className="relative group">
+                <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={14} />
+                <select 
+                  value={selectedBoyId} 
+                  onChange={e => setSelectedBoyId(e.target.value)}
+                  className="pl-9 pr-8 py-2 bg-white border border-zinc-200 rounded-xl text-xs font-bold text-zinc-600 outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none cursor-pointer shadow-sm"
+                >
+                  <option value="all">Total Delivery Boys</option>
+                  {deliveryBoys.map(b => <option key={b.id} value={b.id}>{b.username}</option>)}
+                  <option value="custom">Custom...</option>
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                  <ArrowUpRight size={12} className="rotate-90" />
+                </div>
+              </div>
+              
+              {selectedBoyId === 'custom' && (
+                <motion.input 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  type="text" 
+                  placeholder="Enter Name..." 
+                  value={customBoyName}
+                  onChange={e => setCustomBoyName(e.target.value)}
+                  className="px-4 py-2 bg-white border border-zinc-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm w-32"
+                />
+              )}
+            </div>
+          )}
+
           {user?.role === 'admin' && (
             <button onClick={async () => { await mockApi.seedDemoData(); window.location.reload(); }}
               className="flex items-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100">
@@ -48,24 +97,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {user?.role === 'manager' && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center gap-4 text-amber-800"
-        >
-          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
-            <AlertCircle size={20} />
-          </div>
-          <div className="flex-1">
-            <p className="font-bold text-sm">Waiting Alert</p>
-            <p className="text-xs">Delivery Boy #104 has been waiting at City Hospital for over 15 minutes.</p>
-          </div>
-          <button className="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold hover:bg-amber-700 transition-colors">
-            View Tracking
-          </button>
-        </motion.div>
-      )}
+
 
       <div className={`grid grid-cols-2 ${cards.length >= 6 ? 'md:grid-cols-3 lg:grid-cols-6' : 'md:grid-cols-3 lg:grid-cols-5'} gap-4`}>
         {cards.map((card, i) => (
@@ -83,11 +115,8 @@ export default function Dashboard() {
               <ArrowUpRight size={14} className="text-zinc-300" />
             </div>
             <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{card.label}</p>
-            <div className="flex items-end justify-between mt-0.5">
-              <h3 className="text-xl font-bold text-zinc-900 tracking-tight">{card.value}</h3>
-              <span className="text-emerald-600 text-[10px] font-bold flex items-center gap-0.5 mb-1">
-                <TrendingUp size={10} />+12%
-              </span>
+            <div className="flex items-end justify-between mt-1">
+              <h3 className="text-2xl font-black text-zinc-900 tracking-tight">{card.value}</h3>
             </div>
           </motion.div>
         ))}
@@ -100,25 +129,31 @@ export default function Dashboard() {
             <button className="text-emerald-600 text-[10px] font-bold uppercase tracking-wider hover:underline">View all</button>
           </div>
           <div className="space-y-2">
-            {[1, 2, 3, 4].map((_, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-zinc-50 border border-zinc-100 hover:bg-zinc-100 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center border border-zinc-200 shadow-sm">
-                    <Truck size={14} className="text-zinc-400" />
+            {recentDeliveries.length > 0 ? (
+              recentDeliveries.map((inv) => (
+                <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg bg-zinc-50 border border-zinc-100 hover:bg-zinc-100 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center border border-zinc-200 shadow-sm">
+                      <Truck size={14} className="text-zinc-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-zinc-900">{inv.invoice_number}</p>
+                      <p className="text-[10px] text-zinc-500">{inv.hospital_name} • {new Date(inv.delivered_at || inv.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-zinc-900">INV-2024-00{i + 1}</p>
-                    <p className="text-[10px] text-zinc-500">City Hospital • 2.4km</p>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-zinc-900">₹{inv.amount.toLocaleString()}</p>
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">
+                      Delivered
+                    </span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold text-zinc-900">₹4,500</p>
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">
-                    Delivered
-                  </span>
-                </div>
+              ))
+            ) : (
+              <div className="p-8 text-center text-zinc-400 text-xs silver-gradient rounded-2xl">
+                No deliveries recorded yet.
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -129,16 +164,11 @@ export default function Dashboard() {
           </div>
           <div className="mt-4 space-y-3">
             <div className="flex items-center justify-between text-[11px]">
-              <span className="text-zinc-500 font-medium">Active Delivery Boys</span>
-              <span className="font-bold text-zinc-900">12</span>
-            </div>
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-zinc-500 font-medium">Avg. Delivery Time</span>
-              <span className="font-bold text-zinc-900">24 mins</span>
-            </div>
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-zinc-500 font-medium">Efficiency Rate</span>
-              <span className="font-bold text-emerald-600">98.2%</span>
+              <span className="text-zinc-500 font-medium whitespace-nowrap">Active Team Density</span>
+              <div className="h-1.5 flex-1 bg-zinc-100 mx-4 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full" style={{ width: '65%' }} />
+              </div>
+              <span className="font-bold text-zinc-900">High</span>
             </div>
           </div>
         </div>

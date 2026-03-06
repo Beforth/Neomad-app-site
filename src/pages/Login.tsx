@@ -33,14 +33,14 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-gradient-to-br from-emerald-50 via-white to-blue-50">
+    <div className="min-h-dvh flex flex-col bg-linear-to-br from-emerald-50 via-white to-blue-50">
       {/* Header / Logo */}
       <div className="pt-12 pb-8 px-6 flex flex-col items-center">
         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-          className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-3xl flex items-center justify-center text-white text-4xl font-extrabold shadow-2xl shadow-emerald-500/30 mb-6 rotate-3">
+          className="w-20 h-20 bg-linear-to-br from-emerald-500 to-emerald-600 rounded-3xl flex items-center justify-center text-white text-4xl font-extrabold shadow-2xl shadow-emerald-500/30 mb-6 rotate-3">
           M
         </motion.div>
-        <h1 className="text-4xl font-black text-zinc-900 tracking-tighter">NEOMAD</h1>
+        <h1 className="text-4xl font-black text-zinc-900 tracking-tighter">NEOMED</h1>
         <p className="text-xs font-bold text-zinc-400 mt-2 uppercase tracking-widest">Enterprise Delivery System</p>
       </div>
 
@@ -139,7 +139,7 @@ export default function Login() {
 
                 {/* Submit Button */}
                 <button type="submit" disabled={loading}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] mt-6">
+                  className="w-full bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] mt-6">
                   {loading ? (
                     <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                   ) : (
@@ -162,7 +162,7 @@ export default function Login() {
                   </div>
                 </div>
                 <button type="submit" 
-                  className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 active:scale-[0.98]">
+                  className="w-full bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 active:scale-[0.98]">
                   <Mail size={18} />Send Reset Link
                 </button>
                 <button type="button" onClick={() => setView('login')} 

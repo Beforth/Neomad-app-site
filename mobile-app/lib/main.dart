@@ -18,12 +18,12 @@ void main() {
 
   runApp(
     const ProviderScope(
-      child: NeomadApp(),
+      child: NeomedApp(),
     ),
   );
 }
 
-class NeomadApp extends ConsumerWidget {
+class NeomedApp extends ConsumerWidget {
   const NeomadApp({super.key});
 
   @override
@@ -31,7 +31,7 @@ class NeomadApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Neomad Delivery',
+      title: 'Neomed Delivery',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: router,

@@ -43,7 +43,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'v2.0.0 • © 2026 Neomad App',
+              'v2.0.0 • © 2026 Neomed App',
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.neutral.withValues(alpha: 0.5),
