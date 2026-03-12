@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogIn, AlertCircle, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { mockApi } from '../lib/mockApi';
+import { login as apiLogin, mapBackendRoleToFrontend } from '../lib/api';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -18,10 +18,16 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const data = await mockApi.login(username, password);
-      login(data.token, data.user);
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
+      const data = await apiLogin(username.trim(), password);
+      const role = mapBackendRoleToFrontend(data.user.role_codes);
+      login(data.access_token, {
+        id: data.user.id,
+        email: data.user.email,
+        username: data.user.full_name ?? data.user.email,
+        role,
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -86,41 +92,12 @@ export default function Login() {
                   </motion.div>
                 )}
 
-                {/* Test Credentials */}
-                <div className="bg-white/80 backdrop-blur-sm border border-zinc-200 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Test Credentials</p>
-                    <button type="button" onClick={async () => { await mockApi.seedDemoData(); alert('Demo data seeded!'); }}
-                      className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md hover:bg-emerald-100 transition-colors uppercase tracking-wide">
-                      Seed Data
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-zinc-50 rounded-lg p-2">
-                      <p className="text-[9px] text-zinc-400 font-medium uppercase">Admin</p>
-                      <p className="text-[11px] font-bold text-zinc-900 mt-0.5">admin / admin123</p>
-                    </div>
-                    <div className="bg-zinc-50 rounded-lg p-2">
-                      <p className="text-[9px] text-zinc-400 font-medium uppercase">Manager</p>
-                      <p className="text-[11px] font-bold text-zinc-900 mt-0.5">manager / manager123</p>
-                    </div>
-                    <div className="bg-zinc-50 rounded-lg p-2">
-                      <p className="text-[9px] text-zinc-400 font-medium uppercase">Delivery</p>
-                      <p className="text-[11px] font-bold text-zinc-900 mt-0.5">delivery1 / boy123</p>
-                    </div>
-                    <div className="bg-zinc-50 rounded-lg p-2">
-                      <p className="text-[9px] text-zinc-400 font-medium uppercase">Staff</p>
-                      <p className="text-[11px] font-bold text-zinc-900 mt-0.5">staff1 / staff123</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Username Input */}
+                {/* Email Input */}
                 <div>
-                  <label className="block text-sm font-semibold text-zinc-700 mb-2">Username</label>
-                  <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
+                  <label className="block text-sm font-semibold text-zinc-700 mb-2">Email</label>
+                  <input type="email" value={username} onChange={(e) => setUsername(e.target.value)}
                     className="w-full px-4 py-3.5 bg-white border-2 border-zinc-200 rounded-xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none text-[15px]"
-                    placeholder="Enter username" required />
+                    placeholder="Enter email" required />
                 </div>
 
                 {/* Password Input */}

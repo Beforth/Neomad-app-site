@@ -12,7 +12,7 @@ A comprehensive system for managing invoices, tracking deliveries in real-time, 
 
 1. Install dependencies:
    `npm install`
-2. Configure your environment variables in `.env` (refer to `.env.example`)
+2. Configure your environment variables in `.env` (refer to `.env.example`). Set `VITE_API_BASE_URL` to your backend (e.g. `http://localhost:8000`).
 3. Run the app:
    `npm run dev`
 
