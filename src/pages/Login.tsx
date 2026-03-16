@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, AlertCircle, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { LogIn, AlertCircle, Mail, ArrowLeft, CheckCircle2, Eye, EyeOff, X } from 'lucide-react';
 import { login as apiLogin, mapBackendRoleToFrontend } from '../lib/api';
 
 export default function Login() {
@@ -11,6 +11,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<'login' | 'forgot' | 'sent'>('login');
   const [forgotEmail, setForgotEmail] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,9 +110,36 @@ export default function Login() {
                       Forgot?
                     </button>
                   </div>
-                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3.5 bg-white border-2 border-zinc-200 rounded-xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none text-[15px]"
-                    placeholder="Enter password" required />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full px-4 pr-24 py-3.5 bg-white border-2 border-zinc-200 rounded-xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none text-[15px]"
+                      placeholder="Enter password"
+                      required
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setPassword('')}
+                        className="p-2 text-zinc-400 hover:text-zinc-600 rounded-lg hover:bg-zinc-100 transition-colors"
+                        title="Clear password"
+                        tabIndex={-1}
+                      >
+                        <X size={18} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((p) => !p)}
+                        className="p-2 text-zinc-400 hover:text-zinc-600 rounded-lg hover:bg-zinc-100 transition-colors"
+                        title={showPassword ? 'Hide password' : 'Show password'}
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Submit Button */}

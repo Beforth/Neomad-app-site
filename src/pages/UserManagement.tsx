@@ -2,37 +2,134 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   UserPlus, Shield, Trash2, Edit2, CheckCircle2,
-  XCircle, Search, Key, X, Save, Eye, EyeOff
+  XCircle, Search, Key, X, Save, Eye, EyeOff, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { mockApi } from '../lib/mockApi';
+import { getUsers, getRoles, createUser, updateUser, mapBackendRoleToFrontend } from '../lib/api';
 
 const ROLE_COLORS: Record<string, string> = {
+  super_admin: 'bg-rose-50 text-rose-700',
   admin: 'bg-purple-50 text-purple-700',
   manager: 'bg-blue-50 text-blue-700',
+  delivery: 'bg-zinc-50 text-zinc-600',
   delivery_boy: 'bg-zinc-50 text-zinc-600',
   staff: 'bg-emerald-50 text-emerald-700',
 };
 
+/** Map API user to FE table shape */
+function toTableUser(u: { id: number; email: string; full_name: string | null; phone?: string | null; is_active: boolean; role_codes: string[] }) {
+  const username = u.full_name || u.email.split('@')[0];
+  const role = mapBackendRoleToFrontend(u.role_codes);
+  const role_code = u.role_codes?.[0] ?? 'user';
+  return {
+    id: u.id,
+    username,
+    email: u.email,
+    phone: u.phone ?? undefined,
+    role,
+    role_code,
+    status: (u.is_active ? 'active' : 'inactive') as 'active' | 'inactive',
+  };
+}
+
+/** Stable modal/field components (defined outside so modal does not remount on every keystroke) */
+function Modal({ title, onClose, children, closeOnBackdropClick = true }: { title: string; onClose: () => void; children: React.ReactNode; closeOnBackdropClick?: boolean }) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      if (closeOnBackdropClick) onClose();
+      else e.preventDefault();
+    }
+  };
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
+      onClick={closeOnBackdropClick ? onClose : undefined}
+      onKeyDown={handleKeyDown}
+      role="dialog"
+      aria-modal="true"
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+      >
+        <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
+          <h3 className="font-bold text-zinc-900">{title}</h3>
+          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+        {children}
+      </motion.div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-zinc-700 mb-1">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+const inputClassName = "w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all";
+
 export default function UserManagement() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, token } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [resetUser, setResetUser] = useState<any | null>(null);
   const [newPw, setNewPw] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [newUser, setNewUser] = useState({ username: '', email: '', phone: '', password: '', role: 'delivery_boy' });
+  const [roles, setRoles] = useState<{ id: number; name: string; code: string }[]>([]);
+  const [newUser, setNewUser] = useState({ username: '', email: '', phone: '', password: '', role: 'staff' });
   const [toast, setToast] = useState('');
+  const [addLoading, setAddLoading] = useState(false);
+  const [userSort, setUserSort] = useState<'asc' | 'desc'>('asc');
+  const [editLoading, setEditLoading] = useState(false);
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    if (!token) {
+      setLoading(false);
+      setUsers([]);
+      setRoles([]);
+      return;
+    }
+    fetchUsers();
+    fetchRoles();
+  }, [token]);
+
+  const fetchRoles = async () => {
+    if (!token) return;
+    try {
+      const data = await getRoles(token);
+      setRoles(data);
+      setNewUser((prev) => ({ ...prev, role: prev.role || data.find((r) => r.code !== 'user')?.code || 'staff' }));
+    } catch {
+      setRoles([]);
+    }
+  };
 
   const fetchUsers = async () => {
-    const data = await mockApi.getUsers();
-    setUsers(data);
-    setLoading(false);
+    if (!token) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getUsers(token);
+      setUsers(data.map(toTableUser));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load users');
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const showToast = (msg: string) => {
@@ -42,34 +139,58 @@ export default function UserManagement() {
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    await mockApi.addUser(newUser);
-    setShowAddModal(false);
-    setNewUser({ username: '', email: '', phone: '', password: '', role: 'delivery_boy' });
-    fetchUsers();
-    showToast('User created successfully');
+    if (!token) return;
+    setAddLoading(true);
+    try {
+      await createUser(token, {
+        full_name: newUser.username.trim() || undefined,
+        email: newUser.email,
+        phone: newUser.phone.trim() || undefined,
+        password: newUser.password,
+        role_code: newUser.role,
+      });
+      setShowAddModal(false);
+      setNewUser({ username: '', email: '', phone: '', password: '', role: roles.find((r) => r.code !== 'user')?.code || 'staff' });
+      fetchUsers();
+      showToast('User created successfully');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to create user');
+    } finally {
+      setAddLoading(false);
+    }
   };
 
   const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    await mockApi.updateUser(editingUser.id, editingUser);
-    setEditingUser(null);
-    fetchUsers();
-    showToast('User updated successfully');
+    if (!token || !editingUser?.id) return;
+    setEditLoading(true);
+    try {
+      await updateUser(token, editingUser.id, {
+        full_name: editingUser.username?.trim() || undefined,
+        email: editingUser.email,
+        phone: editingUser.phone ?? undefined,
+        role_code: editingUser.role_code ?? editingUser.role,
+      });
+      setEditingUser(null);
+      fetchUsers();
+      showToast('User updated successfully');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update user');
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   const handleToggleStatus = async (u: any) => {
-    await mockApi.toggleUserStatus(u.id);
-    fetchUsers();
-    showToast(`User ${u.status === 'active' ? 'deactivated' : 'activated'}`);
+    showToast('Toggle status: API not implemented yet');
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPw.length < 6) return;
-    await mockApi.updateUser(resetUser.id, { password: newPw });
     setResetUser(null);
     setNewPw('');
-    showToast('Password reset successfully');
+    showToast('Reset password: API not implemented yet');
   };
 
   const filtered = users.filter(u =>
@@ -77,31 +198,10 @@ export default function UserManagement() {
     u.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const Modal = ({ title, onClose, children }: any) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-        <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
-          <h3 className="font-bold text-zinc-900">{title}</h3>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors">
-            <X size={20} />
-          </button>
-        </div>
-        {children}
-      </motion.div>
-    </div>
-  );
-
-  const Field = ({ label, children }: any) => (
-    <div>
-      <label className="block text-sm font-medium text-zinc-700 mb-1">{label}</label>
-      {children}
-    </div>
-  );
-
-  const Input = (props: any) => (
-    <input {...props} className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all" />
-  );
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    const cmp = (a.username || '').localeCompare(b.username || '', undefined, { sensitivity: 'base' });
+    return userSort === 'asc' ? cmp : -cmp;
+  });
 
   return (
     <div className="space-y-6">
@@ -120,11 +220,22 @@ export default function UserManagement() {
           <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">User Management</h1>
           <p className="text-xs text-zinc-500 font-medium">Manage system users and permissions</p>
         </div>
-        <button onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+        <button
+          onClick={() => {
+            setShowAddModal(true);
+            setNewUser((prev) => ({ ...prev, role: prev.role || roles.find((r) => r.code !== 'user')?.code || 'staff' }));
+          }}
+          disabled={!token}
+          className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm disabled:opacity-50"
+        >
           <UserPlus size={14} /> New User
         </button>
       </div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg">
+          {error}
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
         <div className="p-3 border-b border-zinc-100 bg-zinc-50/30">
@@ -140,7 +251,18 @@ export default function UserManagement() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-zinc-50/50 border-b border-zinc-100">
-                {['User', 'Phone', 'Role', 'Status', 'Actions'].map(h => (
+                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                  <button
+                    type="button"
+                    onClick={() => setUserSort(s => (s === 'asc' ? 'desc' : 'asc'))}
+                    className="flex items-center gap-1 hover:text-zinc-600 transition-colors cursor-pointer"
+                    title={userSort === 'asc' ? 'Sort A–Z (click for Z–A)' : 'Sort Z–A (click for A–Z)'}
+                  >
+                    User
+                    {userSort === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+                  </button>
+                </th>
+                {['Phone', 'Role', 'Status', 'Actions'].map(h => (
                   <th key={h} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{h}</th>
                 ))}
               </tr>
@@ -148,7 +270,7 @@ export default function UserManagement() {
             <tbody className="divide-y divide-zinc-50">
               {loading ? (
                 <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-zinc-400">Loading users...</td></tr>
-              ) : filtered.map(u => (
+              ) : sortedFiltered.map(u => (
                 <tr key={u.id} className="hover:bg-zinc-50/50 transition-colors group">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -195,7 +317,7 @@ export default function UserManagement() {
 
         {/* Mobile Cards */}
         <div className="md:hidden divide-y divide-zinc-100">
-          {filtered.map(u => (
+          {sortedFiltered.map(u => (
             <div key={u.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -228,22 +350,31 @@ export default function UserManagement() {
 
       {/* ADD USER MODAL */}
       {showAddModal && (
-        <Modal title="Add New User" onClose={() => setShowAddModal(false)}>
+        <Modal title="Add New User" onClose={() => setShowAddModal(false)} closeOnBackdropClick={false}>
           <form onSubmit={handleAddUser} className="p-5 space-y-4">
-            <Field label="Username"><Input type="text" required value={newUser.username} onChange={(e: any) => setNewUser({ ...newUser, username: e.target.value })} placeholder="johndoe" /></Field>
-            <Field label="Email"><Input type="email" required value={newUser.email} onChange={(e: any) => setNewUser({ ...newUser, email: e.target.value })} placeholder="john@example.com" /></Field>
-            <Field label="Phone"><Input type="tel" value={newUser.phone} onChange={(e: any) => setNewUser({ ...newUser, phone: e.target.value })} placeholder="+91 98765 43210" /></Field>
-            <Field label="Password"><Input type="password" required value={newUser.password} onChange={(e: any) => setNewUser({ ...newUser, password: e.target.value })} placeholder="Min. 6 characters" /></Field>
+            <Field label="Username"><input type="text" required value={newUser.username} onChange={(e) => setNewUser((prev) => ({ ...prev, username: e.target.value }))} placeholder="johndoe" className={inputClassName} /></Field>
+            <Field label="Email"><input type="email" required value={newUser.email} onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))} placeholder="john@example.com" className={inputClassName} /></Field>
+            <Field label="Phone"><input type="tel" value={newUser.phone} onChange={(e) => setNewUser((prev) => ({ ...prev, phone: e.target.value }))} placeholder="+91 98765 43210" className={inputClassName} /></Field>
+            <Field label="Password"><input type="password" required value={newUser.password} onChange={(e) => setNewUser((prev) => ({ ...prev, password: e.target.value }))} placeholder="Min. 6 characters" className={inputClassName} /></Field>
             <Field label="Role">
-              <select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm">
-                <option value="delivery_boy">Delivery Boy</option>
-                <option value="manager">Manager</option>
-                <option value="admin">Admin</option>
+              <select
+                value={newUser.role}
+                onChange={(e) => setNewUser((prev) => ({ ...prev, role: e.target.value as 'admin' | 'user' }))}
+                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                required
+              >
+                {roles.length === 0 && <option value="">Loading roles...</option>}
+                {roles.filter((r) => r.code !== 'user').map((r) => (
+                  <option key={r.id} value={r.code}>{r.name}</option>
+                ))}
               </select>
             </Field>
-            <button type="submit" className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">
-              <Save size={16} /> Create User
+            <button
+              type="submit"
+              disabled={addLoading || !newUser.role || roles.filter((r) => r.code !== 'user').length === 0}
+              className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              <Save size={16} /> {addLoading ? 'Creating...' : 'Create User'}
             </button>
           </form>
         </Modal>
@@ -253,19 +384,23 @@ export default function UserManagement() {
       {editingUser && (
         <Modal title="Edit User" onClose={() => setEditingUser(null)}>
           <form onSubmit={handleEditSave} className="p-5 space-y-4">
-            <Field label="Username"><Input type="text" required value={editingUser.username} onChange={(e: any) => setEditingUser({ ...editingUser, username: e.target.value })} /></Field>
-            <Field label="Email"><Input type="email" required value={editingUser.email} onChange={(e: any) => setEditingUser({ ...editingUser, email: e.target.value })} /></Field>
-            <Field label="Phone"><Input type="tel" value={editingUser.phone || ''} onChange={(e: any) => setEditingUser({ ...editingUser, phone: e.target.value })} placeholder="+91 98765 43210" /></Field>
+            <Field label="Username"><input type="text" required value={editingUser.username} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, username: e.target.value }))} className={inputClassName} /></Field>
+            <Field label="Email"><input type="email" required value={editingUser.email} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, email: e.target.value }))} className={inputClassName} /></Field>
+            <Field label="Phone"><input type="tel" value={editingUser.phone || ''} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, phone: e.target.value }))} placeholder="+91 98765 43210" className={inputClassName} /></Field>
             <Field label="Role">
-              <select value={editingUser.role} onChange={e => setEditingUser({ ...editingUser, role: e.target.value })}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm">
-                <option value="delivery_boy">Delivery Boy</option>
-                <option value="manager">Manager</option>
-                <option value="admin">Admin</option>
+              <select
+                value={editingUser.role_code ?? editingUser.role ?? ''}
+                onChange={(e) => setEditingUser((prev: any) => ({ ...prev, role_code: e.target.value }))}
+                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+              >
+                {roles.length === 0 && <option value="">Loading roles...</option>}
+                {roles.map((r) => (
+                  <option key={r.id} value={r.code}>{r.name}</option>
+                ))}
               </select>
             </Field>
-            <button type="submit" className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2">
-              <Save size={16} /> Save Changes
+            <button type="submit" disabled={editLoading || roles.length === 0} className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+              <Save size={16} /> {editLoading ? 'Saving...' : 'Save Changes'}
             </button>
           </form>
         </Modal>
@@ -277,8 +412,8 @@ export default function UserManagement() {
           <form onSubmit={handleResetPassword} className="p-5 space-y-4">
             <p className="text-sm text-zinc-500">Enter a new password for <strong>{resetUser.username}</strong>.</p>
             <div className="relative">
-              <Input type={showPw ? 'text' : 'password'} placeholder="New password (min 6 chars)"
-                value={newPw} onChange={(e: any) => setNewPw(e.target.value)} minLength={6} required />
+              <input type={showPw ? 'text' : 'password'} placeholder="New password (min 6 chars)"
+                value={newPw} onChange={(e) => setNewPw(e.target.value)} minLength={6} required className={inputClassName} />
               <button type="button" onClick={() => setShowPw(p => !p)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
                 {showPw ? <EyeOff size={16} /> : <Eye size={16} />}

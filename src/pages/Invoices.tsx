@@ -1,13 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   Search, Eye, XCircle, ChevronLeft, ChevronRight,
   Download, UserPlus, RefreshCw, Clock, CheckCircle2,
   MapPin, FileImage, IndianRupee, Filter, Plus, ClipboardCheck,
-  Package, Building, Hash, Banknote, Users, FileText, AlertCircle
+  Package, Building, Hash, Banknote, Users, FileText, AlertCircle, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { mockApi } from '../lib/mockApi';
+import {
+  getInvoices,
+  getUsers,
+  assignInvoice,
+  cancelInvoice,
+  deleteInvoice,
+  updateInvoice,
+  type ApiInvoice,
+} from '../lib/api';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700',
@@ -16,72 +24,158 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700',
 };
 
-const MOCK_DELIVERY_BOYS = [
-  { id: 2, name: 'Sagar Wagh' },
-  { id: 3, name: 'Rahul Patil' },
-  { id: 4, name: 'Amit Shinde' },
-];
-
-// Fake durations for demo
-function fakeDuration(inv: any) {
+function fakeDuration(inv: ApiInvoice) {
   if (inv.status !== 'delivered') return null;
   return { travel: '18 mins', waiting: '6 mins', total: '24 mins' };
 }
 
 export default function Invoices() {
-  const { user } = useAuth();
-  const [invoices, setInvoices] = useState<any[]>([]);
+  const { user, token } = useAuth();
+  const [invoices, setInvoices] = useState<ApiInvoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [boyFilter, setBoyFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+  const [selectedInvoice, setSelectedInvoice] = useState<ApiInvoice | null>(null);
   const [assigning, setAssigning] = useState<number | null>(null);
   const [assignTarget, setAssignTarget] = useState('');
-
-  const [previewImage, setPreviewImage] = useState<{ url: string, title: string } | null>(null);
-
-  // Combine delivery boys and managers for assignment
-  const [availableAssignees, setAvailableAssignees] = useState<any[]>([]);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
+  const [availableAssignees, setAvailableAssignees] = useState<{ id: number; name: string }[]>([]);
 
   useEffect(() => {
-    mockApi.getUsers().then(users => {
-      const filtered = users.filter((u: any) => u.role === 'delivery_boy' || u.role === 'manager');
-      setAvailableAssignees(filtered);
-    });
-  }, []);
+    const t = setTimeout(() => setSearchDebounced(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  const fetchInvoices = () => {
-    mockApi.getInvoices(user).then(data => { setInvoices(data); setLoading(false); });
-  };
+  useEffect(() => {
+    setPage(1);
+  }, [searchDebounced, statusFilter, boyFilter, dateFilter, sortBy, sortOrder]);
 
-  useEffect(() => { fetchInvoices(); }, [user]);
+  const fetchInvoices = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      setInvoices([]);
+      setTotalCount(0);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const params: Record<string, string | number> = {
+        sort_by: sortBy,
+        sort_order: sortOrder,
+        page,
+        page_size: pageSize,
+      };
+      if (searchDebounced.trim()) params.search = searchDebounced.trim();
+      if (statusFilter !== 'all') params.status = statusFilter;
+      if (boyFilter !== 'all') params.assigned_to = Number(boyFilter);
+      if (dateFilter) {
+        params.date_from = dateFilter;
+        params.date_to = dateFilter;
+      }
+      const result = await getInvoices(token, params as any);
+      setInvoices(result.items);
+      setTotalCount(result.total);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load invoices');
+      setInvoices([]);
+      setTotalCount(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [token, searchDebounced, statusFilter, boyFilter, dateFilter, sortBy, sortOrder, page, pageSize]);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
+
+  useEffect(() => {
+    if (!token || (user?.role !== 'admin' && user?.role !== 'manager')) return;
+    getUsers(token, { role_code: 'delivery' })
+      .then((users) => {
+        setAvailableAssignees(
+          users.map((u) => ({ id: u.id, name: u.full_name || u.email.split('@')[0] || String(u.id) }))
+        );
+      })
+      .catch(() => setAvailableAssignees([]));
+  }, [token, user?.role]);
 
   const handleCancel = async (id: number) => {
-    const invs = JSON.parse(localStorage.getItem('mock_invoices') || '[]');
-    const inv = invs.find((i: any) => i.id === id);
-    if (inv) { inv.status = 'cancelled'; localStorage.setItem('mock_invoices', JSON.stringify(invs)); }
-    fetchInvoices();
-    setSelectedInvoice(null);
+    if (!token) return;
+    setActionLoading(true);
+    try {
+      await cancelInvoice(token, id);
+      fetchInvoices();
+      setSelectedInvoice(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to cancel');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleAssign = async (id: number) => {
-    if (!assignTarget) return;
-    await mockApi.assignInvoice(id, Number(assignTarget));
-    fetchInvoices();
-    setAssigning(null);
-    setAssignTarget('');
-    if (selectedInvoice?.id === id) setSelectedInvoice(null);
+    if (!token || !assignTarget) return;
+    setActionLoading(true);
+    try {
+      await assignInvoice(token, id, Number(assignTarget));
+      fetchInvoices();
+      setAssigning(null);
+      setAssignTarget('');
+      if (selectedInvoice?.id === id) setSelectedInvoice(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to assign');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
+  const handleDelete = async (id: number) => {
+    if (!token) return;
+    setActionLoading(true);
+    try {
+      await deleteInvoice(token, id);
+      fetchInvoices();
+      setSelectedInvoice(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
-  const filtered = invoices.filter(inv => {
-    const matchSearch = search === '' || inv.invoice_number.toLowerCase().includes(search.toLowerCase()) || inv.hospital_name.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === 'all' || inv.status === statusFilter;
-    const matchBoy = boyFilter === 'all' || String(inv.assigned_to) === boyFilter;
-    return matchSearch && matchStatus && matchBoy;
-  });
+  const handleConfirmPayment = async (inv: ApiInvoice) => {
+    if (!token) return;
+    setActionLoading(true);
+    try {
+      await updateInvoice(token, inv.id, {
+        cash_confirmed: (inv.cash_received ?? 0) > 0,
+        cheque_confirmed: (inv.cheque_received ?? 0) > 0,
+      });
+      fetchInvoices();
+      setSelectedInvoice((prev) => (prev?.id === inv.id ? { ...prev, cash_confirmed: true, cheque_confirmed: true } : prev));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to confirm payment');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const assigneeName = (inv: ApiInvoice) => inv.assignee_name ?? availableAssignees.find((b) => b.id === inv.assigned_to)?.name ?? '—';
+  const filtered = invoices;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const startRow = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endRow = Math.min(page * pageSize, totalCount);
 
   return (
     <div className="space-y-6">
@@ -91,11 +185,19 @@ export default function Invoices() {
           <p className="text-xs text-zinc-500 font-medium">Manage and track all delivery invoices</p>
         </div>
         <div className="flex items-center gap-3 self-start sm:self-auto">
+          <button onClick={() => fetchInvoices()} disabled={loading} className="bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
           <button className="bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors flex items-center gap-2 shadow-sm">
             <Download size={14} />Export
           </button>
         </div>
       </header>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg flex items-center gap-2">
+          <AlertCircle size={16} /> {error}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center">
@@ -114,7 +216,7 @@ export default function Invoices() {
         </select>
         <select value={boyFilter} onChange={e => setBoyFilter(e.target.value)}
           className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none cursor-pointer">
-          <option value="all">All Delivery Boys</option>
+          <option value="all">All Assignees</option>
           {availableAssignees.map(b => <option key={b.id} value={String(b.id)}>{b.name}</option>)}
         </select>
         <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
@@ -133,9 +235,25 @@ export default function Invoices() {
           <table className="w-full text-left">
             <thead className="bg-zinc-50/50 border-b border-zinc-100">
               <tr>
-                {['Invoice / ID', 'Task / Entity', 'Amount', 'Status', 'Signed Copy', 'Assigned To', 'Travel', 'Waiting', 'Date', 'Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                ))}
+                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Invoice / ID</th>
+                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Task / Entity</th>
+                <th
+                  className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600"
+                  onClick={() => { setSortBy('amount'); setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc')); }}
+                >Amount {sortBy === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}</th>
+                <th
+                  className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600"
+                  onClick={() => { setSortBy('status'); setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc')); }}
+                >Status {sortBy === 'status' && (sortOrder === 'asc' ? '↑' : '↓')}</th>
+                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Signed Copy</th>
+                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Assigned To</th>
+                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Travel</th>
+                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Waiting</th>
+                <th
+                  className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600"
+                  onClick={() => { setSortBy('created_at'); setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc')); }}
+                >Date {sortBy === 'created_at' && (sortOrder === 'asc' ? '↑' : '↓')}</th>
+                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
@@ -143,7 +261,6 @@ export default function Invoices() {
                 <tr><td colSpan={9} className="px-4 py-8 text-center text-xs text-zinc-400">Loading invoices...</td></tr>
               ) : filtered.map((invoice, i) => {
                 const dur = fakeDuration(invoice);
-                const boy = MOCK_DELIVERY_BOYS.find(b => b.id === invoice.assigned_to);
                 return (
                   <motion.tr key={invoice.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.01 }}
                     className="hover:bg-zinc-50/50 transition-colors cursor-pointer" onClick={() => setSelectedInvoice(invoice)}>
@@ -170,7 +287,7 @@ export default function Invoices() {
                       </div>
                     </td>
 
-                    <td className="px-4 py-3"><p className="text-xs text-zinc-600">{availableAssignees.find(b => b.id === invoice.assigned_to)?.name || <span className="text-zinc-300">—</span>}</p></td>
+                    <td className="px-4 py-3"><p className="text-xs text-zinc-600">{assigneeName(invoice)}</p></td>
                     <td className="px-4 py-3"><p className="text-xs text-zinc-500">{dur?.travel || '—'}</p></td>
                     <td className="px-4 py-3"><p className="text-xs text-amber-600">{dur?.waiting || '—'}</p></td>
                     <td className="px-4 py-3 text-[10px] font-medium text-zinc-400">{new Date(invoice.created_at).toLocaleDateString()}</td>
@@ -182,12 +299,8 @@ export default function Invoices() {
                         <button className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="Download Invoice">
                           <Download size={14} />
                         </button>
-                        {invoice.status === 'delivered' && user?.role === 'admin' && (
-                          <button onClick={() => {
-                            if (invoice.cash_received > 0) mockApi.markCashConfirmed(invoice.id, 'cash');
-                            if (invoice.cheque_received > 0) mockApi.markCashConfirmed(invoice.id, 'cheque');
-                            fetchInvoices();
-                          }} className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors" title="Confirm Payment">
+                        {invoice.status === 'delivered' && user?.role === 'admin' && ((invoice.cash_received ?? 0) > 0 || (invoice.cheque_received ?? 0) > 0) && (
+                          <button onClick={() => handleConfirmPayment(invoice)} disabled={actionLoading} className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50" title="Confirm Payment">
                             <Banknote size={14} />
                           </button>
                         )}
@@ -197,8 +310,13 @@ export default function Invoices() {
                           </button>
                         )}
                         {(invoice.status === 'pending' || invoice.status === 'assigned') && (
-                          <button onClick={() => handleCancel(invoice.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Cancel">
+                          <button onClick={() => handleCancel(invoice.id)} disabled={actionLoading} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50" title="Cancel">
                             <XCircle size={14} />
+                          </button>
+                        )}
+                        {(user?.role === 'admin' || user?.role === 'manager') && (
+                          <button onClick={() => handleDelete(invoice.id)} disabled={actionLoading} className="p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50" title="Delete">
+                            <Trash2 size={14} />
                           </button>
                         )}
                       </div>
@@ -213,18 +331,16 @@ export default function Invoices() {
         {/* Mobile Cards */}
         <div className="md:hidden divide-y divide-zinc-100">
           {loading ? <div className="p-8 text-center text-zinc-400 text-sm">Loading...</div>
-            : filtered.map((invoice, i) => {
-              const boy = MOCK_DELIVERY_BOYS.find(b => b.id === invoice.assigned_to);
-              return (
+            : filtered.map((invoice, i) => (
                 <motion.div key={invoice.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
                   className="p-4 space-y-2 active:bg-zinc-50" onClick={() => setSelectedInvoice(invoice)}>
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-xs font-bold text-zinc-400">{invoice.invoice_number}</p>
                       <p className="font-bold text-zinc-900">{invoice.hospital_name}</p>
-                      {boy && (
+                      {assigneeName(invoice) !== '—' && (
                         <p className="text-xs text-zinc-500 flex items-center gap-1">
-                          <Users size={12} /> {boy.name}
+                          <Users size={12} /> {assigneeName(invoice)}
                         </p>
                       )}
                     </div>
@@ -242,16 +358,36 @@ export default function Invoices() {
                     <p className="text-[10px] text-zinc-500">{new Date(invoice.created_at).toLocaleDateString()}</p>
                   </div>
                 </motion.div>
-              );
-            })}
+              ))}
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-zinc-500">Showing <span className="font-bold text-zinc-900">{filtered.length}</span> of {invoices.length} invoices</p>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <p className="text-sm text-zinc-500">
+          Showing <span className="font-bold text-zinc-900">{startRow}</span>–<span className="font-bold text-zinc-900">{endRow}</span> of <span className="font-bold text-zinc-900">{totalCount}</span> invoices
+          {totalPages > 1 && (
+            <span className="ml-2 text-zinc-400">(page {page} of {totalPages})</span>
+          )}
+        </p>
         <div className="flex items-center gap-2">
-          <button className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50"><ChevronLeft size={18} className="text-zinc-400" /></button>
-          <button className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50"><ChevronRight size={18} className="text-zinc-400" /></button>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || loading}
+            className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            aria-label="Previous page"
+          >
+            <ChevronLeft size={18} className="text-zinc-600" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages || loading}
+            className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            aria-label="Next page"
+          >
+            <ChevronRight size={18} className="text-zinc-600" />
+          </button>
         </div>
       </div>
 
@@ -265,11 +401,11 @@ export default function Invoices() {
               <h3 className="font-bold text-zinc-900">Assign / Reassign Task</h3>
               <select value={assignTarget} onChange={e => setAssignTarget(e.target.value)}
                 className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20">
-                <option value="">Select Delivery Boy or Manager...</option>
-                {availableAssignees.map(b => <option key={b.id} value={String(b.id)}>{b.name} ({b.role.replace('_', ' ')})</option>)}
+                <option value="">Select assignee...</option>
+                {availableAssignees.map(b => <option key={b.id} value={String(b.id)}>{b.name}</option>)}
               </select>
               <div className="flex gap-3">
-                <button onClick={() => handleAssign(assigning!)} disabled={!assignTarget}
+                <button onClick={() => handleAssign(assigning!)} disabled={!assignTarget || actionLoading}
                   className="flex-1 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-colors disabled:opacity-40">
                   Confirm Assign
                 </button>
@@ -435,7 +571,7 @@ export default function Invoices() {
                             <p className="text-xs font-black text-zinc-900 uppercase">Accepted by Logistics</p>
                             <p className="text-[11px] text-zinc-500 mt-0.5 font-medium">{new Date(selectedInvoice.accepted_at).toLocaleString()}</p>
                             <p className="text-[10px] text-emerald-600 font-bold mt-1 bg-emerald-50 w-fit px-2 py-0.5 rounded-lg border border-emerald-100">
-                              {availableAssignees.find(a => a.id === selectedInvoice.assigned_to)?.name}
+                              {assigneeName(selectedInvoice)}
                             </p>
                           </div>
                         ) : (
@@ -459,29 +595,27 @@ export default function Invoices() {
 
               {/* Footer Actions */}
               <div className="p-8 bg-zinc-50 border-t border-zinc-100 flex flex-wrap gap-4 shrink-0 overflow-x-auto no-scrollbar">
-                {user?.role === 'admin' && selectedInvoice.status === 'delivered' && (
+                {(user?.role === 'admin' || user?.role === 'manager') && selectedInvoice.status === 'delivered' && (
                   <div className="flex gap-3">
-                    {!selectedInvoice.signed_copy_url && (
-                      <button onClick={() => {
-                          const mockUrl = `https://images.unsplash.com/photo-1586282391129-59a998fd6a90?auto=format&fit=crop&q=80&w=400`;
-                          mockApi.deliverInvoice(selectedInvoice.id, { ...selectedInvoice, signed_copy_url: mockUrl });
-                          setSelectedInvoice({ ...selectedInvoice, signed_copy_url: mockUrl });
-                          fetchInvoices();
-                        }}
-                        className="px-6 py-3 bg-zinc-900 text-white rounded-[1.25rem] font-black text-sm hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/10 flex items-center gap-2">
-                        <FileImage size={18} /> Attach Mock Doc
+                    {((selectedInvoice.cash_received ?? 0) > 0 || (selectedInvoice.cheque_received ?? 0) > 0) && (
+                      <button onClick={() => handleConfirmPayment(selectedInvoice)} disabled={actionLoading}
+                        className="px-6 py-3 bg-emerald-500 text-white rounded-[1.25rem] font-black text-sm hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/10 flex items-center gap-2 disabled:opacity-50">
+                        <CheckCircle2 size={18} /> Confirm Payment
                       </button>
                     )}
-                    <button className="px-6 py-3 bg-emerald-500 text-white rounded-[1.25rem] font-black text-sm hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/10 flex items-center gap-2">
-                      <CheckCircle2 size={18} /> Confirm Payment
-                    </button>
+                    {(user?.role === 'admin' || user?.role === 'manager') && (
+                      <button onClick={() => handleDelete(selectedInvoice.id)} disabled={actionLoading}
+                        className="px-6 py-3 bg-red-100 text-red-600 rounded-[1.25rem] font-black text-sm hover:bg-red-200 transition-all flex items-center gap-2 disabled:opacity-50">
+                        <Trash2 size={18} /> Delete
+                      </button>
+                    )}
                   </div>
                 )}
                 
                 <div className="flex-1" />
                 
                 <div className="flex gap-3">
-                  {(selectedInvoice.status === 'pending' || selectedInvoice.status === 'assigned') && user?.role !== 'delivery_boy' && (
+                  {(selectedInvoice.status === 'pending' || selectedInvoice.status === 'assigned') && user?.role !== 'delivery_boy' && (user?.role === 'admin' || user?.role === 'manager') && (
                     <>
                       <button onClick={() => { setAssigning(selectedInvoice.id); setSelectedInvoice(null); }}
                         className="px-6 py-3 bg-blue-100 text-blue-700 rounded-[1.25rem] font-black text-sm hover:bg-blue-200 transition-all flex items-center gap-2">

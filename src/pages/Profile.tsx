@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { changePassword } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ShieldCheck, LogOut, Mail, Lock, RefreshCw,
@@ -23,13 +24,14 @@ function saveGmailState(state: any) {
 }
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const [gmailState, setGmailState] = useState(getGmailState());
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<'success' | 'error' | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
   const [pwMsg, setPwMsg] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
 
   const handleConnect = () => {
     // Mock OAuth — in real app this would open Google OAuth popup
@@ -59,13 +61,35 @@ export default function Profile() {
     setTimeout(() => setSyncResult(null), 3000);
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pwForm.next !== pwForm.confirm) { setPwMsg('Passwords do not match'); return; }
-    if (pwForm.next.length < 6) { setPwMsg('Password must be at least 6 characters'); return; }
-    setPwMsg('Password changed successfully!');
-    setPwForm({ current: '', next: '', confirm: '' });
-    setTimeout(() => { setPwMsg(''); setShowChangePassword(false); }, 2000);
+    if (pwForm.next !== pwForm.confirm) {
+      setPwMsg('Passwords do not match');
+      return;
+    }
+    if (pwForm.next.length < 6) {
+      setPwMsg('Password must be at least 6 characters');
+      return;
+    }
+    if (!token) {
+      setPwMsg('You must be logged in to change password.');
+      return;
+    }
+    setPwMsg('');
+    setPwLoading(true);
+    try {
+      await changePassword(token, pwForm.current, pwForm.next);
+      setPwMsg('Password changed successfully!');
+      setPwForm({ current: '', next: '', confirm: '' });
+      setTimeout(() => {
+        setPwMsg('');
+        setShowChangePassword(false);
+      }, 2000);
+    } catch (err) {
+      setPwMsg(err instanceof Error ? err.message : 'Change password failed');
+    } finally {
+      setPwLoading(false);
+    }
   };
 
   return (
@@ -150,8 +174,12 @@ export default function Profile() {
                       {pwMsg && (
                         <p className={`text-xs font-medium ${pwMsg.includes('success') ? 'text-emerald-600' : 'text-red-600'}`}>{pwMsg}</p>
                       )}
-                      <button type="submit" className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-colors">
-                        Update Password
+                      <button
+                        type="submit"
+                        disabled={pwLoading}
+                        className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-colors disabled:opacity-60"
+                      >
+                        {pwLoading ? 'Updating...' : 'Update Password'}
                       </button>
                     </motion.form>
                   )}
