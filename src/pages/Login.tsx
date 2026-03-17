@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogIn, AlertCircle, Mail, ArrowLeft, CheckCircle2, Eye, EyeOff, X } from 'lucide-react';
-import { login as apiLogin, mapBackendRoleToFrontend } from '../lib/api';
+import { login as apiLogin, mapBackendRoleToFrontend, normalizeFetchError } from '../lib/api';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -28,7 +28,7 @@ export default function Login() {
         role,
       });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(normalizeFetchError(err, 'Login failed'));
     } finally {
       setLoading(false);
     }

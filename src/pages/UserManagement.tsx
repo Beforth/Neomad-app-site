@@ -5,7 +5,7 @@ import {
   XCircle, Search, Key, X, Save, Eye, EyeOff, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { getUsers, getRoles, createUser, updateUser, mapBackendRoleToFrontend } from '../lib/api';
+import { getUsers, getRoles, createUser, updateUser, mapBackendRoleToFrontend, normalizeFetchError } from '../lib/api';
 
 const ROLE_COLORS: Record<string, string> = {
   super_admin: 'bg-rose-50 text-rose-700',
@@ -89,6 +89,8 @@ export default function UserManagement() {
   const [newPw, setNewPw] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [roles, setRoles] = useState<{ id: number; name: string; code: string }[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [rolesError, setRolesError] = useState<string | null>(null);
   const [newUser, setNewUser] = useState({ username: '', email: '', phone: '', password: '', role: 'staff' });
   const [toast, setToast] = useState('');
   const [addLoading, setAddLoading] = useState(false);
@@ -100,6 +102,7 @@ export default function UserManagement() {
       setLoading(false);
       setUsers([]);
       setRoles([]);
+      setRolesError(null);
       return;
     }
     fetchUsers();
@@ -108,12 +111,17 @@ export default function UserManagement() {
 
   const fetchRoles = async () => {
     if (!token) return;
+    setRolesLoading(true);
+    setRolesError(null);
     try {
       const data = await getRoles(token);
       setRoles(data);
       setNewUser((prev) => ({ ...prev, role: prev.role || data.find((r) => r.code !== 'user')?.code || 'staff' }));
-    } catch {
+    } catch (e) {
       setRoles([]);
+      setRolesError(normalizeFetchError(e, 'Failed to load roles'));
+    } finally {
+      setRolesLoading(false);
     }
   };
 
@@ -125,7 +133,7 @@ export default function UserManagement() {
       const data = await getUsers(token);
       setUsers(data.map(toTableUser));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load users');
+      setError(normalizeFetchError(e, 'Failed to load users'));
       setUsers([]);
     } finally {
       setLoading(false);
@@ -232,8 +240,14 @@ export default function UserManagement() {
         </button>
       </div>
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg">
-          {error}
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg space-y-1">
+          <p className="font-medium">{error}</p>
+          {error.includes('Admin access') && (
+            <p className="text-xs text-red-600/90">
+              Your account may not have the Admin role assigned. An existing admin can run the backend script{' '}
+              <code className="bg-red-100 px-1 rounded">python -m scripts.create_super_admin</code> with your email to grant admin access.
+            </p>
+          )}
         </div>
       )}
 
@@ -359,15 +373,26 @@ export default function UserManagement() {
             <Field label="Role">
               <select
                 value={newUser.role}
-                onChange={(e) => setNewUser((prev) => ({ ...prev, role: e.target.value as 'admin' | 'user' }))}
+                onChange={(e) => setNewUser((prev) => ({ ...prev, role: e.target.value }))}
                 className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
                 required
+                disabled={rolesLoading}
               >
-                {roles.length === 0 && <option value="">Loading roles...</option>}
-                {roles.filter((r) => r.code !== 'user').map((r) => (
+                {rolesLoading && <option value="">Loading roles...</option>}
+                {!rolesLoading && rolesError && <option value="">Failed to load roles</option>}
+                {!rolesLoading && !rolesError && roles.length === 0 && <option value="">No roles</option>}
+                {!rolesLoading && roles.filter((r) => r.code !== 'user').map((r) => (
                   <option key={r.id} value={r.code}>{r.name}</option>
                 ))}
               </select>
+              {rolesError && (
+                <p className="mt-1 text-xs text-red-600 flex items-center gap-2">
+                  {rolesError}
+                  <button type="button" onClick={fetchRoles} className="text-emerald-600 font-medium hover:underline">
+                    Retry
+                  </button>
+                </p>
+              )}
             </Field>
             <button
               type="submit"
@@ -392,14 +417,24 @@ export default function UserManagement() {
                 value={editingUser.role_code ?? editingUser.role ?? ''}
                 onChange={(e) => setEditingUser((prev: any) => ({ ...prev, role_code: e.target.value }))}
                 className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                disabled={rolesLoading}
               >
-                {roles.length === 0 && <option value="">Loading roles...</option>}
-                {roles.map((r) => (
+                {rolesLoading && <option value="">Loading roles...</option>}
+                {!rolesLoading && rolesError && <option value="">Failed to load roles</option>}
+                {!rolesLoading && roles.map((r) => (
                   <option key={r.id} value={r.code}>{r.name}</option>
                 ))}
               </select>
+              {rolesError && (
+                <p className="mt-1 text-xs text-red-600 flex items-center gap-2">
+                  {rolesError}
+                  <button type="button" onClick={fetchRoles} className="text-emerald-600 font-medium hover:underline">
+                    Retry
+                  </button>
+                </p>
+              )}
             </Field>
-            <button type="submit" disabled={editLoading || roles.length === 0} className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+            <button type="submit" disabled={editLoading || (roles.length === 0 && !rolesError)} className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
               <Save size={16} /> {editLoading ? 'Saving...' : 'Save Changes'}
             </button>
           </form>

@@ -59,6 +59,16 @@ function getApiError(err: { detail?: string | { msg?: string }[] }, fallback: st
   return fallback;
 }
 
+/** Turn browser "Failed to fetch" / network errors into a clearer message. Use in catch blocks. */
+export function normalizeFetchError(e: unknown, context: string): string {
+  const msg = e instanceof Error ? e.message : '';
+  const base = getBaseUrl();
+  if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed')) {
+    return `Cannot reach the API at ${base}. Is the backend running? Check VITE_API_BASE_URL in .env (e.g. http://localhost:8080).`;
+  }
+  return e instanceof Error ? e.message : context;
+}
+
 /** List roles. Requires admin token. Use for role dropdown in user management. */
 export async function getRoles(token: string): Promise<ApiRole[]> {
   const base = getBaseUrl();
@@ -138,6 +148,137 @@ export async function updateUser(
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to update user'));
   }
   return res.json();
+}
+
+export interface ApiTask {
+  id: number;
+  task_number: string;
+  title: string;
+  description?: string | null;
+  status: string;
+  created_at: string;
+  updated_at?: string | null;
+  assigned_to?: number | null;
+  assignee_name?: string | null;
+}
+
+export interface TaskListParams {
+  search?: string;
+  status?: string;
+  assigned_to?: number;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+  page?: number;
+  page_size?: number;
+}
+
+export interface TaskListResult {
+  items: ApiTask[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+/** List tasks with pagination. */
+export async function getTasks(
+  token: string,
+  params?: TaskListParams
+): Promise<TaskListResult> {
+  const base = getBaseUrl();
+  const sp = new URLSearchParams();
+  if (params?.search) sp.set('search', params.search);
+  if (params?.status) sp.set('status', params.status);
+  if (params?.assigned_to != null) sp.set('assigned_to', String(params.assigned_to));
+  if (params?.sort_by) sp.set('sort_by', params.sort_by);
+  if (params?.sort_order) sp.set('sort_order', params.sort_order);
+  if (params?.page != null) sp.set('page', String(params.page));
+  if (params?.page_size != null) sp.set('page_size', String(params.page_size));
+  const qs = sp.toString();
+  const url = `${base}/tasks${qs ? `?${qs}` : ''}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load tasks'));
+  }
+  return res.json();
+}
+
+/** Get one task. */
+export async function getTask(token: string, taskId: number): Promise<ApiTask> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/tasks/${taskId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load task'));
+  }
+  return res.json();
+}
+
+/** Create task. Admin or manager. */
+export async function createTask(
+  token: string,
+  data: { title: string; description?: string | null; assigned_to?: number | null }
+): Promise<ApiTask> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/tasks`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      title: data.title,
+      description: data.description ?? null,
+      assigned_to: data.assigned_to ?? null,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to create task'));
+  }
+  return res.json();
+}
+
+/** Update task. */
+export async function updateTask(
+  token: string,
+  taskId: number,
+  data: { title?: string; description?: string | null; status?: string; assigned_to?: number | null }
+): Promise<ApiTask> {
+  const base = getBaseUrl();
+  const body: Record<string, unknown> = {};
+  if (data.title !== undefined) body.title = data.title;
+  if (data.description !== undefined) body.description = data.description;
+  if (data.status !== undefined) body.status = data.status;
+  if (data.assigned_to !== undefined) body.assigned_to = data.assigned_to;
+  const res = await fetch(`${base}/tasks/${taskId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to update task'));
+  }
+  return res.json();
+}
+
+/** Delete task. Admin or manager. */
+export async function deleteTask(token: string, taskId: number): Promise<void> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/tasks/${taskId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to delete task'));
+  }
 }
 
 export interface ApiInvoice {

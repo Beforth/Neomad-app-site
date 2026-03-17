@@ -4,10 +4,10 @@ import {
     Search, Eye, XCircle, ChevronLeft, ChevronRight,
     Plus, ClipboardCheck, Building, Hash, Banknote,
     UserPlus, Package, Filter, LayoutGrid, Clock, List, FileText,
-    MapPin, Download
+    MapPin, Download, Pencil, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { mockApi } from '../lib/mockApi';
+import * as api from '../lib/api';
 
 const STATUS_COLORS: Record<string, string> = {
     pending: 'bg-amber-100 text-amber-700',
@@ -16,16 +16,28 @@ const STATUS_COLORS: Record<string, string> = {
     cancelled: 'bg-red-100 text-red-700',
 };
 
+/** Assignee display name (API users: full_name/email; fallback username). */
+function assigneeName(assignees: any[], assignedToId: number | undefined): string {
+    const a = assignees.find(x => x.id === assignedToId);
+    return (a?.full_name ?? a?.email ?? a?.name ?? a?.username ?? '') || 'Unassigned';
+}
+
+/** First letter for avatar (safe). */
+function assigneeInitial(assignees: any[], assignedToId: number | undefined): string {
+    const name = assigneeName(assignees, assignedToId);
+    return name !== 'Unassigned' ? (name[0]?.toUpperCase() ?? '?') : '?';
+}
+
 export default function Tasks() {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const [tasks, setTasks] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
     const [selectedTask, setSelectedTask] = useState<any>(null);
 
-    // Create task state
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [createData, setCreateData] = useState({
         task_name: '',
@@ -34,47 +46,130 @@ export default function Tasks() {
     });
     const [creating, setCreating] = useState(false);
     const [availableAssignees, setAvailableAssignees] = useState<any[]>([]);
+    const [updatingAssignee, setUpdatingAssignee] = useState(false);
+
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [taskToEdit, setTaskToEdit] = useState<any>(null);
+    const [editData, setEditData] = useState({ title: '', description: '', status: 'pending', assigned_to: '' });
+    const [savingEdit, setSavingEdit] = useState(false);
+
+    const [taskToDelete, setTaskToDelete] = useState<any>(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
-        mockApi.getUsers().then(users => {
-            const filtered = users.filter((u: any) => u.role === 'delivery_boy' || u.role === 'manager');
-            setAvailableAssignees(filtered);
-        });
-    }, []);
+        if (!token) return;
+        api.getUsers(token, { role_code: 'delivery' })
+            .then(users => setAvailableAssignees(users))
+            .catch(() => { /* assignees optional */ });
+    }, [token]);
 
     const fetchTasks = () => {
+        if (!token) return;
         setLoading(true);
-        mockApi.getInvoices(user).then(data => {
-            // For the Tasks page, we treat all invoices as tasks
-            // We filter to only show items that look like tasks (started with TASK-)
-            const taskOnly = data.filter((inv: any) => inv.invoice_number.startsWith('TASK-'));
-            setTasks(taskOnly);
-            setLoading(false);
-        });
+        setError(null);
+        api.getTasks(token, { page_size: 100 })
+            .then(res => {
+                setError(null);
+                setTasks(res.items);
+            })
+            .catch(e => setError(api.normalizeFetchError(e, 'Failed to load tasks')))
+            .finally(() => setLoading(false));
     };
 
-    useEffect(() => { fetchTasks(); }, [user]);
+    useEffect(() => { fetchTasks(); }, [token]);
 
     const handleCreateTask = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!token) return;
         setCreating(true);
+        setError(null);
         try {
-            await mockApi.createTask({
-                task_name: createData.task_name,
+            await api.createTask(token, {
+                title: createData.task_name.trim() || 'New Task',
+                description: createData.description.trim() || undefined,
                 assigned_to: createData.assigned_to ? Number(createData.assigned_to) : undefined,
-                description: createData.description,
             });
             setShowCreateModal(false);
             setCreateData({ task_name: '', assigned_to: '', description: '' });
             fetchTasks();
+        } catch (e) {
+            setError(api.normalizeFetchError(e, 'Failed to create task'));
         } finally {
             setCreating(false);
         }
     };
 
+    const openEditModal = (task: any) => {
+        setTaskToEdit(task);
+        setEditData({
+            title: task.title || '',
+            description: task.description || '',
+            status: task.status || 'pending',
+            assigned_to: task.assigned_to != null ? String(task.assigned_to) : '',
+        });
+        setShowEditModal(true);
+    };
+
+    const handleEditTask = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!token || !taskToEdit) return;
+        setSavingEdit(true);
+        setError(null);
+        try {
+            const updated = await api.updateTask(token, taskToEdit.id, {
+                title: editData.title.trim() || taskToEdit.title,
+                description: editData.description.trim() || undefined,
+                status: editData.status,
+                assigned_to: editData.assigned_to === '' ? null : Number(editData.assigned_to),
+            });
+            setTasks(prev => prev.map(t => t.id === taskToEdit.id ? { ...t, ...updated } : t));
+            if (selectedTask?.id === taskToEdit.id) setSelectedTask(prev => prev ? { ...prev, ...updated } : null);
+            setShowEditModal(false);
+            setTaskToEdit(null);
+        } catch (e) {
+            setError(api.normalizeFetchError(e, 'Failed to update task'));
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
+    const handleDeleteTask = async () => {
+        if (!token || !taskToDelete) return;
+        setDeleting(true);
+        setError(null);
+        try {
+            await api.deleteTask(token, taskToDelete.id);
+            setTasks(prev => prev.filter(t => t.id !== taskToDelete.id));
+            if (selectedTask?.id === taskToDelete.id) setSelectedTask(null);
+            setShowEditModal(false);
+            setTaskToEdit(null);
+            setTaskToDelete(null);
+        } catch (e) {
+            setError(api.normalizeFetchError(e, 'Failed to delete task'));
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    const handleAssigneeChange = async (taskId: number, assignedTo: string) => {
+        if (!token) return;
+        setUpdatingAssignee(true);
+        setError(null);
+        try {
+            const value = assignedTo === '' ? null : Number(assignedTo);
+            const updated = await api.updateTask(token, taskId, { assigned_to: value });
+            setSelectedTask(prev => prev && prev.id === taskId ? { ...prev, assigned_to: updated.assigned_to, assignee_name: updated.assignee_name } : prev);
+            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assigned_to: updated.assigned_to, assignee_name: updated.assignee_name } : t));
+        } catch (e) {
+            setError(api.normalizeFetchError(e, 'Failed to update assignee'));
+        } finally {
+            setUpdatingAssignee(false);
+        }
+    };
+
     const filtered = tasks.filter(task => {
         const matchSearch = search === '' ||
-            task.hospital_name.toLowerCase().includes(search.toLowerCase());
+            task.title.toLowerCase().includes(search.toLowerCase());
         const matchStatus = statusFilter === 'all' || task.status === statusFilter;
         return matchSearch && matchStatus;
     });
@@ -100,6 +195,13 @@ export default function Tasks() {
                     </button>
                 </div>
             </header>
+
+            {error && (
+                <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm flex items-center justify-between gap-3">
+                    <span>{error}</span>
+                    <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700 font-bold">Dismiss</button>
+                </div>
+            )}
 
             {/* Filters */}
             <div className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center">
@@ -144,8 +246,8 @@ export default function Tasks() {
                             className="bg-white p-5 rounded-2xl border border-zinc-100 shadow-sm hover:shadow-md transition-all group">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <h3 className="font-bold text-zinc-900 group-hover:text-emerald-600 transition-colors uppercase text-lg">{task.hospital_name}</h3>
-                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">{task.invoice_number}</p>
+                                    <h3 className="font-bold text-zinc-900 group-hover:text-emerald-600 transition-colors uppercase text-lg">{task.title}</h3>
+                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">{task.task_number}</p>
                                 </div>
                                 <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize ${STATUS_COLORS[task.status]}`}>
                                     {task.status}
@@ -156,7 +258,7 @@ export default function Tasks() {
                                 <div className="flex items-center justify-between text-xs">
                                     <span className="text-zinc-500">Assigned To</span>
                                     <span className="font-medium text-zinc-700">
-                                        {availableAssignees.find(a => a.id === task.assigned_to)?.name || <span className="text-zinc-300 italic">Unassigned</span>}
+                                        {assigneeName(availableAssignees, task.assigned_to) === 'Unassigned' ? <span className="text-zinc-300 italic">Unassigned</span> : assigneeName(availableAssignees, task.assigned_to)}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between text-xs pt-3 border-t border-zinc-50">
@@ -164,7 +266,11 @@ export default function Tasks() {
                                         <Clock size={12} />
                                         <span>{new Date(task.created_at).toLocaleDateString()}</span>
                                     </div>
-                                    <button onClick={() => setSelectedTask(task)} className="text-emerald-500 font-bold hover:underline">View Details</button>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => setSelectedTask(task)} className="text-emerald-500 font-bold hover:underline">View</button>
+                                        <button onClick={() => openEditModal(task)} className="text-amber-600 font-bold hover:underline">Edit</button>
+                                        <button onClick={() => setTaskToDelete(task)} className="text-red-500 font-bold hover:underline">Delete</button>
+                                    </div>
                                 </div>
                             </div>
                         </motion.div>
@@ -184,9 +290,9 @@ export default function Tasks() {
                             {filtered.map((task, i) => (
                                 <motion.tr key={task.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.01 }}
                                     className="hover:bg-zinc-50/50 transition-colors cursor-pointer" onClick={() => setSelectedTask(task)}>
-                                    <td className="px-4 py-3 text-xs font-bold text-zinc-400">{task.invoice_number}</td>
+                                    <td className="px-4 py-3 text-xs font-bold text-zinc-400">{task.task_number}</td>
                                     <td className="px-4 py-3">
-                                        <p className="text-xs font-bold text-zinc-900">{task.hospital_name}</p>
+                                        <p className="text-xs font-bold text-zinc-900">{task.title}</p>
                                         {task.description && <p className="text-[10px] text-zinc-400 line-clamp-1">{task.description}</p>}
                                     </td>
                                     <td className="px-4 py-3">
@@ -195,13 +301,15 @@ export default function Tasks() {
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-xs text-zinc-600">
-                                        {availableAssignees.find(a => a.id === task.assigned_to)?.name || <span className="text-zinc-300 italic">Unassigned</span>}
+                                        {assigneeName(availableAssignees, task.assigned_to) === 'Unassigned' ? <span className="text-zinc-300 italic">Unassigned</span> : assigneeName(availableAssignees, task.assigned_to)}
                                     </td>
                                     <td className="px-4 py-3 text-[10px] text-zinc-400">{new Date(task.created_at).toLocaleDateString()}</td>
                                     <td className="px-4 py-3">
-                                        <button onClick={(e) => { e.stopPropagation(); setSelectedTask(task); }} className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors">
-                                            <Eye size={14} />
-                                        </button>
+                                        <div className="flex items-center gap-1">
+                                            <button onClick={(e) => { e.stopPropagation(); setSelectedTask(task); }} className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors" title="View"> <Eye size={14} /> </button>
+                                            <button onClick={(e) => { e.stopPropagation(); openEditModal(task); }} className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit"> <Pencil size={14} /> </button>
+                                            <button onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete"> <Trash2 size={14} /> </button>
+                                        </div>
                                     </td>
                                 </motion.tr>
                             ))}
@@ -256,7 +364,7 @@ export default function Tasks() {
                                             className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer">
                                             <option value="">Keep Pending (Unassigned)</option>
                                             {availableAssignees.map(u => (
-                                                <option key={u.id} value={u.id}>{u.name} ({u.role.replace('_', ' ')})</option>
+                                                <option key={u.id} value={u.id}>{u.full_name ?? u.email} ({u.role_codes?.[0] ?? 'delivery'})</option>
                                             ))}
                                         </select>
                                     </div>
@@ -293,13 +401,21 @@ export default function Tasks() {
                                         <ClipboardCheck size={20} className="text-zinc-400" />
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-bold text-zinc-900 leading-tight">{selectedTask.hospital_name}</h3>
-                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">{selectedTask.invoice_number}</p>
+                                        <h3 className="text-lg font-bold text-zinc-900 leading-tight">{selectedTask.title}</h3>
+                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">{selectedTask.task_number}</p>
                                     </div>
                                 </div>
-                                <button onClick={() => setSelectedTask(null)} className="p-2 hover:bg-zinc-50 rounded-xl transition-colors text-zinc-400">
-                                    <XCircle size={22} />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                    <button onClick={() => openEditModal(selectedTask)} className="p-2 hover:bg-zinc-100 rounded-xl transition-colors text-zinc-500 hover:text-emerald-600" title="Edit task">
+                                        <Pencil size={18} />
+                                    </button>
+                                    <button onClick={() => setTaskToDelete(selectedTask)} className="p-2 hover:bg-zinc-100 rounded-xl transition-colors text-zinc-500 hover:text-red-600" title="Delete task">
+                                        <Trash2 size={18} />
+                                    </button>
+                                    <button onClick={() => setSelectedTask(null)} className="p-2 hover:bg-zinc-50 rounded-xl transition-colors text-zinc-400">
+                                        <XCircle size={22} />
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -338,16 +454,24 @@ export default function Tasks() {
 
                                         <div className="bg-white border border-zinc-100 rounded-2xl overflow-hidden shadow-sm">
                                             <div className="p-4 border-b border-zinc-50 bg-zinc-50/30">
-                                                <p className="text-[10px] font-bold text-zinc-400 uppercase mb-3">Current fulfillment</p>
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500 border border-zinc-200">
-                                                        {availableAssignees.find(a => a.id === selectedTask.assigned_to)?.name[0] || '?'}
+                                                <p className="text-[10px] font-bold text-zinc-400 uppercase mb-3">Assigned to</p>
+                                                <div className="flex items-center gap-3 flex-wrap">
+                                                    <div className="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500 border border-zinc-200 shrink-0">
+                                                        {assigneeInitial(availableAssignees, selectedTask.assigned_to)}
                                                     </div>
-                                                    <div>
-                                                        <p className="text-sm font-bold text-zinc-800">
-                                                            {availableAssignees.find(a => a.id === selectedTask.assigned_to)?.name || 'Unassigned'}
-                                                        </p>
-                                                        <p className="text-[10px] text-zinc-400 font-medium tracking-wide">Primary Delivery Boy</p>
+                                                    <div className="flex-1 min-w-[180px]">
+                                                        <select
+                                                            value={selectedTask.assigned_to ?? ''}
+                                                            onChange={e => handleAssigneeChange(selectedTask.id, e.target.value)}
+                                                            disabled={updatingAssignee}
+                                                            className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:opacity-50"
+                                                        >
+                                                            <option value="">Unassigned</option>
+                                                            {availableAssignees.map(u => (
+                                                                <option key={u.id} value={u.id}>{u.full_name ?? u.email}</option>
+                                                            ))}
+                                                        </select>
+                                                        {updatingAssignee && <p className="text-[10px] text-zinc-400 mt-1">Updating…</p>}
                                                     </div>
                                                 </div>
                                             </div>
@@ -358,7 +482,7 @@ export default function Tasks() {
                                                 </div>
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-[11px] text-zinc-400 font-bold flex items-center gap-1.5"><Hash size={12} /> Reference</span>
-                                                    <span className="text-xs font-bold text-zinc-700">{selectedTask.invoice_number}</span>
+                                                    <span className="text-xs font-bold text-zinc-700">{selectedTask.task_number}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -371,8 +495,94 @@ export default function Tasks() {
                                     className="flex-1 px-5 py-2.5 bg-white border border-zinc-200 text-zinc-600 rounded-xl font-bold text-sm hover:bg-zinc-50 transition-colors">
                                     Dismiss
                                 </button>
-                                <button className="flex-1 px-5 py-2.5 bg-zinc-900 text-white rounded-xl font-bold text-sm hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2">
-                                    <Download size={16} /> Export
+                                <button onClick={() => selectedTask && openEditModal(selectedTask)}
+                                    className="flex-1 px-5 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-xl font-bold text-sm hover:bg-zinc-50 transition-colors flex items-center justify-center gap-2">
+                                    <Pencil size={16} /> Edit
+                                </button>
+                                <button onClick={() => selectedTask && setTaskToDelete(selectedTask)}
+                                    className="flex-1 px-5 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors flex items-center justify-center gap-2">
+                                    <Trash2 size={16} /> Delete
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Edit Task Modal */}
+            <AnimatePresence>
+                {showEditModal && taskToEdit && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+                        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-white rounded-2xl shadow-xl w-full max-w-md border border-zinc-100 overflow-hidden">
+                            <div className="p-5 border-b border-zinc-100">
+                                <h3 className="text-lg font-bold text-zinc-900">Edit Task</h3>
+                                <p className="text-xs text-zinc-500 mt-0.5">{taskToEdit.task_number}</p>
+                            </div>
+                            <form onSubmit={handleEditTask} className="p-5 space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">Title</label>
+                                    <input type="text" value={editData.title} onChange={e => setEditData(d => ({ ...d, title: e.target.value }))}
+                                        className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                                        placeholder="Task title" required />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">Description</label>
+                                    <textarea value={editData.description} onChange={e => setEditData(d => ({ ...d, description: e.target.value }))}
+                                        rows={3} className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
+                                        placeholder="Optional description" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">Status</label>
+                                    <select value={editData.status} onChange={e => setEditData(d => ({ ...d, status: e.target.value }))}
+                                        className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer">
+                                        <option value="pending">Pending</option>
+                                        <option value="assigned">Assigned</option>
+                                        <option value="delivered">Delivered</option>
+                                        <option value="cancelled">Cancelled</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">Assigned to</label>
+                                    <select value={editData.assigned_to} onChange={e => setEditData(d => ({ ...d, assigned_to: e.target.value }))}
+                                        className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer">
+                                        <option value="">Unassigned</option>
+                                        {availableAssignees.map(u => (
+                                            <option key={u.id} value={u.id}>{u.full_name ?? u.email}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex gap-3 pt-2">
+                                    <button type="button" onClick={() => { setShowEditModal(false); setTaskToEdit(null); }}
+                                        className="flex-1 py-2.5 border border-zinc-200 rounded-xl font-bold text-sm text-zinc-600 hover:bg-zinc-50">Cancel</button>
+                                    <button type="submit" disabled={savingEdit}
+                                        className="flex-1 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center gap-2">
+                                        {savingEdit ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null} Save
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Delete confirmation */}
+            <AnimatePresence>
+                {taskToDelete && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
+                        <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+                            className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 border border-zinc-100">
+                            <p className="font-bold text-zinc-900">Delete this task?</p>
+                            <p className="text-sm text-zinc-500 mt-1">{taskToDelete.title} ({taskToDelete.task_number})</p>
+                            <div className="flex gap-3 mt-5">
+                                <button onClick={() => setTaskToDelete(null)}
+                                    className="flex-1 py-2.5 border border-zinc-200 rounded-xl font-bold text-sm text-zinc-600 hover:bg-zinc-50">Cancel</button>
+                                <button onClick={() => handleDeleteTask()}
+                                    disabled={deleting}
+                                    className="flex-1 py-2.5 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-2">
+                                    {deleting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 size={16} />} Delete
                                 </button>
                             </div>
                         </motion.div>
