@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, UserCircle, Bell, Users } from 'lucide-react';
+import { LayoutDashboard, Package, UserCircle, FileText, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function BottomNav() {
@@ -12,7 +12,7 @@ export default function BottomNav() {
     const tabs = [
         { label: 'Home', icon: LayoutDashboard, path: '/', roles: ['admin', 'manager', 'delivery_boy', 'staff'] },
         { label: 'Tasks', icon: Package, path: '/tasks', roles: ['admin', 'manager'] },
-        { label: 'Notifs', icon: Bell, path: '/notifications', roles: ['admin', 'manager', 'delivery_boy', 'staff'] },
+        { label: 'Invoices', icon: FileText, path: '/invoices', roles: ['admin', 'manager', 'delivery_boy', 'staff'] },
         { label: 'Users', icon: Users, path: '/users', roles: ['admin'] },
         { label: 'Profile', icon: UserCircle, path: '/profile', roles: ['admin', 'manager', 'delivery_boy', 'staff'] },
     ];

@@ -30,6 +30,7 @@ export default function Notifications() {
   const [priority, setPriority] = useState('normal');
   const [toast, setToast] = useState('');
   const [filterTarget, setFilterTarget] = useState('all');
+  const [notificationToDelete, setNotificationToDelete] = useState<number | null>(null);
 
   const load = () => setNotifications(mockApi.getNotifications());
 
@@ -65,6 +66,7 @@ export default function Notifications() {
     const list = mockApi.getNotifications().filter((n: any) => n.id !== id);
     localStorage.setItem('mock_notifications', JSON.stringify(list));
     load();
+    setNotificationToDelete(null);
     showToast('Notification deleted');
   };
 
@@ -99,8 +101,8 @@ export default function Notifications() {
           <p className="text-xs text-zinc-500 font-medium">Broadcast messages to your team</p>
         </div>
         <button onClick={() => setShowCompose(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-xl text-sm font-bold hover:bg-zinc-800 transition-colors shadow-sm">
-          <Plus size={16} />Create Notification
+          className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+          <Plus size={14} />Create Notification
         </button>
       </div>
 
@@ -186,6 +188,30 @@ export default function Notifications() {
         )}
       </AnimatePresence>
 
+      {/* Delete confirmation */}
+      <AnimatePresence>
+        {notificationToDelete !== null && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 border border-zinc-100">
+              <p className="font-bold text-zinc-900">Are you sure?</p>
+              <p className="text-sm text-zinc-500 mt-1">This notification will be deleted permanently.</p>
+              <div className="flex gap-3 mt-5">
+                <button onClick={() => setNotificationToDelete(null)}
+                  className="flex-1 py-2.5 border border-zinc-200 rounded-xl font-bold text-sm text-zinc-600 hover:bg-zinc-50 transition-colors">
+                  Cancel
+                </button>
+                <button onClick={() => handleDelete(notificationToDelete)}
+                  className="flex-1 py-2.5 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 transition-colors flex items-center justify-center gap-2">
+                  <Trash2 size={16} /> Yes
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Filter tabs */}
       <div className="flex gap-1 bg-zinc-100 p-1 rounded-xl w-fit flex-wrap">
         {[{ id: 'all', label: 'All' }, { id: 'system', label: 'System', icon: Bot }, ...TARGET_OPTIONS.slice(1)].map(t => (
@@ -229,7 +255,7 @@ export default function Notifications() {
                     <p className="text-xs text-zinc-500 leading-relaxed">{n.message}</p>
                   </div>
                 </div>
-                <button onClick={() => handleDelete(n.id)}
+                <button onClick={() => setNotificationToDelete(n.id)}
                   className="shrink-0 p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
                   <Trash2 size={14} />
                 </button>

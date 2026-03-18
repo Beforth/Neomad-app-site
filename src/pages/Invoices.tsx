@@ -50,6 +50,7 @@ export default function Invoices() {
   const [actionLoading, setActionLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
   const [availableAssignees, setAvailableAssignees] = useState<{ id: number; name: string }[]>([]);
+  const [confirmPaymentInvoice, setConfirmPaymentInvoice] = useState<ApiInvoice | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300);
@@ -157,6 +158,7 @@ export default function Invoices() {
   const handleConfirmPayment = async (inv: ApiInvoice) => {
     if (!token) return;
     setActionLoading(true);
+    setConfirmPaymentInvoice(null);
     try {
       await updateInvoice(token, inv.id, {
         cash_confirmed: (inv.cash_received ?? 0) > 0,
@@ -169,6 +171,17 @@ export default function Invoices() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  /** Build installments list from invoice (cash + cheque, non-zero). */
+  const getInstallments = (inv: ApiInvoice) => {
+    const items: { label: string; amount: number }[] = [];
+    const cash = inv.cash_received ?? 0;
+    const cheque = inv.cheque_received ?? 0;
+    if (cash > 0) items.push({ label: 'Cash', amount: cash });
+    if (cheque > 0) items.push({ label: 'Cheque', amount: cheque });
+    if (items.length === 0) items.push({ label: 'Total', amount: inv.amount });
+    return items;
   };
 
   const assigneeName = (inv: ApiInvoice) => inv.assignee_name ?? availableAssignees.find((b) => b.id === inv.assigned_to)?.name ?? '—';
@@ -300,7 +313,7 @@ export default function Invoices() {
                           <Download size={14} />
                         </button>
                         {invoice.status === 'delivered' && user?.role === 'admin' && ((invoice.cash_received ?? 0) > 0 || (invoice.cheque_received ?? 0) > 0) && (
-                          <button onClick={() => handleConfirmPayment(invoice)} disabled={actionLoading} className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50" title="Confirm Payment">
+                          <button onClick={() => setConfirmPaymentInvoice(invoice)} disabled={actionLoading} className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50" title="Confirm Payment">
                             <Banknote size={14} />
                           </button>
                         )}
@@ -422,18 +435,33 @@ export default function Invoices() {
       {/* Invoice Detail Modal */}
       <AnimatePresence>
         {selectedInvoice && (
-          <div className="fixed inset-0 bg-zinc-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl overflow-hidden max-h-[92vh] border border-zinc-100 flex flex-col">
-              
+          <div
+            className="fixed inset-0 bg-zinc-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
+            onClick={() => setSelectedInvoice(null)}
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl overflow-hidden max-h-[92vh] border border-zinc-100 flex flex-col"
+            >
+              {/* Close button - outside header so it's never blocked */}
+              <div className="absolute top-4 right-4 z-[100]">
+                <button
+                  type="button"
+                  onClick={() => setSelectedInvoice(null)}
+                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-2xl transition-all text-white touch-manipulation cursor-pointer"
+                  aria-label="Close"
+                >
+                  <XCircle size={28} />
+                </button>
+              </div>
+
               {/* Premium Header */}
               <div className="relative p-8 bg-zinc-900 text-white overflow-hidden shrink-0">
-                <div className="absolute top-0 right-0 p-6 z-10">
-                  <button onClick={() => setSelectedInvoice(null)} className="p-2 hover:bg-white/10 rounded-2xl transition-all text-white/40 hover:text-white">
-                    <XCircle size={28} />
-                  </button>
-                </div>
-                
                 <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
@@ -465,7 +493,7 @@ export default function Invoices() {
                     </p>
                   </div>
                 </div>
-                <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px]" />
+                <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
               </div>
 
               <div className="flex-1 overflow-y-auto p-8">
@@ -598,7 +626,7 @@ export default function Invoices() {
                 {(user?.role === 'admin' || user?.role === 'manager') && selectedInvoice.status === 'delivered' && (
                   <div className="flex gap-3">
                     {((selectedInvoice.cash_received ?? 0) > 0 || (selectedInvoice.cheque_received ?? 0) > 0) && (
-                      <button onClick={() => handleConfirmPayment(selectedInvoice)} disabled={actionLoading}
+                      <button onClick={() => setConfirmPaymentInvoice(selectedInvoice)} disabled={actionLoading}
                         className="px-6 py-3 bg-emerald-500 text-white rounded-[1.25rem] font-black text-sm hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/10 flex items-center gap-2 disabled:opacity-50">
                         <CheckCircle2 size={18} /> Confirm Payment
                       </button>
@@ -638,6 +666,57 @@ export default function Invoices() {
         )}
       </AnimatePresence>
 
+      {/* Confirm Payment – Installments popup */}
+      <AnimatePresence>
+        {confirmPaymentInvoice && (
+          <div className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setConfirmPaymentInvoice(null)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-xl border border-zinc-100 w-full max-w-md overflow-hidden"
+            >
+              <div className="p-6 border-b border-zinc-100">
+                <h3 className="text-lg font-black text-zinc-900">Confirm Payment</h3>
+                <p className="text-sm text-zinc-500 mt-1">{confirmPaymentInvoice.invoice_number} · {confirmPaymentInvoice.hospital_name}</p>
+              </div>
+              <div className="p-6">
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">Invoice installments</p>
+                <ul className="space-y-3">
+                  {getInstallments(confirmPaymentInvoice).map((inst, i) => (
+                    <li key={i} className="flex justify-between items-center py-2 px-3 bg-zinc-50 rounded-xl border border-zinc-100">
+                      <span className="text-sm font-bold text-zinc-700">
+                        {getInstallments(confirmPaymentInvoice).length > 1 ? `Installment ${i + 1} (${inst.label})` : inst.label}
+                      </span>
+                      <span className="text-base font-black text-zinc-900">₹{inst.amount.toLocaleString()}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4 pt-4 border-t border-zinc-200 flex justify-between items-center">
+                  <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">Total</span>
+                  <span className="text-xl font-black text-emerald-600">₹{confirmPaymentInvoice.amount.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="p-6 bg-zinc-50 border-t border-zinc-100 flex gap-3 justify-end">
+                <button
+                  onClick={() => setConfirmPaymentInvoice(null)}
+                  className="px-5 py-2.5 bg-white border border-zinc-200 text-zinc-600 rounded-xl font-bold text-sm hover:bg-zinc-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleConfirmPayment(confirmPaymentInvoice)}
+                  disabled={actionLoading}
+                  className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-black text-sm hover:bg-emerald-600 transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  <CheckCircle2 size={18} /> Confirm Payment
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Media Preview Modal */}
       <AnimatePresence>

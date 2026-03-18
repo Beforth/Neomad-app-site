@@ -54,19 +54,22 @@ export default function Dashboard() {
         <div className="flex flex-wrap items-center gap-3">
           {user?.role === 'admin' && (
             <div className="flex items-center gap-2">
-              <div className="relative group">
-                <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={14} />
-                <select 
-                  value={selectedBoyId} 
-                  onChange={e => setSelectedBoyId(e.target.value)}
-                  className="pl-9 pr-8 py-2 bg-white border border-zinc-200 rounded-xl text-xs font-bold text-zinc-600 outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none cursor-pointer shadow-sm"
-                >
-                  <option value="all">Total Delivery Boys</option>
-                  {deliveryBoys.map(b => <option key={b.id} value={b.id}>{b.username}</option>)}
-                  <option value="custom">Custom...</option>
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
-                  <ArrowUpRight size={12} className="rotate-90" />
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Search delivery boy details</label>
+                <div className="relative group">
+                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={14} />
+                  <select 
+                    value={selectedBoyId} 
+                    onChange={e => setSelectedBoyId(e.target.value)}
+                    className="pl-9 pr-8 py-2 bg-white border border-zinc-200 rounded-xl text-xs font-bold text-zinc-600 outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none cursor-pointer shadow-sm"
+                  >
+                    <option value="all">All</option>
+                    {deliveryBoys.map(b => <option key={b.id} value={b.id}>{b.username}</option>)}
+                    <option value="custom">Custom...</option>
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                    <ArrowUpRight size={12} className="rotate-90" />
+                  </div>
                 </div>
               </div>
               
