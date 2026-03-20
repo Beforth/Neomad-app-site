@@ -1,6 +1,5 @@
 import { memo, useCallback } from 'react';
 import {
-  Eye,
   Download,
   ClipboardCheck,
   UserPlus,
@@ -23,12 +22,12 @@ export interface InvoiceDesktopRowProps {
   travel: string;
   waiting: string;
   userRole: string | undefined;
-  actionBusy: boolean;
   onOpenDetail: (inv: ApiInvoice) => void;
-  onPreviewSigned: (url: string, title: string) => void;
+  /** Open full-page signed document preview */
+  onOpenSignedPreview: (invoiceId: number) => void;
   onConfirmPayment: (inv: ApiInvoice) => void;
   onAssign: (id: number) => void;
-  onCancel: (id: number) => void;
+  onRequestCancel: (inv: ApiInvoice) => void;
   onRequestDelete: (inv: ApiInvoice) => void;
 }
 
@@ -38,12 +37,11 @@ function InvoiceDesktopRowInner({
   travel,
   waiting,
   userRole,
-  actionBusy,
   onOpenDetail,
-  onPreviewSigned,
+  onOpenSignedPreview,
   onConfirmPayment,
   onAssign,
-  onCancel,
+  onRequestCancel,
   onRequestDelete,
 }: InvoiceDesktopRowProps) {
   const stop = useCallback((e: React.MouseEvent) => e.stopPropagation(), []);
@@ -77,12 +75,13 @@ function InvoiceDesktopRowInner({
               className="relative group w-10 h-10 rounded-lg overflow-hidden border border-emerald-100 shadow-sm cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation();
-                onPreviewSigned(invoice.signed_copy_url!, `Signed Copy — ${invoice.invoice_number}`);
+                onOpenSignedPreview(invoice.id);
               }}
+              title="View signed copy"
             >
               <img src={invoice.signed_copy_url} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt="" />
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <Eye size={12} className="text-white" />
+                <ClipboardCheck size={12} className="text-white" />
               </div>
             </button>
           ) : (
@@ -106,29 +105,16 @@ function InvoiceDesktopRowInner({
       </td>
       <td className="px-4 py-3" onClick={stop}>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onOpenDetail(invoice)}
-            className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
-            title="View Details"
-          >
-            <Eye size={14} />
-          </button>
-          <button
-            type="button"
-            className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
-            title="Download Invoice"
-          >
+          <button type="button" className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="Download Invoice">
             <Download size={14} />
           </button>
           {invoice.status === 'delivered' &&
-            userRole === 'admin' &&
+            (userRole === 'admin' || userRole === 'manager') &&
             ((invoice.cash_received ?? 0) > 0 || (invoice.cheque_received ?? 0) > 0) && (
               <button
                 type="button"
                 onClick={() => onConfirmPayment(invoice)}
-                disabled={actionBusy}
-                className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
+                className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
                 title="Confirm Payment"
               >
                 <Banknote size={14} />
@@ -147,10 +133,9 @@ function InvoiceDesktopRowInner({
           {(invoice.status === 'pending' || invoice.status === 'assigned') && (
             <button
               type="button"
-              onClick={() => onCancel(invoice.id)}
-              disabled={actionBusy}
-              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-              title="Cancel"
+              onClick={() => onRequestCancel(invoice)}
+              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              title="Void invoice"
             >
               <XCircle size={14} />
             </button>
@@ -159,8 +144,7 @@ function InvoiceDesktopRowInner({
             <button
               type="button"
               onClick={() => onRequestDelete(invoice)}
-              disabled={actionBusy}
-              className="p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50"
+              className="p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
               title="Delete"
             >
               <Trash2 size={14} />
@@ -179,12 +163,11 @@ function propsEqual(prev: InvoiceDesktopRowProps, next: InvoiceDesktopRowProps) 
     prev.travel === next.travel &&
     prev.waiting === next.waiting &&
     prev.userRole === next.userRole &&
-    prev.actionBusy === next.actionBusy &&
     prev.onOpenDetail === next.onOpenDetail &&
-    prev.onPreviewSigned === next.onPreviewSigned &&
+    prev.onOpenSignedPreview === next.onOpenSignedPreview &&
     prev.onConfirmPayment === next.onConfirmPayment &&
     prev.onAssign === next.onAssign &&
-    prev.onCancel === next.onCancel &&
+    prev.onRequestCancel === next.onRequestCancel &&
     prev.onRequestDelete === next.onRequestDelete
   );
 }

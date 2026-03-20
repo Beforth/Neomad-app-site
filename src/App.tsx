@@ -6,6 +6,12 @@ import { LogOut } from 'lucide-react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Invoices from './pages/Invoices';
+import InvoiceDetailPage from './pages/invoices/InvoiceDetailPage';
+import InvoiceConfirmPaymentPage from './pages/invoices/InvoiceConfirmPaymentPage';
+import InvoiceAssignPage from './pages/invoices/InvoiceAssignPage';
+import InvoiceDeletePage from './pages/invoices/InvoiceDeletePage';
+import InvoiceVoidPage from './pages/invoices/InvoiceVoidPage';
+import InvoiceSignedPreviewPage from './pages/invoices/InvoiceSignedPreviewPage';
 import Tracking from './pages/Tracking';
 import Profile from './pages/Profile';
 import DeliveryBoyApp from './pages/DeliveryBoyApp';
@@ -15,6 +21,10 @@ import DeveloperPortal from './pages/DeveloperPortal';
 import Notifications from './pages/Notifications';
 import StaffApp from './pages/StaffApp';
 import Tasks from './pages/Tasks';
+import TaskDetailPage from './pages/tasks/TaskDetailPage';
+import TaskCreatePage from './pages/tasks/TaskCreatePage';
+import TaskEditPage from './pages/tasks/TaskEditPage';
+import TaskDeletePage from './pages/tasks/TaskDeletePage';
 import { useNotifications } from './hooks/useNotifications';
 import BottomNav from './components/BottomNav';
 
@@ -32,7 +42,15 @@ const PAGE_TITLES: Record<string, string> = {
 function TopBar() {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const title = PAGE_TITLES[location.pathname] || 'Dashboard';
+  let title = PAGE_TITLES[location.pathname] || 'Dashboard';
+  const p = location.pathname;
+  /* Keep top bar aligned with sidebar: all invoice routes show “Invoices” like the list page. */
+  if (p === '/invoices' || p.startsWith('/invoices/')) {
+    title = 'Invoices';
+  }
+  if (p === '/tasks' || p.startsWith('/tasks/')) {
+    title = 'Tasks';
+  }
   return (
     <header className="h-16 bg-white border-b border-zinc-100 px-5 flex items-center justify-between sticky top-0 z-30 shadow-sm grow-0 shrink-0">
       <div className="flex items-center gap-3">
@@ -85,7 +103,17 @@ function AppRoutes() {
         <main className="flex-1 p-4 md:p-8 lg:p-10 overflow-y-auto pb-20 lg:pb-10">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/tasks/new" element={<TaskCreatePage />} />
+            <Route path="/tasks/:taskId/edit" element={<TaskEditPage />} />
+            <Route path="/tasks/:taskId/delete" element={<TaskDeletePage />} />
+            <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="/tasks" element={<Tasks />} />
+            <Route path="/invoices/:invoiceId/confirm-payment" element={<InvoiceConfirmPaymentPage />} />
+            <Route path="/invoices/:invoiceId/assign" element={<InvoiceAssignPage />} />
+            <Route path="/invoices/:invoiceId/delete" element={<InvoiceDeletePage />} />
+            <Route path="/invoices/:invoiceId/void" element={<InvoiceVoidPage />} />
+            <Route path="/invoices/:invoiceId/signed-preview" element={<InvoiceSignedPreviewPage />} />
+            <Route path="/invoices/:invoiceId" element={<InvoiceDetailPage />} />
             <Route path="/invoices" element={<Invoices />} />
             <Route path="/tracking" element={<Tracking />} />
             <Route path="/profile" element={<Profile />} />
