@@ -8,6 +8,7 @@ import {
   Banknote,
 } from 'lucide-react';
 import type { ApiInvoice } from '../../lib/api';
+import { InvoiceIconTooltip } from './InvoiceIconTooltip';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700',
@@ -67,27 +68,34 @@ function InvoiceDesktopRowInner({
           {invoice.status}
         </span>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 overflow-visible">
         <div className="flex items-center gap-1.5">
           {invoice.signed_copy_url ? (
-            <button
-              type="button"
-              className="relative group w-10 h-10 rounded-lg overflow-hidden border border-emerald-100 shadow-sm cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenSignedPreview(invoice.id);
-              }}
-              title="View signed copy"
-            >
-              <img src={invoice.signed_copy_url} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt="" />
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <ClipboardCheck size={12} className="text-white" />
-              </div>
-            </button>
+            <InvoiceIconTooltip label="View signed copy">
+              <button
+                type="button"
+                className="relative group/thumb w-10 h-10 rounded-lg overflow-hidden border border-emerald-100 shadow-sm cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenSignedPreview(invoice.id);
+                }}
+                aria-label="View signed copy"
+              >
+                <img src={invoice.signed_copy_url} className="w-full h-full object-cover transition-transform group-hover/thumb:scale-110" alt="" />
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
+                  <ClipboardCheck size={12} className="text-white" />
+                </div>
+              </button>
+            </InvoiceIconTooltip>
           ) : (
-            <div className="w-10 h-10 rounded-lg border border-dashed border-zinc-200 bg-zinc-50 flex items-center justify-center text-zinc-300">
-              <ClipboardCheck size={16} />
-            </div>
+            <InvoiceIconTooltip label="No signed copy yet">
+              <div
+                className="w-10 h-10 rounded-lg border border-dashed border-zinc-200 bg-zinc-50 flex items-center justify-center text-zinc-300"
+                aria-hidden
+              >
+                <ClipboardCheck size={16} />
+              </div>
+            </InvoiceIconTooltip>
           )}
         </div>
       </td>
@@ -103,52 +111,66 @@ function InvoiceDesktopRowInner({
       <td className="px-4 py-3 text-[10px] font-medium text-zinc-400">
         {new Date(invoice.created_at).toLocaleDateString()}
       </td>
-      <td className="px-4 py-3" onClick={stop}>
+      <td className="px-4 py-3 overflow-visible" onClick={stop}>
         <div className="flex items-center gap-1">
-          <button type="button" className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="Download Invoice">
-            <Download size={14} />
-          </button>
+          <InvoiceIconTooltip label="Download invoice">
+            <button
+              type="button"
+              className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+              aria-label="Download invoice"
+            >
+              <Download size={14} />
+            </button>
+          </InvoiceIconTooltip>
           {invoice.status === 'delivered' &&
             (userRole === 'admin' || userRole === 'manager') &&
             ((invoice.cash_received ?? 0) > 0 || (invoice.cheque_received ?? 0) > 0) && (
-              <button
-                type="button"
-                onClick={() => onConfirmPayment(invoice)}
-                className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
-                title="Confirm Payment"
-              >
-                <Banknote size={14} />
-              </button>
+              <InvoiceIconTooltip label="Confirm payment">
+                <button
+                  type="button"
+                  onClick={() => onConfirmPayment(invoice)}
+                  className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                  aria-label="Confirm payment"
+                >
+                  <Banknote size={14} />
+                </button>
+              </InvoiceIconTooltip>
             )}
           {invoice.status !== 'delivered' && invoice.status !== 'cancelled' && (
-            <button
-              type="button"
-              onClick={() => onAssign(invoice.id)}
-              className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-              title="Assign"
-            >
-              <UserPlus size={14} />
-            </button>
+            <InvoiceIconTooltip label="Assign delivery">
+              <button
+                type="button"
+                onClick={() => onAssign(invoice.id)}
+                className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                aria-label="Assign delivery"
+              >
+                <UserPlus size={14} />
+              </button>
+            </InvoiceIconTooltip>
           )}
           {(invoice.status === 'pending' || invoice.status === 'assigned') && (
-            <button
-              type="button"
-              onClick={() => onRequestCancel(invoice)}
-              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-              title="Void invoice"
-            >
-              <XCircle size={14} />
-            </button>
+            <InvoiceIconTooltip label="Void invoice">
+              <button
+                type="button"
+                onClick={() => onRequestCancel(invoice)}
+                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                aria-label="Void invoice"
+              >
+                <XCircle size={14} />
+              </button>
+            </InvoiceIconTooltip>
           )}
           {(userRole === 'admin' || userRole === 'manager') && (
-            <button
-              type="button"
-              onClick={() => onRequestDelete(invoice)}
-              className="p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
-              title="Delete"
-            >
-              <Trash2 size={14} />
-            </button>
+            <InvoiceIconTooltip label="Delete invoice">
+              <button
+                type="button"
+                onClick={() => onRequestDelete(invoice)}
+                className="p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
+                aria-label="Delete invoice"
+              >
+                <Trash2 size={14} />
+              </button>
+            </InvoiceIconTooltip>
           )}
         </div>
       </td>
