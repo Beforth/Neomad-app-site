@@ -4,7 +4,7 @@ import {
   Search, Eye, XCircle, ChevronLeft, ChevronRight,
   Download, UserPlus, RefreshCw, Clock, CheckCircle2,
   MapPin, FileImage, IndianRupee, Filter, Plus, ClipboardCheck,
-  Package, Building, Hash, Banknote, Users, FileText, AlertCircle, Trash2
+  Package, Building, Hash, Banknote,   Users, FileText, AlertCircle, Trash2, List
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -173,18 +173,90 @@ export default function Invoices() {
     }
   };
 
-  /** Build installments list from invoice (cash + cheque, non-zero). */
-  const getInstallments = (inv: ApiInvoice) => {
-    const items: { label: string; amount: number }[] = [];
+  type InstallmentUiStatus = 'paid' | 'pending' | 'before_paid' | 'current_paid';
+
+  const INSTALLMENT_STATUS_LABEL: Record<InstallmentUiStatus, string> = {
+    paid: 'Paid',
+    pending: 'Pending',
+    before_paid: 'Before paid',
+    current_paid: 'Current paid',
+  };
+
+  const INSTALLMENT_STATUS_STYLE: Record<InstallmentUiStatus, string> = {
+    paid: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    pending: 'bg-amber-100 text-amber-800 border-amber-200',
+    before_paid: 'bg-sky-100 text-sky-800 border-sky-200',
+    current_paid: 'bg-violet-100 text-violet-800 border-violet-200',
+  };
+
+  /**
+   * Rows for the confirm-payment popup: deposit (before paid), cash/cheque (current vs paid),
+   * and remaining invoice balance (pending). Totals align with invoice amount when possible.
+   */
+  const getInstallmentRows = (inv: ApiInvoice): { id: string; label: string; amount: number; status: InstallmentUiStatus }[] => {
+    const amount = inv.amount ?? 0;
     const cash = inv.cash_received ?? 0;
     const cheque = inv.cheque_received ?? 0;
-    if (cash > 0) items.push({ label: 'Cash', amount: cash });
-    if (cheque > 0) items.push({ label: 'Cheque', amount: cheque });
-    if (items.length === 0) items.push({ label: 'Total', amount: inv.amount });
-    return items;
+    const collected = cash + cheque;
+    const cashConf = !!inv.cash_confirmed;
+    const chequeConf = !!inv.cheque_confirmed;
+
+    const rows: { id: string; label: string; amount: number; status: InstallmentUiStatus }[] = [];
+
+    // "Before paid" — first third of invoice as prior-period / deposit (clamped so rows stay consistent with total)
+    let deposit = amount > 0 ? Math.min(Math.round(amount / 3), amount) : 0;
+    let outstanding = Math.max(0, amount - deposit - collected);
+    if (deposit + collected > amount) {
+      deposit = Math.max(0, amount - collected);
+      outstanding = 0;
+    }
+
+    if (deposit > 0) {
+      rows.push({
+        id: 'before-paid',
+        label: 'Installment 1 — prior / deposit',
+        amount: deposit,
+        status: 'before_paid',
+      });
+    }
+
+    if (cash > 0) {
+      rows.push({
+        id: 'cash',
+        label: 'Cash (this delivery)',
+        amount: cash,
+        status: cashConf ? 'paid' : 'current_paid',
+      });
+    }
+    if (cheque > 0) {
+      rows.push({
+        id: 'cheque',
+        label: 'Cheque (this delivery)',
+        amount: cheque,
+        status: chequeConf ? 'paid' : 'current_paid',
+      });
+    }
+
+    // Always list pending amount (remaining due on invoice), including ₹0 when fully covered
+    if (amount > 0) {
+      rows.push({
+        id: 'pending-balance',
+        label: 'Pending (still due on invoice)',
+        amount: outstanding,
+        status: 'pending',
+      });
+    } else if (rows.length === 0) {
+      rows.push({ id: 'total', label: 'Invoice total', amount: 0, status: 'pending' });
+    }
+
+    return rows;
   };
 
   const assigneeName = (inv: ApiInvoice) => inv.assignee_name ?? availableAssignees.find((b) => b.id === inv.assigned_to)?.name ?? '—';
+  const assigneeInitial = (inv: ApiInvoice) => {
+    const n = assigneeName(inv);
+    return n !== '—' ? (n[0]?.toUpperCase() ?? '?') : '?';
+  };
   const filtered = invoices;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const startRow = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -432,289 +504,375 @@ export default function Invoices() {
         )}
       </AnimatePresence>
 
-      {/* Invoice Detail Modal */}
+      {/* Invoice Detail Modal — matches Tasks detail modal layout */}
       <AnimatePresence>
         {selectedInvoice && (
-          <div
-            className="fixed inset-0 bg-zinc-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
-            onClick={() => setSelectedInvoice(null)}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
             role="dialog"
             aria-modal="true"
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl overflow-hidden max-h-[92vh] border border-zinc-100 flex flex-col"
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-zinc-100 flex flex-col max-h-[85vh]"
             >
-              {/* Close button - outside header so it's never blocked */}
-              <div className="absolute top-4 right-4 z-[100]">
-                <button
-                  type="button"
-                  onClick={() => setSelectedInvoice(null)}
-                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-2xl transition-all text-white touch-manipulation cursor-pointer"
-                  aria-label="Close"
-                >
-                  <XCircle size={28} />
-                </button>
+              <div className="p-6 border-b border-zinc-100 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 bg-zinc-50 rounded-xl flex items-center justify-center border border-zinc-100 shrink-0">
+                    <FileText size={20} className="text-zinc-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold text-zinc-900 leading-tight truncate">{selectedInvoice.invoice_number}</h3>
+                    <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider truncate">{selectedInvoice.hospital_name}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {(user?.role === 'admin' || user?.role === 'manager') && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(selectedInvoice.id)}
+                      disabled={actionLoading}
+                      className="p-2 hover:bg-zinc-100 rounded-xl transition-colors text-zinc-500 hover:text-red-600 disabled:opacity-50"
+                      title="Delete invoice"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedInvoice(null)}
+                    className="p-2 hover:bg-zinc-50 rounded-xl transition-colors text-zinc-400"
+                    aria-label="Close"
+                  >
+                    <XCircle size={22} />
+                  </button>
+                </div>
               </div>
 
-              {/* Premium Header */}
-              <div className="relative p-8 bg-zinc-900 text-white overflow-hidden shrink-0">
-                <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                        <FileText size={24} className="text-white" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em]">Medical Invoice</p>
-                        <h2 className="text-3xl font-black tracking-tighter">{selectedInvoice.invoice_number}</h2>
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-5">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <List size={12} /> Notes / Description
+                      </label>
+                      <div className="text-sm text-zinc-600 bg-zinc-50/50 p-4 rounded-2xl border border-zinc-100/50 leading-relaxed font-medium min-h-[80px]">
+                        {selectedInvoice.description || 'No additional details for this invoice.'}
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-4">
-                      <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-xl border border-white/10">
-                        <Building size={14} className="text-zinc-500" />
-                        <span className="text-xs font-bold text-zinc-300">{selectedInvoice.hospital_name}</span>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <MapPin size={12} /> Delivery destination
+                      </label>
+                      <div className="flex items-start gap-3 p-3.5 bg-zinc-50/50 rounded-2xl border border-zinc-100/50">
+                        <Building size={16} className="text-zinc-400 mt-0.5 shrink-0" />
+                        <span className="text-sm font-semibold text-zinc-700">{selectedInvoice.hospital_name}</span>
                       </div>
-                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest ${STATUS_COLORS[selectedInvoice.status]} border border-current opacity-90`}>
-                        <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 p-3.5 bg-zinc-50/50 rounded-2xl border border-zinc-100/50">
+                      <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <IndianRupee size={14} className="text-zinc-400" /> Gross amount
+                      </span>
+                      <span className="text-sm font-bold text-zinc-900">₹{selectedInvoice.amount.toLocaleString()}</span>
+                    </div>
+
+                    {fakeDuration(selectedInvoice) && (
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-100">
+                          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">Travel</p>
+                          <p className="text-sm font-bold text-zinc-900">{fakeDuration(selectedInvoice)!.travel}</p>
+                        </div>
+                        <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-100">
+                          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">Wait</p>
+                          <p className="text-sm font-bold text-zinc-900">{fakeDuration(selectedInvoice)!.waiting}</p>
+                        </div>
+                        <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-100">
+                          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">Total</p>
+                          <p className="text-sm font-bold text-emerald-700">{fakeDuration(selectedInvoice)!.total}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedInvoice.status === 'delivered' && selectedInvoice.signed_copy_url && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <FileImage size={12} /> Signed document
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPreviewImage({
+                                url:
+                                  selectedInvoice.signed_copy_url ||
+                                  'https://images.unsplash.com/photo-1586282391129-59a998fd6a90?auto=format&fit=crop&q=80&w=800',
+                                title: `Full screen — ${selectedInvoice.invoice_number}`,
+                              })
+                            }
+                            className="text-[10px] font-bold text-emerald-600 hover:underline uppercase tracking-wider"
+                          >
+                            Fullscreen
+                          </button>
+                        </div>
+                        <div className="rounded-2xl overflow-hidden border border-zinc-100 bg-zinc-100 max-h-48">
+                          <img
+                            src={
+                              selectedInvoice.signed_copy_url ||
+                              'https://images.unsplash.com/photo-1586282391129-59a998fd6a90?auto=format&fit=crop&q=80&w=800'
+                            }
+                            alt="Signed copy"
+                            className="w-full h-full max-h-48 object-cover"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedInvoice.status === 'delivered' && !selectedInvoice.signed_copy_url && (
+                      <div className="bg-amber-50/80 p-4 rounded-2xl border border-amber-100 flex items-start gap-3">
+                        <AlertCircle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-bold text-amber-900">Document missing</p>
+                          <p className="text-[11px] text-amber-700 mt-0.5 font-medium">Signed copy not uploaded yet.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-5">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Live status</label>
+                      <div
+                        className={`w-fit flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-xs capitalize ${STATUS_COLORS[selectedInvoice.status]} border border-current/10`}
+                      >
+                        <div className="w-1.5 h-1.5 rounded-full bg-current" />
                         {selectedInvoice.status}
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="pb-1 text-right hidden md:block">
-                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Gross Amount</p>
-                    <p className="text-4xl font-black text-white tracking-tighter flex items-center justify-end gap-1">
-                      <IndianRupee size={24} className="text-emerald-500" />
-                      {selectedInvoice.amount.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
-              </div>
 
-              <div className="flex-1 overflow-y-auto p-8">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                  
-                  {/* Left Column: Essential Details (8/12) */}
-                  <div className="lg:col-span-7 space-y-10">
-                    
-                    {/* Metrics Row */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      <div className="bg-zinc-50 p-4 rounded-3xl border border-zinc-100">
-                        <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">Travel time</p>
-                        <p className="text-lg font-black text-zinc-900 tracking-tight">18 min</p>
+                    <div className="bg-white border border-zinc-100 rounded-2xl overflow-hidden shadow-sm">
+                      <div className="p-4 border-b border-zinc-50 bg-zinc-50/30">
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase mb-3">Assigned to</p>
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500 border border-zinc-200 shrink-0">
+                            {assigneeInitial(selectedInvoice)}
+                          </div>
+                          <span className="text-sm font-medium text-zinc-800">{assigneeName(selectedInvoice)}</span>
+                        </div>
                       </div>
-                      <div className="bg-amber-50/30 p-4 rounded-3xl border border-amber-100/50">
-                        <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-1">Clinic wait</p>
-                        <p className="text-lg font-black text-amber-600 tracking-tight">6 min</p>
-                      </div>
-                      <div className="bg-emerald-50/30 p-4 rounded-3xl border border-emerald-100/50">
-                        <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">Total cycle</p>
-                        <p className="text-lg font-black text-emerald-600 tracking-tight">24 min</p>
+                      <div className="p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-zinc-400 font-bold flex items-center gap-1.5">
+                            <Clock size={12} /> Created
+                          </span>
+                          <span className="text-xs font-bold text-zinc-700">
+                            {new Date(selectedInvoice.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-zinc-400 font-bold flex items-center gap-1.5">
+                            <Hash size={12} /> Reference
+                          </span>
+                          <span className="text-xs font-bold text-zinc-700">{selectedInvoice.invoice_number}</span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Signed Copy Section */}
-                    {selectedInvoice.status === 'delivered' && (
-                      <section className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                            <FileImage size={14} /> Official Signed Document
-                          </label>
-                          <button onClick={() => setPreviewImage({ url: selectedInvoice.signed_copy_url || 'https://images.unsplash.com/photo-1586282391129-59a998fd6a90?auto=format&fit=crop&q=80&w=800', title: `Full Screen — ${selectedInvoice.invoice_number}`})}
-                                  className="text-[10px] font-black text-emerald-600 hover:underline uppercase tracking-widest">
-                            View Fullscreen
-                          </button>
-                        </div>
-                        <div className="relative group rounded-4xl overflow-hidden border-4 border-white shadow-2xl ring-1 ring-zinc-200 aspect-4/3 bg-zinc-100">
-                           <img 
-                            src={selectedInvoice.signed_copy_url || 'https://images.unsplash.com/photo-1586282391129-59a998fd6a90?auto=format&fit=crop&q=80&w=800'} 
-                            alt="Signed Copy" 
-                            className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-700"
-                          />
-                          <div className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
-                            <p className="text-white text-xs font-bold flex items-center gap-2">
-                              <ClipboardCheck size={14} /> Proof of delivery captured via Neomed App
-                            </p>
-                          </div>
-                        </div>
-                      </section>
-                    )}
-
-                    {!selectedInvoice.signed_copy_url && selectedInvoice.status === 'delivered' && (
-                      <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 flex items-center gap-4">
-                        <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-lg shadow-amber-500/20">
-                          <AlertCircle size={24} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-amber-900 uppercase">Document Missing</p>
-                          <p className="text-xs text-amber-600 mt-1 font-medium">The delivery boy has not uploaded the signed copy yet. You can attach a mock for demo.</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right Column: Timeline & Payment (5/12) */}
-                  <div className="lg:col-span-5 space-y-10">
-                    
-                    {/* Payment Summary */}
-                    <section className="space-y-4">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                        <Banknote size={14} /> Payment breakdown
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <Banknote size={12} /> Payment breakdown
                       </label>
-                      <div className="bg-zinc-50 rounded-4xl p-6 border border-zinc-100 space-y-4">
+                      <div className="bg-zinc-50/50 rounded-2xl p-4 border border-zinc-100 space-y-3">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-zinc-500 font-bold flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-zinc-300" /> Cash Received</span>
-                          <span className="text-lg font-black text-zinc-900">₹{(selectedInvoice.cash_received || 0).toLocaleString()}</span>
+                          <span className="text-xs text-zinc-500 font-bold">Cash received</span>
+                          <span className="text-sm font-bold text-zinc-900">₹{(selectedInvoice.cash_received || 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-zinc-500 font-bold flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-zinc-300" /> Cheque</span>
-                          <span className="text-lg font-black text-zinc-900">₹{(selectedInvoice.cheque_received || 0).toLocaleString()}</span>
+                          <span className="text-xs text-zinc-500 font-bold">Cheque</span>
+                          <span className="text-sm font-bold text-zinc-900">₹{(selectedInvoice.cheque_received || 0).toLocaleString()}</span>
                         </div>
-                        <div className="pt-4 border-t border-zinc-200 flex justify-between items-center">
-                          <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">Grand Total</span>
-                          <span className="text-2xl font-black text-emerald-600">₹{selectedInvoice.amount.toLocaleString()}</span>
+                        <div className="pt-3 border-t border-zinc-200 flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Grand total</span>
+                          <span className="text-lg font-bold text-emerald-600">₹{selectedInvoice.amount.toLocaleString()}</span>
                         </div>
                       </div>
-                    </section>
+                    </div>
 
-                    {/* Performance Timeline */}
-                    <section className="space-y-4">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                        <Clock size={14} /> Full Logistics Timeline
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <Clock size={12} /> Logistics timeline
                       </label>
-                      <div className="relative pl-8 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-zinc-100">
+                      <div className="relative pl-8 space-y-6 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-zinc-100">
                         <div className="relative">
                           <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-zinc-900 border-4 border-white ring-1 ring-zinc-200 shadow-sm" />
-                          <p className="text-xs font-black text-zinc-900 uppercase">Order Created</p>
+                          <p className="text-xs font-bold text-zinc-900 uppercase">Order created</p>
                           <p className="text-[11px] text-zinc-500 mt-0.5 font-medium">{new Date(selectedInvoice.created_at).toLocaleString()}</p>
                         </div>
                         {selectedInvoice.accepted_at ? (
                           <div className="relative">
                             <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-emerald-500 border-4 border-white ring-1 ring-emerald-100 shadow-sm" />
-                            <p className="text-xs font-black text-zinc-900 uppercase">Accepted by Logistics</p>
+                            <p className="text-xs font-bold text-zinc-900 uppercase">Accepted by logistics</p>
                             <p className="text-[11px] text-zinc-500 mt-0.5 font-medium">{new Date(selectedInvoice.accepted_at).toLocaleString()}</p>
                             <p className="text-[10px] text-emerald-600 font-bold mt-1 bg-emerald-50 w-fit px-2 py-0.5 rounded-lg border border-emerald-100">
                               {assigneeName(selectedInvoice)}
                             </p>
                           </div>
                         ) : (
-                           <div className="relative opacity-40">
+                          <div className="relative opacity-40">
                             <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-zinc-200 border-4 border-white ring-1 ring-zinc-100 shadow-sm" />
-                            <p className="text-xs font-black text-zinc-400 uppercase">Pending Assignment</p>
+                            <p className="text-xs font-bold text-zinc-400 uppercase">Pending assignment</p>
                           </div>
                         )}
                         {selectedInvoice.delivered_at && (
                           <div className="relative">
-                            <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-black border-4 border-white ring-1 ring-zinc-200 shadow-sm" />
-                            <p className="text-xs font-black text-zinc-900 uppercase">Successfully Delivered</p>
+                            <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-zinc-900 border-4 border-white ring-1 ring-zinc-200 shadow-sm" />
+                            <p className="text-xs font-bold text-zinc-900 uppercase">Successfully delivered</p>
                             <p className="text-[11px] text-zinc-500 mt-0.5 font-medium">{new Date(selectedInvoice.delivered_at).toLocaleString()}</p>
                           </div>
                         )}
                       </div>
-                    </section>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Footer Actions */}
-              <div className="p-8 bg-zinc-50 border-t border-zinc-100 flex flex-wrap gap-4 shrink-0 overflow-x-auto no-scrollbar">
-                {(user?.role === 'admin' || user?.role === 'manager') && selectedInvoice.status === 'delivered' && (
-                  <div className="flex gap-3">
-                    {((selectedInvoice.cash_received ?? 0) > 0 || (selectedInvoice.cheque_received ?? 0) > 0) && (
-                      <button onClick={() => setConfirmPaymentInvoice(selectedInvoice)} disabled={actionLoading}
-                        className="px-6 py-3 bg-emerald-500 text-white rounded-[1.25rem] font-black text-sm hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/10 flex items-center gap-2 disabled:opacity-50">
-                        <CheckCircle2 size={18} /> Confirm Payment
-                      </button>
-                    )}
-                    {(user?.role === 'admin' || user?.role === 'manager') && (
-                      <button onClick={() => handleDelete(selectedInvoice.id)} disabled={actionLoading}
-                        className="px-6 py-3 bg-red-100 text-red-600 rounded-[1.25rem] font-black text-sm hover:bg-red-200 transition-all flex items-center gap-2 disabled:opacity-50">
-                        <Trash2 size={18} /> Delete
-                      </button>
-                    )}
-                  </div>
-                )}
-                
-                <div className="flex-1" />
-                
-                <div className="flex gap-3">
-                  {(selectedInvoice.status === 'pending' || selectedInvoice.status === 'assigned') && user?.role !== 'delivery_boy' && (user?.role === 'admin' || user?.role === 'manager') && (
+              <div className="p-5 bg-zinc-50/50 border-t border-zinc-100 flex flex-wrap gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSelectedInvoice(null)}
+                  className="flex-1 min-w-[120px] px-5 py-2.5 bg-white border border-zinc-200 text-zinc-600 rounded-xl font-bold text-sm hover:bg-zinc-50 transition-colors"
+                >
+                  Dismiss
+                </button>
+                {(user?.role === 'admin' || user?.role === 'manager') && selectedInvoice.status === 'delivered' &&
+                  ((selectedInvoice.cash_received ?? 0) > 0 || (selectedInvoice.cheque_received ?? 0) > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmPaymentInvoice(selectedInvoice)}
+                      disabled={actionLoading}
+                      className="flex-1 min-w-[120px] px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <CheckCircle2 size={16} /> Confirm payment
+                    </button>
+                  )}
+                {(selectedInvoice.status === 'pending' || selectedInvoice.status === 'assigned') &&
+                  user?.role !== 'delivery_boy' &&
+                  (user?.role === 'admin' || user?.role === 'manager') && (
                     <>
-                      <button onClick={() => { setAssigning(selectedInvoice.id); setSelectedInvoice(null); }}
-                        className="px-6 py-3 bg-blue-100 text-blue-700 rounded-[1.25rem] font-black text-sm hover:bg-blue-200 transition-all flex items-center gap-2">
-                        <UserPlus size={18} /> {selectedInvoice.status === 'assigned' ? 'Reassign' : 'Fulfill'}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAssigning(selectedInvoice.id);
+                          setSelectedInvoice(null);
+                        }}
+                        className="flex-1 min-w-[120px] px-5 py-2.5 bg-white border border-blue-200 text-blue-700 rounded-xl font-bold text-sm hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <UserPlus size={16} /> {selectedInvoice.status === 'assigned' ? 'Reassign' : 'Fulfill'}
                       </button>
-                      <button onClick={() => handleCancel(selectedInvoice.id)}
-                        className="px-6 py-3 bg-red-100 text-red-600 rounded-[1.25rem] font-black text-sm hover:bg-red-200 transition-all flex items-center gap-2">
-                        <XCircle size={18} /> Void
+                      <button
+                        type="button"
+                        onClick={() => handleCancel(selectedInvoice.id)}
+                        className="flex-1 min-w-[120px] px-5 py-2.5 bg-white border border-red-200 text-red-700 rounded-xl font-bold text-sm hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <XCircle size={16} /> Void
                       </button>
                     </>
                   )}
-                  <button onClick={() => setSelectedInvoice(null)}
-                    className="px-8 py-3 bg-zinc-100 text-zinc-600 rounded-[1.25rem] font-black text-sm hover:bg-zinc-200 transition-all">
-                    Close
+                {(user?.role === 'admin' || user?.role === 'manager') && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(selectedInvoice.id)}
+                    disabled={actionLoading}
+                    className="flex-1 min-w-[120px] px-5 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Trash2 size={16} /> Delete
                   </button>
-                </div>
+                )}
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Confirm Payment – Installments popup */}
+      {/* Confirm Payment — installments with Paid / Pending / Before paid / Current paid */}
       <AnimatePresence>
         {confirmPaymentInvoice && (
-          <div className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setConfirmPaymentInvoice(null)}>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setConfirmPaymentInvoice(null)}
+          >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.95, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-xl border border-zinc-100 w-full max-w-md overflow-hidden"
+              className="bg-white rounded-2xl shadow-xl border border-zinc-100 w-full max-w-lg overflow-hidden"
             >
-              <div className="p-6 border-b border-zinc-100">
-                <h3 className="text-lg font-black text-zinc-900">Confirm Payment</h3>
-                <p className="text-sm text-zinc-500 mt-1">{confirmPaymentInvoice.invoice_number} · {confirmPaymentInvoice.hospital_name}</p>
+              <div className="p-6 border-b border-zinc-100 bg-zinc-50/50">
+                <h3 className="text-lg font-black text-zinc-900">Confirm payment</h3>
+                <p className="text-sm text-zinc-500 mt-1">
+                  {confirmPaymentInvoice.invoice_number} · {confirmPaymentInvoice.hospital_name}
+                </p>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-3">
+                  Installment schedule &amp; status
+                </p>
               </div>
               <div className="p-6">
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">Invoice installments</p>
-                <ul className="space-y-3">
-                  {getInstallments(confirmPaymentInvoice).map((inst, i) => (
-                    <li key={i} className="flex justify-between items-center py-2 px-3 bg-zinc-50 rounded-xl border border-zinc-100">
-                      <span className="text-sm font-bold text-zinc-700">
-                        {getInstallments(confirmPaymentInvoice).length > 1 ? `Installment ${i + 1} (${inst.label})` : inst.label}
-                      </span>
-                      <span className="text-base font-black text-zinc-900">₹{inst.amount.toLocaleString()}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="rounded-xl border border-zinc-200 overflow-hidden">
+                  <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 bg-zinc-100 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                    <span>Installment</span>
+                    <span className="text-right">Amount</span>
+                    <span className="text-right min-w-[7rem]">Status</span>
+                  </div>
+                  <ul className="divide-y divide-zinc-100">
+                    {getInstallmentRows(confirmPaymentInvoice).map((row) => (
+                      <li key={row.id} className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-3 items-center bg-white hover:bg-zinc-50/80">
+                        <span className="text-sm font-bold text-zinc-800 leading-tight">{row.label}</span>
+                        <span className="text-sm font-black text-zinc-900 tabular-nums text-right">₹{row.amount.toLocaleString()}</span>
+                        <span className="flex justify-end">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold border ${INSTALLMENT_STATUS_STYLE[row.status]}`}
+                          >
+                            {INSTALLMENT_STATUS_LABEL[row.status]}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
                 <div className="mt-4 pt-4 border-t border-zinc-200 flex justify-between items-center">
-                  <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">Total</span>
-                  <span className="text-xl font-black text-emerald-600">₹{confirmPaymentInvoice.amount.toLocaleString()}</span>
+                  <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">Invoice total</span>
+                  <span className="text-xl font-black text-emerald-600 tabular-nums">₹{confirmPaymentInvoice.amount.toLocaleString()}</span>
                 </div>
               </div>
-              <div className="p-6 bg-zinc-50 border-t border-zinc-100 flex gap-3 justify-end">
+              <div className="p-6 bg-zinc-50 border-t border-zinc-100 flex flex-wrap gap-3 justify-end">
                 <button
+                  type="button"
                   onClick={() => setConfirmPaymentInvoice(null)}
                   className="px-5 py-2.5 bg-white border border-zinc-200 text-zinc-600 rounded-xl font-bold text-sm hover:bg-zinc-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleConfirmPayment(confirmPaymentInvoice)}
                   disabled={actionLoading}
                   className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-black text-sm hover:bg-emerald-600 transition-colors flex items-center gap-2 disabled:opacity-50"
                 >
-                  <CheckCircle2 size={18} /> Confirm Payment
+                  <CheckCircle2 size={18} /> Confirm payment
                 </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
