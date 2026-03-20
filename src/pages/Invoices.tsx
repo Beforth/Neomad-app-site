@@ -1,21 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   Search, Eye, XCircle, ChevronLeft, ChevronRight,
   Download, UserPlus, RefreshCw, Clock, CheckCircle2,
-  MapPin, FileImage, IndianRupee, Filter, Plus, ClipboardCheck,
-  Package, Building, Hash, Banknote,   Users, FileText, AlertCircle, Trash2, List
+  MapPin, FileImage, IndianRupee, Plus, ClipboardCheck,
+  Building, Hash, Banknote, FileText, AlertCircle, Trash2, List,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { getUsers, type ApiInvoice } from '../lib/api';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
-  getInvoices,
-  getUsers,
-  assignInvoice,
-  cancelInvoice,
-  deleteInvoice,
-  updateInvoice,
-  type ApiInvoice,
-} from '../lib/api';
+  fetchInvoicesList,
+  deleteInvoiceThunk,
+  cancelInvoiceThunk,
+  assignInvoiceThunk,
+  confirmPaymentThunk,
+  clearInvoicesError,
+  resetInvoices,
+} from '../features/invoices/invoicesSlice';
+import { InvoiceDesktopRow } from '../components/invoices/InvoiceDesktopRow';
+import { InvoiceMobileCard } from '../components/invoices/InvoiceMobileCard';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700',
@@ -31,9 +35,16 @@ function fakeDuration(inv: ApiInvoice) {
 
 export default function Invoices() {
   const { user, token } = useAuth();
-  const [invoices, setInvoices] = useState<ApiInvoice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const items = useAppSelector((s) => s.invoices.items);
+  const totalCount = useAppSelector((s) => s.invoices.total);
+  const listStatus = useAppSelector((s) => s.invoices.status);
+  const isRefreshing = useAppSelector((s) => s.invoices.isRefreshing);
+  const listError = useAppSelector((s) => s.invoices.error);
+
+  const invoices = items;
+  const listLoading = listStatus === 'loading' && items.length === 0;
+
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -43,14 +54,19 @@ export default function Invoices() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
-  const [totalCount, setTotalCount] = useState(0);
-  const [selectedInvoice, setSelectedInvoice] = useState<ApiInvoice | null>(null);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<ApiInvoice | null>(null);
   const [assigning, setAssigning] = useState<number | null>(null);
   const [assignTarget, setAssignTarget] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
   const [availableAssignees, setAvailableAssignees] = useState<{ id: number; name: string }[]>([]);
   const [confirmPaymentInvoice, setConfirmPaymentInvoice] = useState<ApiInvoice | null>(null);
+
+  const selectedInvoice = useMemo(() => {
+    if (selectedInvoiceId == null) return null;
+    return items.find((i) => i.id === selectedInvoiceId) ?? null;
+  }, [items, selectedInvoiceId]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300);
@@ -61,44 +77,52 @@ export default function Invoices() {
     setPage(1);
   }, [searchDebounced, statusFilter, boyFilter, dateFilter, sortBy, sortOrder]);
 
-  const fetchInvoices = useCallback(async () => {
+  useEffect(() => {
     if (!token) {
-      setLoading(false);
-      setInvoices([]);
-      setTotalCount(0);
+      dispatch(resetInvoices());
       return;
     }
-    setLoading(true);
-    setError(null);
-    try {
-      const params: Record<string, string | number> = {
-        sort_by: sortBy,
-        sort_order: sortOrder,
-        page,
-        page_size: pageSize,
-      };
-      if (searchDebounced.trim()) params.search = searchDebounced.trim();
-      if (statusFilter !== 'all') params.status = statusFilter;
-      if (boyFilter !== 'all') params.assigned_to = Number(boyFilter);
-      if (dateFilter) {
-        params.date_from = dateFilter;
-        params.date_to = dateFilter;
-      }
-      const result = await getInvoices(token, params as any);
-      setInvoices(result.items);
-      setTotalCount(result.total);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load invoices');
-      setInvoices([]);
-      setTotalCount(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [token, searchDebounced, statusFilter, boyFilter, dateFilter, sortBy, sortOrder, page, pageSize]);
+    dispatch(clearInvoicesError());
+    dispatch(
+      fetchInvoicesList({
+        token,
+        params: {
+          sort_by: sortBy,
+          sort_order: sortOrder,
+          page,
+          page_size: pageSize,
+          ...(searchDebounced.trim() ? { search: searchDebounced.trim() } : {}),
+          ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+          ...(boyFilter !== 'all' ? { assigned_to: Number(boyFilter) } : {}),
+          ...(dateFilter ? { date_from: dateFilter, date_to: dateFilter } : {}),
+        },
+      })
+    );
+  }, [
+    token,
+    dispatch,
+    searchDebounced,
+    statusFilter,
+    boyFilter,
+    dateFilter,
+    sortBy,
+    sortOrder,
+    page,
+    pageSize,
+  ]);
 
   useEffect(() => {
-    fetchInvoices();
-  }, [fetchInvoices]);
+    if (items.length === 0 && totalCount > 0 && page > 1) {
+      setPage((p) => Math.max(1, p - 1));
+    }
+  }, [items.length, totalCount, page]);
+
+  useEffect(() => {
+    if (selectedInvoiceId == null) return;
+    if (!items.some((i) => i.id === selectedInvoiceId)) {
+      setSelectedInvoiceId(null);
+    }
+  }, [items, selectedInvoiceId]);
 
   useEffect(() => {
     if (!token || (user?.role !== 'admin' && user?.role !== 'manager')) return;
@@ -111,67 +135,89 @@ export default function Invoices() {
       .catch(() => setAvailableAssignees([]));
   }, [token, user?.role]);
 
-  const handleCancel = async (id: number) => {
-    if (!token) return;
-    setActionLoading(true);
-    try {
-      await cancelInvoice(token, id);
-      fetchInvoices();
-      setSelectedInvoice(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to cancel');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  const handleCancel = useCallback(
+    async (id: number) => {
+      if (!token) return;
+      setActionLoading(true);
+      dispatch(clearInvoicesError());
+      try {
+        await dispatch(cancelInvoiceThunk({ token, id })).unwrap();
+        setSelectedInvoiceId(null);
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [token, dispatch]
+  );
 
-  const handleAssign = async (id: number) => {
-    if (!token || !assignTarget) return;
-    setActionLoading(true);
-    try {
-      await assignInvoice(token, id, Number(assignTarget));
-      fetchInvoices();
-      setAssigning(null);
-      setAssignTarget('');
-      if (selectedInvoice?.id === id) setSelectedInvoice(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to assign');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  const handleAssign = useCallback(
+    async (id: number) => {
+      if (!token || !assignTarget) return;
+      setActionLoading(true);
+      dispatch(clearInvoicesError());
+      try {
+        await dispatch(assignInvoiceThunk({ token, id, assignedTo: Number(assignTarget) })).unwrap();
+        setAssigning(null);
+        setAssignTarget('');
+        setSelectedInvoiceId((cur) => (cur === id ? null : cur));
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [token, assignTarget, dispatch]
+  );
 
-  const handleDelete = async (id: number) => {
-    if (!token) return;
+  const confirmDeleteInvoice = useCallback(async () => {
+    if (!token || !invoiceToDelete) return;
     setActionLoading(true);
+    dispatch(clearInvoicesError());
     try {
-      await deleteInvoice(token, id);
-      fetchInvoices();
-      setSelectedInvoice(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to delete');
+      const id = invoiceToDelete.id;
+      await dispatch(deleteInvoiceThunk({ token, id })).unwrap();
+      setInvoiceToDelete(null);
+      setSelectedInvoiceId((cur) => (cur === id ? null : cur));
     } finally {
       setActionLoading(false);
     }
-  };
+  }, [token, invoiceToDelete, dispatch]);
 
-  const handleConfirmPayment = async (inv: ApiInvoice) => {
-    if (!token) return;
-    setActionLoading(true);
-    setConfirmPaymentInvoice(null);
-    try {
-      await updateInvoice(token, inv.id, {
-        cash_confirmed: (inv.cash_received ?? 0) > 0,
-        cheque_confirmed: (inv.cheque_received ?? 0) > 0,
-      });
-      fetchInvoices();
-      setSelectedInvoice((prev) => (prev?.id === inv.id ? { ...prev, cash_confirmed: true, cheque_confirmed: true } : prev));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to confirm payment');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  const handleConfirmPayment = useCallback(
+    async (inv: ApiInvoice) => {
+      if (!token) return;
+      setActionLoading(true);
+      setConfirmPaymentInvoice(null);
+      dispatch(clearInvoicesError());
+      try {
+        await dispatch(confirmPaymentThunk({ token, invoice: inv })).unwrap();
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [token, dispatch]
+  );
+
+  const openInvoiceDetail = useCallback(
+    (inv: ApiInvoice) => {
+      dispatch(clearInvoicesError());
+      setSelectedInvoiceId(inv.id);
+    },
+    [dispatch]
+  );
+
+  const previewSigned = useCallback((url: string, title: string) => {
+    setPreviewImage({ url, title });
+  }, []);
+
+  const requestDeleteInvoice = useCallback(
+    (inv: ApiInvoice) => {
+      dispatch(clearInvoicesError());
+      setInvoiceToDelete(inv);
+    },
+    [dispatch]
+  );
+
+  const openAssignPanel = useCallback((id: number) => setAssigning(id), []);
+  const openConfirmPay = useCallback((inv: ApiInvoice) => setConfirmPaymentInvoice(inv), []);
 
   type InstallmentUiStatus = 'paid' | 'pending' | 'before_paid' | 'current_paid';
 
@@ -270,17 +316,48 @@ export default function Invoices() {
           <p className="text-xs text-zinc-500 font-medium">Manage and track all delivery invoices</p>
         </div>
         <div className="flex items-center gap-3 self-start sm:self-auto">
-          <button onClick={() => fetchInvoices()} disabled={loading} className="bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50">
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+          <button
+            type="button"
+            onClick={() => {
+              if (!token) return;
+              dispatch(
+                fetchInvoicesList({
+                  token,
+                  params: {
+                    sort_by: sortBy,
+                    sort_order: sortOrder,
+                    page,
+                    page_size: pageSize,
+                    ...(searchDebounced.trim() ? { search: searchDebounced.trim() } : {}),
+                    ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+                    ...(boyFilter !== 'all' ? { assigned_to: Number(boyFilter) } : {}),
+                    ...(dateFilter ? { date_from: dateFilter, date_to: dateFilter } : {}),
+                  },
+                })
+              );
+            }}
+            disabled={listLoading || isRefreshing}
+            className="bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={listLoading || isRefreshing ? 'animate-spin' : ''} /> Refresh
           </button>
           <button className="bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors flex items-center gap-2 shadow-sm">
             <Download size={14} />Export
           </button>
         </div>
       </header>
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg flex items-center gap-2">
-          <AlertCircle size={16} /> {error}
+      {listError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <AlertCircle size={16} /> {listError}
+          </span>
+          <button
+            type="button"
+            onClick={() => dispatch(clearInvoicesError())}
+            className="text-xs font-bold text-red-800 hover:underline shrink-0"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -342,108 +419,52 @@ export default function Invoices() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
-              {loading ? (
-                <tr><td colSpan={9} className="px-4 py-8 text-center text-xs text-zinc-400">Loading invoices...</td></tr>
-              ) : filtered.map((invoice, i) => {
-                const dur = fakeDuration(invoice);
-                return (
-                  <motion.tr key={invoice.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.01 }}
-                    className="hover:bg-zinc-50/50 transition-colors cursor-pointer" onClick={() => setSelectedInvoice(invoice)}>
-                    <td className="px-4 py-3"><span className="text-xs font-bold text-zinc-900">{invoice.invoice_number}</span></td>
-                    <td className="px-4 py-3"><p className="text-xs font-semibold text-zinc-900">{invoice.hospital_name}</p></td>
-                    <td className="px-4 py-3"><p className="text-xs font-bold text-zinc-900">₹{invoice.amount.toLocaleString()}</p></td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold capitalize ${STATUS_COLORS[invoice.status]}`}>{invoice.status}</span>
-                    </td>                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        {invoice.signed_copy_url ? (
-                          <div className="relative group w-10 h-10 rounded-lg overflow-hidden border border-emerald-100 shadow-sm cursor-pointer"
-                            onClick={(e) => { e.stopPropagation(); setPreviewImage({ url: invoice.signed_copy_url!, title: `Signed Copy — ${invoice.invoice_number}` }); }}>
-                            <img src={invoice.signed_copy_url} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt="Signed Copy" />
-                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                              <Eye size={12} className="text-white" />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg border border-dashed border-zinc-200 bg-zinc-50 flex items-center justify-center text-zinc-300">
-                            <ClipboardCheck size={16} />
-                          </div>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3"><p className="text-xs text-zinc-600">{assigneeName(invoice)}</p></td>
-                    <td className="px-4 py-3"><p className="text-xs text-zinc-500">{dur?.travel || '—'}</p></td>
-                    <td className="px-4 py-3"><p className="text-xs text-amber-600">{dur?.waiting || '—'}</p></td>
-                    <td className="px-4 py-3 text-[10px] font-medium text-zinc-400">{new Date(invoice.created_at).toLocaleDateString()}</td>
-                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setSelectedInvoice(invoice)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="View Details">
-                          <Eye size={14} />
-                        </button>
-                        <button className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="Download Invoice">
-                          <Download size={14} />
-                        </button>
-                        {invoice.status === 'delivered' && user?.role === 'admin' && ((invoice.cash_received ?? 0) > 0 || (invoice.cheque_received ?? 0) > 0) && (
-                          <button onClick={() => setConfirmPaymentInvoice(invoice)} disabled={actionLoading} className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50" title="Confirm Payment">
-                            <Banknote size={14} />
-                          </button>
-                        )}
-                        {invoice.status !== 'delivered' && invoice.status !== 'cancelled' && (
-                          <button onClick={() => setAssigning(invoice.id)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Assign">
-                            <UserPlus size={14} />
-                          </button>
-                        )}
-                        {(invoice.status === 'pending' || invoice.status === 'assigned') && (
-                          <button onClick={() => handleCancel(invoice.id)} disabled={actionLoading} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50" title="Cancel">
-                            <XCircle size={14} />
-                          </button>
-                        )}
-                        {(user?.role === 'admin' || user?.role === 'manager') && (
-                          <button onClick={() => handleDelete(invoice.id)} disabled={actionLoading} className="p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50" title="Delete">
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </motion.tr>
-                );
-              })}
+              {listLoading ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-8 text-center text-xs text-zinc-400">
+                    Loading invoices...
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((invoice) => {
+                  const dur = fakeDuration(invoice);
+                  return (
+                    <InvoiceDesktopRow
+                      key={invoice.id}
+                      invoice={invoice}
+                      assigneeLabel={assigneeName(invoice)}
+                      travel={dur?.travel || '—'}
+                      waiting={dur?.waiting || '—'}
+                      userRole={user?.role}
+                      actionBusy={actionLoading}
+                      onOpenDetail={openInvoiceDetail}
+                      onPreviewSigned={previewSigned}
+                      onConfirmPayment={openConfirmPay}
+                      onAssign={openAssignPanel}
+                      onCancel={handleCancel}
+                      onRequestDelete={requestDeleteInvoice}
+                    />
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Mobile Cards */}
         <div className="md:hidden divide-y divide-zinc-100">
-          {loading ? <div className="p-8 text-center text-zinc-400 text-sm">Loading...</div>
-            : filtered.map((invoice, i) => (
-                <motion.div key={invoice.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
-                  className="p-4 space-y-2 active:bg-zinc-50" onClick={() => setSelectedInvoice(invoice)}>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-xs font-bold text-zinc-400">{invoice.invoice_number}</p>
-                      <p className="font-bold text-zinc-900">{invoice.hospital_name}</p>
-                      {assigneeName(invoice) !== '—' && (
-                        <p className="text-xs text-zinc-500 flex items-center gap-1">
-                          <Users size={12} /> {assigneeName(invoice)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${STATUS_COLORS[invoice.status]}`}>{invoice.status}</span>
-                      {invoice.signed_copy_url && (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg border border-emerald-100">
-                          <ClipboardCheck size={10} /> Signed
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <p className="text-sm font-bold text-zinc-900">₹{invoice.amount.toLocaleString()}</p>
-                    <p className="text-[10px] text-zinc-500">{new Date(invoice.created_at).toLocaleDateString()}</p>
-                  </div>
-                </motion.div>
-              ))}
+          {listLoading ? (
+            <div className="p-8 text-center text-zinc-400 text-sm">Loading...</div>
+          ) : (
+            filtered.map((invoice) => (
+              <InvoiceMobileCard
+                key={invoice.id}
+                invoice={invoice}
+                assigneeLabel={assigneeName(invoice)}
+                onOpenDetail={openInvoiceDetail}
+              />
+            ))
+          )}
         </div>
       </div>
 
@@ -458,7 +479,7 @@ export default function Invoices() {
           <button
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1 || loading}
+            disabled={page <= 1 || listLoading || isRefreshing}
             className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             aria-label="Previous page"
           >
@@ -467,7 +488,7 @@ export default function Invoices() {
           <button
             type="button"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || loading}
+            disabled={page >= totalPages || listLoading || isRefreshing}
             className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             aria-label="Next page"
           >
@@ -475,6 +496,53 @@ export default function Invoices() {
           </button>
         </div>
       </div>
+
+      {/* Delete confirmation — requires consent before API call */}
+      <AnimatePresence>
+        {invoiceToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm flex items-center justify-center z-[55] p-4"
+            onClick={() => !actionLoading && setInvoiceToDelete(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-xl border border-zinc-100 w-full max-w-md overflow-hidden"
+            >
+              <div className="p-6 border-b border-zinc-100">
+                <h3 className="text-lg font-bold text-zinc-900">Delete this invoice?</h3>
+                <p className="text-sm text-zinc-600 mt-2">
+                  <span className="font-bold">{invoiceToDelete.invoice_number}</span> · {invoiceToDelete.hospital_name}
+                </p>
+                <p className="text-xs text-red-600 font-medium mt-3">This action cannot be undone.</p>
+              </div>
+              <div className="p-6 bg-zinc-50 flex gap-3 justify-end">
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={() => setInvoiceToDelete(null)}
+                  className="px-5 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-xl font-bold text-sm hover:bg-zinc-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={() => void confirmDeleteInvoice()}
+                  className="px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Trash2 size={16} /> Delete invoice
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Assign Inline Panel */}
       <AnimatePresence>
@@ -535,7 +603,7 @@ export default function Invoices() {
                   {(user?.role === 'admin' || user?.role === 'manager') && (
                     <button
                       type="button"
-                      onClick={() => handleDelete(selectedInvoice.id)}
+                      onClick={() => selectedInvoice && requestDeleteInvoice(selectedInvoice)}
                       disabled={actionLoading}
                       className="p-2 hover:bg-zinc-100 rounded-xl transition-colors text-zinc-500 hover:text-red-600 disabled:opacity-50"
                       title="Delete invoice"
@@ -545,7 +613,7 @@ export default function Invoices() {
                   )}
                   <button
                     type="button"
-                    onClick={() => setSelectedInvoice(null)}
+                    onClick={() => setSelectedInvoiceId(null)}
                     className="p-2 hover:bg-zinc-50 rounded-xl transition-colors text-zinc-400"
                     aria-label="Close"
                   >
@@ -745,7 +813,7 @@ export default function Invoices() {
               <div className="p-5 bg-zinc-50/50 border-t border-zinc-100 flex flex-wrap gap-3 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setSelectedInvoice(null)}
+                  onClick={() => setSelectedInvoiceId(null)}
                   className="flex-1 min-w-[120px] px-5 py-2.5 bg-white border border-zinc-200 text-zinc-600 rounded-xl font-bold text-sm hover:bg-zinc-50 transition-colors"
                 >
                   Dismiss
@@ -769,7 +837,7 @@ export default function Invoices() {
                         type="button"
                         onClick={() => {
                           setAssigning(selectedInvoice.id);
-                          setSelectedInvoice(null);
+                          setSelectedInvoiceId(null);
                         }}
                         className="flex-1 min-w-[120px] px-5 py-2.5 bg-white border border-blue-200 text-blue-700 rounded-xl font-bold text-sm hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
                       >
@@ -787,7 +855,7 @@ export default function Invoices() {
                 {(user?.role === 'admin' || user?.role === 'manager') && (
                   <button
                     type="button"
-                    onClick={() => handleDelete(selectedInvoice.id)}
+                    onClick={() => selectedInvoice && requestDeleteInvoice(selectedInvoice)}
                     disabled={actionLoading}
                     className="flex-1 min-w-[120px] px-5 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                   >
