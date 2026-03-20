@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { mockApi } from '../lib/mockApi';
+import { isNavItemActive } from '../lib/navActive';
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
@@ -62,28 +63,31 @@ export default function Sidebar() {
         </div>
 
         <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
-          {filteredItems.map(item => (
-            <Link key={item.path} to={item.path} onClick={() => { window.innerWidth < 1024 && setIsOpen(false); }}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all whitespace-nowrap group ${location.pathname === item.path
-                ? 'bg-zinc-900 text-white shadow-sm'
-                : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
-                }`}>
-              <div className="relative">
-                <item.icon size={18} className={location.pathname === item.path ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-900'} />
+          {filteredItems.map(item => {
+            const active = isNavItemActive(item.path, location.pathname);
+            return (
+              <Link key={item.path} to={item.path} onClick={() => { window.innerWidth < 1024 && setIsOpen(false); }}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all whitespace-nowrap group ${active
+                  ? 'bg-zinc-900 text-white shadow-sm'
+                  : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
+                  }`}>
+                <div className="relative">
+                  <item.icon size={18} className={active ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-900'} />
+                  {item.path === '/notifications' && unread > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                      {unread}
+                    </span>
+                  )}
+                </div>
+                <span className="font-medium text-sm tracking-tight flex-1">{item.label}</span>
                 {item.path === '/notifications' && unread > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                  <span className="px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full leading-none">
                     {unread}
                   </span>
                 )}
-              </div>
-              <span className="font-medium text-sm tracking-tight flex-1">{item.label}</span>
-              {item.path === '/notifications' && unread > 0 && (
-                <span className="px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full leading-none">
-                  {unread}
-                </span>
-              )}
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="p-4 border-t border-zinc-100 bg-zinc-50/50">

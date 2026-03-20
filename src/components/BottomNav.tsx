@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Package, UserCircle, FileText, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { isNavItemActive } from '../lib/navActive';
 
 export default function BottomNav() {
     const navigate = useNavigate();
@@ -22,7 +23,7 @@ export default function BottomNav() {
     return (
         <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-zinc-100 flex items-center justify-around px-2 pb-safe-bottom h-16 z-50">
             {filteredTabs.map(tab => {
-                const isActive = location.pathname === tab.path;
+                const isActive = isNavItemActive(tab.path, location.pathname);
                 const Icon = tab.icon;
                 return (
                     <button
