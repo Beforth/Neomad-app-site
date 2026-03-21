@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { API_UNAUTHORIZED_EVENT } from '../lib/api';
 
 interface User {
   id: number;
@@ -33,19 +34,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(false);
   }, []);
 
-  const login = (newToken: string, newUser: User) => {
+  const login = useCallback((newToken: string, newUser: User) => {
     setToken(newToken);
     setUser(newUser);
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(newUser));
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setToken(null);
     setUser(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-  };
+  }, []);
+
+  /** When the API returns 401 on a Bearer request, clear session so the user can sign in again. */
+  useEffect(() => {
+    const onApiUnauthorized = () => logout();
+    window.addEventListener(API_UNAUTHORIZED_EVENT, onApiUnauthorized);
+    return () => window.removeEventListener(API_UNAUTHORIZED_EVENT, onApiUnauthorized);
+  }, [logout]);
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout, loading }}>

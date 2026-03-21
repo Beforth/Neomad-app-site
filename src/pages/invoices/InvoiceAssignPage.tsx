@@ -80,7 +80,28 @@ export default function InvoiceAssignPage() {
   }
 
   return (
-    <InvoiceSectionFrame context={`Assign / Reassign · ${invoice.invoice_number} · ${invoice.hospital_name}`}>
+    <InvoiceSectionFrame
+      context={`Assign / Reassign · ${invoice.invoice_number} · ${invoice.hospital_name}`}
+      right={
+        <div className="flex flex-wrap items-center gap-2 justify-end">
+          <button
+            type="button"
+            onClick={() => navigate(`/invoices/${invoice.id}`)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void onAssign()}
+            disabled={!assignTarget || busy || !canAssign}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 disabled:opacity-40 shadow-sm shadow-emerald-100"
+          >
+            Confirm assign
+          </button>
+        </div>
+      }
+    >
       {sliceError ? (
         <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm">{sliceError}</div>
       ) : null}
@@ -102,24 +123,6 @@ export default function InvoiceAssignPage() {
             ))}
           </select>
         )}
-
-        <div className="flex gap-3 flex-wrap">
-          <button
-            type="button"
-            onClick={() => void onAssign()}
-            disabled={!assignTarget || busy || !canAssign}
-            className="flex-1 min-w-[120px] py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 disabled:opacity-40"
-          >
-            Confirm assign
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate(`/invoices/${invoice.id}`)}
-            className="px-4 py-2.5 border border-zinc-200 rounded-xl text-sm font-bold text-zinc-600 hover:bg-zinc-50"
-          >
-            Cancel
-          </button>
-        </div>
       </div>
     </InvoiceSectionFrame>
   );

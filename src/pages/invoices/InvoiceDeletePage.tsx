@@ -65,19 +65,15 @@ export default function InvoiceDeletePage() {
   }
 
   return (
-    <InvoiceSectionFrame context={`Delete invoice · ${invoice.invoice_number} · ${invoice.hospital_name}`}>
-      <div className={invoiceInnerCardClassName()}>
-        <div className="p-6 border-b border-zinc-100 space-y-2">
-          <p className="text-sm font-bold text-zinc-900">Are you sure you want to delete this invoice?</p>
-          <p className="text-xs text-red-600 font-medium">This action cannot be undone.</p>
-          {sliceError ? <p className="text-sm text-red-600 pt-2">{sliceError}</p> : null}
-        </div>
-        <div className="p-6 bg-zinc-50 flex gap-3 justify-end flex-wrap">
+    <InvoiceSectionFrame
+      context={`Delete invoice · ${invoice.invoice_number} · ${invoice.hospital_name}`}
+      right={
+        <div className="flex flex-wrap items-center gap-2 justify-end">
           <button
             type="button"
             disabled={busy}
             onClick={() => navigate(`/invoices/${invoice.id}`)}
-            className="px-5 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-xl font-bold text-sm hover:bg-zinc-50 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -85,10 +81,18 @@ export default function InvoiceDeletePage() {
             type="button"
             disabled={busy}
             onClick={() => void onDelete()}
-            className="px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-50"
           >
             <Trash2 size={16} /> Delete invoice
           </button>
+        </div>
+      }
+    >
+      <div className={invoiceInnerCardClassName()}>
+        <div className="p-6 space-y-2">
+          <p className="text-sm font-bold text-zinc-900">Are you sure you want to delete this invoice?</p>
+          <p className="text-xs text-red-600 font-medium">This action cannot be undone.</p>
+          {sliceError ? <p className="text-sm text-red-600 pt-2">{sliceError}</p> : null}
         </div>
       </div>
     </InvoiceSectionFrame>

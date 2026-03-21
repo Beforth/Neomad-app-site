@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { FileImage } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useInvoiceLoader } from './useInvoiceLoader';
@@ -39,7 +39,17 @@ export default function InvoiceSignedPreviewPage() {
 
   if (!url) {
     return (
-      <InvoiceSectionFrame context={`Signed copy · ${invoice.invoice_number}`}>
+      <InvoiceSectionFrame
+        context={`Signed copy · ${invoice.invoice_number}`}
+        right={
+          <Link
+            to={`/invoices/${invoice.id}`}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
+          >
+            View invoice
+          </Link>
+        }
+      >
         <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-zinc-600`}>
           No signed document has been uploaded for this invoice.
         </div>
@@ -48,7 +58,17 @@ export default function InvoiceSignedPreviewPage() {
   }
 
   return (
-    <InvoiceSectionFrame context={`Signed copy · ${invoice.invoice_number} · ${invoice.hospital_name}`}>
+    <InvoiceSectionFrame
+      context={`Signed copy · ${invoice.invoice_number} · ${invoice.hospital_name}`}
+      right={
+        <Link
+          to={`/invoices/${invoice.id}`}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
+        >
+          View invoice
+        </Link>
+      }
+    >
       <div className={invoiceInnerCardClassName()}>
         <div className="px-6 py-4 border-b border-zinc-100 bg-zinc-50/40 flex flex-wrap items-center gap-2">
           <FileImage size={16} className="text-zinc-400 shrink-0" />

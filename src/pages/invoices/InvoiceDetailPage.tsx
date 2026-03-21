@@ -66,31 +66,64 @@ export default function InvoiceDetailPage() {
   }, [invoice, deliveryUsers]);
   const assigneeInitialChar = assigneeName !== '—' ? (assigneeName[0]?.toUpperCase() ?? '?') : '?';
 
+  const isManager = user?.role === 'admin' || user?.role === 'manager';
+  const showConfirmPayment =
+    isManager &&
+    invoice.status === 'delivered' &&
+    ((invoice.cash_received ?? 0) > 0 || (invoice.cheque_received ?? 0) > 0);
+  const showAssignAndVoid =
+    (invoice.status === 'pending' || invoice.status === 'assigned') &&
+    user?.role !== 'delivery_boy' &&
+    isManager;
+
   return (
     <InvoiceSectionFrame
       context={`Invoice detail · ${invoice.invoice_number} · ${invoice.hospital_name}`}
+      right={
+        <div className="flex flex-wrap items-center gap-2 justify-end">
+          {showConfirmPayment ? (
+            <Link
+              to={`/invoices/${invoice.id}/confirm-payment`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors shadow-sm shadow-emerald-100"
+            >
+              <CheckCircle2 size={16} /> Confirm payment
+            </Link>
+          ) : null}
+          {showAssignAndVoid ? (
+            <>
+              <Link
+                to={`/invoices/${invoice.id}/assign`}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
+              >
+                <UserPlus size={16} /> {invoice.status === 'assigned' ? 'Reassign' : 'Fulfill'}
+              </Link>
+              <Link
+                to={`/invoices/${invoice.id}/void`}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-red-700 hover:bg-red-50"
+              >
+                <XCircle size={16} /> Void
+              </Link>
+            </>
+          ) : null}
+          {isManager ? (
+            <Link
+              to={`/invoices/${invoice.id}/delete`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700 hover:bg-red-100"
+            >
+              <Trash2 size={16} /> Delete
+            </Link>
+          ) : null}
+        </div>
+      }
     >
       <div className={invoiceInnerCardClassName()}>
-        <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between gap-3 flex-wrap bg-zinc-50/40">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 bg-zinc-50 rounded-xl flex items-center justify-center border border-zinc-100 shrink-0">
-              <FileText size={20} className="text-zinc-400" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Invoice record</p>
-              <p className="text-sm font-bold text-zinc-900 truncate">{invoice.invoice_number}</p>
-            </div>
+        <div className="px-6 py-4 border-b border-zinc-100 flex items-center gap-3 flex-wrap bg-zinc-50/40">
+          <div className="w-10 h-10 bg-zinc-50 rounded-xl flex items-center justify-center border border-zinc-100 shrink-0">
+            <FileText size={20} className="text-zinc-400" />
           </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {(user?.role === 'admin' || user?.role === 'manager') && (
-              <Link
-                to={`/invoices/${invoice.id}/delete`}
-                className="p-2 hover:bg-zinc-100 rounded-xl transition-colors text-zinc-500 hover:text-red-600"
-                title="Delete invoice"
-              >
-                <Trash2 size={18} />
-              </Link>
-            )}
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Invoice record</p>
+            <p className="text-sm font-bold text-zinc-900 truncate">{invoice.invoice_number}</p>
           </div>
         </div>
 
@@ -269,51 +302,6 @@ export default function InvoiceDetailPage() {
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="p-5 bg-zinc-50/50 border-t border-zinc-100 flex flex-wrap gap-3">
-          <Link
-            to="/invoices"
-            className="flex-1 min-w-[120px] px-5 py-2.5 bg-white border border-zinc-200 text-zinc-600 rounded-xl font-bold text-sm hover:bg-zinc-50 transition-colors text-center"
-          >
-            Back to list
-          </Link>
-          {(user?.role === 'admin' || user?.role === 'manager') &&
-            invoice.status === 'delivered' &&
-            ((invoice.cash_received ?? 0) > 0 || (invoice.cheque_received ?? 0) > 0) && (
-              <Link
-                to={`/invoices/${invoice.id}/confirm-payment`}
-                className="flex-1 min-w-[120px] px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 text-center"
-              >
-                <CheckCircle2 size={16} /> Confirm payment
-              </Link>
-            )}
-          {(invoice.status === 'pending' || invoice.status === 'assigned') &&
-            user?.role !== 'delivery_boy' &&
-            (user?.role === 'admin' || user?.role === 'manager') && (
-              <>
-                <Link
-                  to={`/invoices/${invoice.id}/assign`}
-                  className="flex-1 min-w-[120px] px-5 py-2.5 bg-white border border-blue-200 text-blue-700 rounded-xl font-bold text-sm hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  <UserPlus size={16} /> {invoice.status === 'assigned' ? 'Reassign' : 'Fulfill'}
-                </Link>
-                <Link
-                  to={`/invoices/${invoice.id}/void`}
-                  className="flex-1 min-w-[120px] px-5 py-2.5 bg-white border border-red-200 text-red-700 rounded-xl font-bold text-sm hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  <XCircle size={16} /> Void
-                </Link>
-              </>
-            )}
-          {(user?.role === 'admin' || user?.role === 'manager') && (
-            <Link
-              to={`/invoices/${invoice.id}/delete`}
-              className="flex-1 min-w-[120px] px-5 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors flex items-center justify-center gap-2 text-center"
-            >
-              <Trash2 size={16} /> Delete
-            </Link>
-          )}
         </div>
       </div>
     </InvoiceSectionFrame>

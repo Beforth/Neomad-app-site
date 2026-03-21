@@ -77,6 +77,25 @@ export default function InvoiceConfirmPaymentPage() {
   return (
     <InvoiceSectionFrame
       context={`Confirm payment · ${invoice.invoice_number} · ${invoice.hospital_name}`}
+      right={
+        <div className="flex flex-wrap items-center gap-2 justify-end">
+          <button
+            type="button"
+            onClick={() => navigate(`/invoices/${invoice.id}`)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void onConfirm()}
+            disabled={busy || !canConfirm}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 shadow-sm shadow-emerald-100 disabled:opacity-50"
+          >
+            <CheckCircle2 size={16} /> Confirm
+          </button>
+        </div>
+      }
     >
       {sliceError ? (
         <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm">{sliceError}</div>
@@ -121,24 +140,6 @@ export default function InvoiceConfirmPaymentPage() {
             </div>
           </div>
         )}
-
-        <div className="p-6 bg-zinc-50 border-t border-zinc-100 flex flex-wrap gap-3 justify-end">
-          <button
-            type="button"
-            onClick={() => navigate(`/invoices/${invoice.id}`)}
-            className="px-5 py-2.5 bg-white border border-zinc-200 text-zinc-600 rounded-xl font-bold text-sm hover:bg-zinc-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => void onConfirm()}
-            disabled={busy || !canConfirm}
-            className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-black text-sm hover:bg-emerald-600 flex items-center gap-2 disabled:opacity-50"
-          >
-            <CheckCircle2 size={18} /> Confirm
-          </button>
-        </div>
       </div>
     </InvoiceSectionFrame>
   );

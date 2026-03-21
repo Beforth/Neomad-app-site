@@ -59,6 +59,19 @@ function getApiError(err: { detail?: string | { msg?: string }[] }, fallback: st
   return fallback;
 }
 
+/**
+ * Dispatched when a Bearer-authenticated request returns 401 (invalid/expired JWT).
+ * Login failures also use 401 but do not send Authorization — use `sentAuthorization: false` there.
+ */
+export const API_UNAUTHORIZED_EVENT = 'neomed-api-401';
+
+function notifyIfUnauthorized(res: Response, sentAuthorization: boolean): void {
+  if (typeof window === 'undefined') return;
+  if (res.status === 401 && sentAuthorization) {
+    window.dispatchEvent(new CustomEvent(API_UNAUTHORIZED_EVENT));
+  }
+}
+
 /** Turn browser "Failed to fetch" / network errors into a clearer message. Use in catch blocks. */
 export function normalizeFetchError(e: unknown, context: string): string {
   const msg = e instanceof Error ? e.message : '';
@@ -76,6 +89,7 @@ export async function getRoles(token: string): Promise<ApiRole[]> {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load roles'));
   }
@@ -90,6 +104,7 @@ export async function getUsers(token: string, params?: { role_code?: string }): 
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load users'));
   }
@@ -117,6 +132,7 @@ export async function createUser(
     }),
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to create user'));
   }
@@ -144,6 +160,7 @@ export async function updateUser(
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to update user'));
   }
@@ -197,6 +214,7 @@ export async function getTasks(
   const url = `${base}/tasks${qs ? `?${qs}` : ''}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load tasks'));
   }
@@ -210,6 +228,7 @@ export async function getTask(token: string, taskId: number): Promise<ApiTask> {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load task'));
   }
@@ -235,6 +254,7 @@ export async function createTask(
     }),
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to create task'));
   }
@@ -262,6 +282,7 @@ export async function updateTask(
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to update task'));
   }
@@ -276,6 +297,7 @@ export async function deleteTask(token: string, taskId: number): Promise<void> {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to delete task'));
   }
@@ -346,6 +368,7 @@ export async function getInvoices(
   const url = `${base}/invoices${qs ? `?${qs}` : ''}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load invoices'));
   }
@@ -359,6 +382,7 @@ export async function getInvoice(token: string, invoiceId: number): Promise<ApiI
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load invoice'));
   }
@@ -386,6 +410,7 @@ export async function createInvoice(
     }),
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to create invoice'));
   }
@@ -436,6 +461,7 @@ export async function updateInvoice(
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to update invoice'));
   }
@@ -460,6 +486,7 @@ export async function deleteInvoice(token: string, invoiceId: number): Promise<v
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to delete invoice'));
   }
@@ -498,6 +525,7 @@ export async function changePassword(
     }),
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Change password failed'));
   }
