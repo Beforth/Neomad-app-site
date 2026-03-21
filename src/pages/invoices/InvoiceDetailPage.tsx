@@ -28,9 +28,12 @@ export default function InvoiceDetailPage() {
 
   if (id == null) {
     return (
-      <InvoiceSectionFrame context="Invalid link">
-        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-red-700 bg-red-50/50`}>
-          This invoice URL is not valid.
+      <InvoiceSectionFrame context="Invalid invoice link.">
+        <div className={`p-8 ${invoiceInnerCardClassName()}`}>
+          <p className="text-sm text-zinc-600">This invoice URL is not valid.</p>
+          <Link to="/invoices" className="mt-4 inline-block text-sm font-bold text-emerald-600 hover:underline">
+            Back to invoices
+          </Link>
         </div>
       </InvoiceSectionFrame>
     );
@@ -48,9 +51,12 @@ export default function InvoiceDetailPage() {
 
   if (error || !invoice) {
     return (
-      <InvoiceSectionFrame context="Could not load">
-        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-red-700 bg-red-50/50`}>
-          {error || 'Invoice not found.'}
+      <InvoiceSectionFrame context={error || 'Invoice not found.'}>
+        <div className={`p-8 ${invoiceInnerCardClassName()}`}>
+          <p className="text-sm text-red-700">{error || 'Invoice not found.'}</p>
+          <Link to="/invoices" className="mt-4 inline-block text-sm font-bold text-emerald-600 hover:underline">
+            Back to invoices
+          </Link>
         </div>
       </InvoiceSectionFrame>
     );
