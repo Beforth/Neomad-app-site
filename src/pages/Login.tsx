@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, AlertCircle, Mail, ArrowLeft, CheckCircle2, Eye, EyeOff, X } from 'lucide-react';
+import { AlertCircle, Mail, ArrowLeft, CheckCircle2, Eye, EyeOff, X } from 'lucide-react';
 import { login as apiLogin, mapBackendRoleToFrontend, normalizeFetchError } from '../lib/api';
 
 export default function Login() {
@@ -60,7 +60,7 @@ export default function Login() {
             <AnimatePresence mode="wait">
               {view === 'login' && (
                 <motion.div key="lh" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-                  <h2 className="text-2xl font-bold text-zinc-900">Welcome Back</h2>
+                  <h2 className="text-2xl font-bold text-zinc-900">Welcome back!</h2>
                   <p className="text-sm text-zinc-500 mt-1">Sign in to continue</p>
                 </motion.div>
               )}
@@ -144,11 +144,11 @@ export default function Login() {
 
                 {/* Submit Button */}
                 <button type="submit" disabled={loading}
-                  className="w-full bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] mt-6">
+                  className="w-full bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center disabled:opacity-50 active:scale-[0.98] mt-6">
                   {loading ? (
                     <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <><LogIn size={20} />Sign In</>
+                    'Sign In'
                   )}
                 </button>
               </motion.form>

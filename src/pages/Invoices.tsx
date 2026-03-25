@@ -11,6 +11,10 @@ import {
   fetchInvoicesList,
   clearInvoicesError,
   resetInvoices,
+  deleteInvoiceThunk,
+  cancelInvoiceThunk,
+  assignInvoiceThunk,
+  confirmPaymentThunk,
 } from '../features/invoices/invoicesSlice';
 import { InvoiceDesktopRow } from '../components/invoices/InvoiceDesktopRow';
 import { InvoiceMobileCard } from '../components/invoices/InvoiceMobileCard';
@@ -41,6 +45,8 @@ export default function Invoices() {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
   const [availableAssignees, setAvailableAssignees] = useState<{ id: number; name: string }[]>([]);
+  const [assignModalInvId, setAssignModalInvId] = useState<number | null>(null);
+  const [assignTarget, setAssignTarget] = useState('');
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300);
@@ -102,6 +108,18 @@ export default function Invoices() {
       .catch(() => setAvailableAssignees([]));
   }, [token, user?.role]);
 
+  useEffect(() => {
+    if (!assignModalInvId) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      setAssignModalInvId(null);
+      setAssignTarget('');
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [assignModalInvId]);
+
   const assigneeName = (inv: ApiInvoice) =>
     inv.assignee_name ?? availableAssignees.find((b) => b.id === inv.assigned_to)?.name ?? '—';
 
@@ -121,23 +139,44 @@ export default function Invoices() {
   );
 
   const openConfirmPayment = useCallback(
-    (inv: ApiInvoice) => navigate(`/invoices/${inv.id}/confirm-payment`),
-    [navigate]
+    (inv: ApiInvoice) => {
+      if (window.confirm(`Confirm payment for invoice ${inv.invoice_number}?`)) {
+        if (!token) return;
+        dispatch(clearInvoicesError());
+        dispatch(confirmPaymentThunk({ token, invoice: inv })).catch(() => {});
+      }
+    },
+    [dispatch, token]
   );
 
   const openAssign = useCallback(
-    (invId: number) => navigate(`/invoices/${invId}/assign`),
-    [navigate]
+    (invId: number) => {
+      setAssignModalInvId(invId);
+      setAssignTarget('');
+    },
+    []
   );
 
   const openVoid = useCallback(
-    (inv: ApiInvoice) => navigate(`/invoices/${inv.id}/void`),
-    [navigate]
+    (inv: ApiInvoice) => {
+      if (window.confirm(`Are you sure you want to void invoice ${inv.invoice_number}?`)) {
+        if (!token) return;
+        dispatch(clearInvoicesError());
+        dispatch(cancelInvoiceThunk({ token, id: inv.id })).catch(() => {});
+      }
+    },
+    [dispatch, token]
   );
 
   const openDelete = useCallback(
-    (inv: ApiInvoice) => navigate(`/invoices/${inv.id}/delete`),
-    [navigate]
+    (inv: ApiInvoice) => {
+      if (window.confirm(`Are you sure you want to delete invoice ${inv.invoice_number}?\nThis action cannot be undone.`)) {
+        if (!token) return;
+        dispatch(clearInvoicesError());
+        dispatch(deleteInvoiceThunk({ token, id: inv.id })).catch(() => {});
+      }
+    },
+    [dispatch, token]
   );
 
   const filtered = invoices;
@@ -374,6 +413,57 @@ export default function Invoices() {
           </button>
         </div>
       </div>
+
+      {assignModalInvId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-zinc-100 flex justify-between items-center bg-zinc-50 relative">
+              <h3 className="font-bold text-zinc-900">Assign Invoice</h3>
+              <button 
+                onClick={() => setAssignModalInvId(null)} 
+                className="text-zinc-400 hover:text-zinc-600 absolute right-4"
+              >
+                <XCircle size={18} />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <select
+                value={assignTarget}
+                onChange={(e) => setAssignTarget(e.target.value)}
+                className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none"
+              >
+                <option value="">Select assignee...</option>
+                {availableAssignees.map((b) => (
+                  <option key={b.id} value={String(b.id)}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+              <div className="flex gap-2 justify-end">
+                <button 
+                  onClick={() => setAssignModalInvId(null)} 
+                  className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-600 hover:bg-zinc-50"
+                >
+                  Cancel
+                </button>
+                <button 
+                  disabled={!assignTarget}
+                  onClick={() => {
+                    if (!token) return;
+                    dispatch(clearInvoicesError());
+                    dispatch(assignInvoiceThunk({ token, id: assignModalInvId, assignedTo: Number(assignTarget) })).catch(() => {});
+                    setAssignModalInvId(null);
+                    setAssignTarget('');
+                  }}
+                  className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 disabled:opacity-50"
+                >
+                  Assign
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

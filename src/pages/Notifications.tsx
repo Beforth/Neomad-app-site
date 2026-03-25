@@ -100,9 +100,13 @@ export default function Notifications() {
           <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Notifications</h1>
           <p className="text-xs text-zinc-500 font-medium">Broadcast messages to your team</p>
         </div>
-        <button onClick={() => setShowCompose(true)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
-          <Plus size={14} />Create Notification
+        <button
+          type="button"
+          onClick={() => setShowCompose(true)}
+          className="flex shrink-0 items-center gap-1 px-2 py-1 sm:gap-2 sm:px-3 sm:py-1.5 bg-emerald-500 text-white rounded-md sm:rounded-xl text-[10px] sm:text-xs font-bold hover:bg-emerald-600 transition-colors shadow-sm shadow-emerald-100 whitespace-nowrap"
+        >
+          <Plus className="size-3 sm:size-3.5 shrink-0" strokeWidth={2.5} />
+          Create Notification
         </button>
       </div>
 
