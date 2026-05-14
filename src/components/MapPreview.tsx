@@ -35,7 +35,12 @@ function ResizeHandler({ center, zoom }: { center: [number, number], zoom: numbe
   return null;
 }
 
-const createRiderIcon = (name: string, isCheckpoint = false, status: 'completed' | 'active' = 'completed') => {
+const createRiderIcon = (
+  name: string,
+  isCheckpoint = false,
+  status: 'completed' | 'active' = 'completed',
+  motion: 'moving' | 'waiting' = 'moving',
+) => {
   if (isCheckpoint) {
     return L.divIcon({
       className: 'custom-checkpoint-icon',
@@ -52,12 +57,16 @@ const createRiderIcon = (name: string, isCheckpoint = false, status: 'completed'
     });
   }
 
-  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
+  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase() || '?';
+  const bg =
+    motion === 'waiting'
+      ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+      : 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
   return L.divIcon({
     className: 'custom-rider-icon',
     html: `
       <div class="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white shadow-lg font-bold text-xs text-white" 
-           style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); min-width: 40px;">
+           style="background: ${bg}; min-width: 40px;">
         ${initials}
       </div>
     `,
@@ -67,10 +76,10 @@ const createRiderIcon = (name: string, isCheckpoint = false, status: 'completed'
 };
 
 export const DEFAULT_RIDERS = [
-  { id: 1, name: 'Sagar Wagh', pos: [19.9975, 73.7898], status: 'Heading to City Hospital', order: 'INV-2024-001' },
-  { id: 2, name: 'Rahul Patil', pos: [20.0050, 73.7800], status: 'Waiting at Metro Clinic', order: 'INV-2024-002' },
-  { id: 3, name: 'Amit Shinde', pos: [19.9900, 73.8000], status: 'Pick-up from Warehouse', order: 'N/A' },
-  { id: 4, name: 'Pooja Kale', pos: [19.9850, 73.7750], status: 'Delivering to Apollo', order: 'INV-2024-004' },
+  { id: 1, name: 'Sagar Wagh', pos: [19.9975, 73.7898] as [number, number], status: 'Heading to City Hospital', motion: 'moving' as const, order: 'INV-2024-001' },
+  { id: 2, name: 'Rahul Patil', pos: [20.0050, 73.7800] as [number, number], status: 'Waiting at Metro Clinic', motion: 'waiting' as const, order: 'INV-2024-002' },
+  { id: 3, name: 'Amit Shinde', pos: [19.9900, 73.8000] as [number, number], status: 'Pick-up from Warehouse', motion: 'moving' as const, order: 'N/A' },
+  { id: 4, name: 'Pooja Kale', pos: [19.9850, 73.7750] as [number, number], status: 'Delivering to Apollo', motion: 'moving' as const, order: 'INV-2024-004' },
 ];
 
 interface MapPreviewProps {
@@ -118,18 +127,27 @@ export default function MapPreview({ riders = DEFAULT_RIDERS, route = [], checkp
         ))}
 
         {/* Render Riders */}
-        {riders.map((rider) => (
+        {riders.map((rider) => {
+          const motion: 'moving' | 'waiting' =
+            rider.motion === 'waiting' || rider.status?.includes?.('Waiting')
+              ? 'waiting'
+              : 'moving';
+          return (
           <Marker
             key={rider.id}
             position={rider.pos as [number, number]}
-            icon={createRiderIcon(rider.name)}
+            icon={createRiderIcon(rider.name, false, 'completed', motion)}
           >
             <Tooltip direction="top" offset={[0, -10]} opacity={1}>
               <div className="p-2 min-w-[140px] space-y-1">
                 <div className="font-bold text-zinc-900 text-sm border-b border-zinc-100 pb-1">{rider.name}</div>
                 <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-                  <div className={`w-1.5 h-1.5 rounded-full ${rider.status.includes('Waiting') ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
+                  <div className={`w-1.5 h-1.5 rounded-full ${motion === 'waiting' ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
                   <span className="font-medium">{rider.status}</span>
+                </div>
+                <div className="text-[10px] font-bold text-violet-700 tabular-nums">
+                  Battery{' '}
+                  {typeof rider.batteryPercent === 'number' ? `${rider.batteryPercent}%` : '—'}
                 </div>
                 {rider.order !== 'N/A' && (
                   <div className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded inline-block">
@@ -142,9 +160,13 @@ export default function MapPreview({ riders = DEFAULT_RIDERS, route = [], checkp
               <div className="p-1 min-w-[120px]">
                 <p className="font-bold text-zinc-900 text-sm mb-1">{rider.name}</p>
                 <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 mb-1">
-                  <div className={`w-1.5 h-1.5 rounded-full ${rider.status.includes('Waiting') ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
+                  <div className={`w-1.5 h-1.5 rounded-full ${motion === 'waiting' ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
                   <span>{rider.status}</span>
                 </div>
+                <p className="text-[10px] font-bold text-violet-700 tabular-nums mb-1">
+                  Battery{' '}
+                  {typeof rider.batteryPercent === 'number' ? `${rider.batteryPercent}%` : '—'}
+                </p>
                 {rider.order !== 'N/A' && (
                   <p className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded inline-block">
                     {rider.order}
@@ -153,7 +175,8 @@ export default function MapPreview({ riders = DEFAULT_RIDERS, route = [], checkp
               </div>
             </Popup>
           </Marker>
-        ))}
+          );
+        })}
       </MapContainer>
     </div>
   );

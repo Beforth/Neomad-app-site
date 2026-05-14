@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { LogOut, MapPin, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { mockApi } from '../lib/mockApi';
+import { appApi } from '../lib/appApi';
 
 const OFFICE_LOCATION = { lat: 19.9975, lng: 73.7898 };
 const GEOFENCE_RADIUS_METERS = 100;
@@ -45,7 +45,7 @@ export default function StaffApp() {
           setIsOutside(true);
           if (!alertSentRef.current) {
             // Trigger system alert
-            mockApi.saveNotification({
+            appApi.saveNotification({
               title: 'Staff Member Left Office Premises',
               message: `${user?.username} has moved ${Math.round(dist)} meters away from the office.`,
               targets: ['admin', 'manager'],

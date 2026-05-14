@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { mockApi } from '../lib/mockApi';
+import { APP_NOTIFICATIONS_UPDATED_EVENT, appApi } from '../lib/appApi';
+import { isWebPushConfigured } from '../lib/webPush';
 import { useNavigate } from 'react-router-dom';
 
 export default function NotificationBell() {
@@ -11,7 +12,7 @@ export default function NotificationBell() {
 
   const load = () => {
     if (!user) return;
-    const all = mockApi.getNotifications();
+    const all = appApi.getNotifications();
     const mine = all.filter((n: any) =>
       n.targets.includes('all') || n.targets.includes(user.role || '')
     );
@@ -19,9 +20,20 @@ export default function NotificationBell() {
   };
 
   useEffect(() => {
+    const onUpdated = () => load();
+    window.addEventListener(APP_NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+    if (isWebPushConfigured()) {
+      load();
+      return () => {
+        window.removeEventListener(APP_NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+      };
+    }
     load();
     const t = setInterval(load, 5000);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener(APP_NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+    };
   }, [user?.id, user?.role]);
 
   const unread = notifications.filter(n => !(n.readBy || []).includes(user?.id)).length;

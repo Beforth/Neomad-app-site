@@ -17,7 +17,6 @@ import Profile from './pages/Profile';
 import DeliveryBoyApp from './pages/DeliveryBoyApp';
 import UserManagement from './pages/UserManagement';
 import Reports from './pages/Reports';
-import DeveloperPortal from './pages/DeveloperPortal';
 import Notifications from './pages/Notifications';
 import StaffApp from './pages/StaffApp';
 import Tasks from './pages/Tasks';
@@ -26,6 +25,7 @@ import TaskCreatePage from './pages/tasks/TaskCreatePage';
 import TaskEditPage from './pages/tasks/TaskEditPage';
 import TaskDeletePage from './pages/tasks/TaskDeletePage';
 import { useNotifications } from './hooks/useNotifications';
+import { useWebPush } from './hooks/useWebPush';
 import BottomNav from './components/BottomNav';
 
 const PAGE_TITLES: Record<string, string> = {
@@ -73,6 +73,7 @@ function AppRoutes() {
   const { user, loading } = useAuth();
 
   useNotifications();
+  useWebPush();
 
   if (loading) return <div className="min-h-[100dvh] flex items-center justify-center bg-white font-bold text-zinc-400 animate-pulse">Loading...</div>;
 
@@ -135,8 +136,6 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Developer Portal — standalone, has its own PIN auth */}
-        <Route path="/dev" element={<DeveloperPortal />} />
         {/* Main app — wrapped in AuthProvider */}
         <Route path="/*" element={
           <AuthProvider>

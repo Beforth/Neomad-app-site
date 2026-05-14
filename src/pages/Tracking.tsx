@@ -1,60 +1,103 @@
-import { useEffect, useState, useRef } from 'react';
-import { useSocket } from '../hooks/useSocket';
-import { Truck, Clock, AlertCircle, RefreshCw, Navigation, Timer, Plus, X, CheckCircle2, Gauge, TrendingUp, MapPin, ExternalLink, User, Battery, Signal, BellRing, MessageSquare, History, Package, Users, ChevronRight } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useTrackingSocket } from '../hooks/useSocket';
+import { Truck, Clock, RefreshCw, X, MapPin, Package, Users, ChevronRight, Battery, Power } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import MapPreview from '../components/MapPreview';
-import { mockApi } from '../lib/mockApi';
+import {
+  getDeliveryDayPath,
+  getInvoices,
+  getOnDutyDeliveries,
+  normalizeFetchError,
+  type ApiInvoice,
+  type OnDutyDeliveryRow,
+  type SuspectedPowerOffRow,
+} from '../lib/api';
+import type { LocationUpdateMessage } from '../hooks/useSocket';
 
-const MOCK_RIDERS = [
-  { id: 1, name: 'Sagar Wagh', initials: 'SW', status: 'moving', statusLabel: 'Heading to City Hospital', order: 'INV-2024-001', acceptedMinsAgo: 18, waitingSecs: 0, tasks: '4/12', shiftStart: '09:00 AM', battery: 85, signal: 'strong' },
-  { id: 2, name: 'Rahul Patil', initials: 'RP', status: 'waiting', statusLabel: 'Waiting at Metro Clinic', order: 'INV-2024-002', acceptedMinsAgo: 32, waitingSecs: 720, tasks: '3/8', shiftStart: '08:30 AM', battery: 42, signal: 'medium' },
-  { id: 3, name: 'Amit Shinde', initials: 'AS', status: 'moving', statusLabel: 'Pick-up from Warehouse', order: null, acceptedMinsAgo: 9, waitingSecs: 0, tasks: '2/6', shiftStart: '10:15 AM', battery: 98, signal: 'strong' },
-  { id: 4, name: 'Pooja Kale', initials: 'PK', status: 'moving', statusLabel: 'Delivering to Apollo', order: 'INV-2024-004', acceptedMinsAgo: 45, waitingSecs: 240, tasks: '5/10', shiftStart: '07:45 AM', battery: 24, signal: 'weak' },
-];
+const DEFAULT_MAP_CENTER: [number, number] = [19.9975, 73.7898];
 
-function useLiveSecs(startSecs: number) {
-  const [secs, setSecs] = useState(startSecs);
-  useEffect(() => {
-    const t = setInterval(() => setSecs(s => s + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return secs;
+function initialsFromName(name: string | null, email: string): string {
+  const n = (name || '').trim();
+  if (!n) return (email[0] || '?').toUpperCase();
+  return n
+    .split(/\s+/)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 3);
 }
 
-function fmt(secs: number) {
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = secs % 60;
-  return h > 0
-    ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-    : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+function statusLabelFor(
+  status: string,
+  lat: number | null,
+  lng: number | null,
+  lastAt: string | null,
+): string {
+  if (lat == null || lng == null) return 'No GPS fix yet';
+  if (status === 'moving') return 'Moving';
+  if (lastAt) {
+    const d = new Date(lastAt);
+    if (!Number.isNaN(d.getTime())) {
+      const stale = Date.now() - d.getTime() > 10 * 60 * 1000;
+      if (stale) return 'Location stale (last fix older than 10 min)';
+    }
+  }
+  return 'Stationary / waiting';
 }
 
-function RiderCard({ rider, selected, onClick }: any) {
-  const deliverySecs = useLiveSecs(rider.acceptedMinsAgo * 60);
-  const waitSecs = useLiveSecs(rider.waitingSecs);
+interface DisplayRider {
+  id: number;
+  name: string;
+  initials: string;
+  status: 'moving' | 'waiting';
+  statusLabel: string;
+  order: string | null;
+  lat: number | null;
+  lng: number | null;
+  speedMps: number | null;
+  lastLocationAt: string | null;
+  batteryPercent: number | null;
+  suspectedPowerOff: SuspectedPowerOffRow | null;
+}
 
+function RiderCard({
+  rider,
+  selected,
+  onClick,
+}: {
+  rider: DisplayRider;
+  selected: boolean;
+  onClick: () => void;
+}) {
   return (
-    <button onClick={onClick}
-      className={`w-full text-left p-3 rounded-2xl border transition-all duration-300 ${selected ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-500/10' : 'bg-zinc-50 border-zinc-100 hover:bg-zinc-100'
-        }`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full text-left p-3 rounded-2xl border transition-all duration-300 ${
+        selected ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-500/10' : 'bg-zinc-50 border-zinc-100 hover:bg-zinc-100'
+      }`}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black text-white transition-all ${selected ? 'scale-105' : ''} ${rider.status === 'moving' ? 'bg-emerald-500 shadow-md shadow-emerald-200' : 'bg-amber-500 shadow-md shadow-amber-200'}`}>
+          <div
+            className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black text-white transition-all ${
+              selected ? 'scale-105' : ''
+            } ${rider.status === 'moving' ? 'bg-emerald-500 shadow-md shadow-emerald-200' : 'bg-amber-500 shadow-md shadow-amber-200'}`}
+          >
             {rider.initials}
           </div>
           <div className="min-w-0">
             <p className="text-sm font-bold text-zinc-900 truncate leading-tight">{rider.name}</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${rider.status === 'moving' ? 'bg-blue-500' : 'bg-amber-500'} ${rider.status === 'moving' ? 'animate-pulse' : ''}`} />
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${rider.status === 'moving' ? 'bg-blue-500 animate-pulse' : 'bg-amber-500'}`}
+              />
               <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tight">{rider.status}</p>
             </div>
           </div>
         </div>
-        <div className="shrink-0 flex items-center gap-2">
-           {rider.battery <= 20 && <Battery size={12} className="text-red-500 animate-pulse" />}
-           <ChevronRight size={14} className={`text-zinc-300 transition-transform duration-300 ${selected ? 'rotate-90 text-emerald-500' : ''}`} />
-        </div>
+        <ChevronRight size={14} className={`text-zinc-300 transition-transform duration-300 ${selected ? 'rotate-90 text-emerald-500' : ''}`} />
       </div>
 
       <AnimatePresence>
@@ -66,9 +109,58 @@ function RiderCard({ rider, selected, onClick }: any) {
             className="overflow-hidden"
           >
             <div className="space-y-3 pt-1 border-t border-emerald-100/30">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <p className="text-[10px] font-bold text-zinc-500 leading-tight">{rider.statusLabel}</p>
-                <p className="text-[10px] font-black text-zinc-400 uppercase">Boy #{rider.id}</p>
+                <p className="text-[10px] font-black text-zinc-400 uppercase shrink-0">#{rider.id}</p>
+              </div>
+
+              {rider.lat != null && rider.lng != null && (
+                <div className="flex items-start gap-1.5 bg-zinc-50 px-2 py-1.5 rounded-lg border border-zinc-100 text-[10px] text-zinc-600">
+                  <MapPin size={12} className="text-emerald-600 shrink-0 mt-0.5" />
+                  <span className="font-mono leading-relaxed">
+                    {rider.lat.toFixed(5)}, {rider.lng.toFixed(5)}
+                  </span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-2 text-[10px] text-zinc-600">
+                {rider.batteryPercent != null && (
+                  <div className="flex items-center justify-between bg-violet-50/50 p-2 rounded-xl border border-violet-100">
+                    <span className="font-bold text-violet-600 uppercase flex items-center gap-1">
+                      <Battery size={12} className="shrink-0" />
+                      Battery
+                    </span>
+                    <span className="font-mono font-bold text-zinc-800">{rider.batteryPercent}%</span>
+                  </div>
+                )}
+                {rider.suspectedPowerOff && (
+                  <div className="flex flex-col gap-1 bg-amber-50 p-2 rounded-xl border border-amber-200">
+                    <div className="flex items-center gap-1.5 text-amber-800 font-bold uppercase">
+                      <Power size={12} className="shrink-0" />
+                      Suspected intentional power-off
+                    </div>
+                    <p className="text-[9px] text-amber-900/90 leading-snug">
+                      Last device ping{' '}
+                      {new Date(rider.suspectedPowerOff.last_device_ping_at).toLocaleString()} · battery was{' '}
+                      {rider.suspectedPowerOff.battery_percent_at_last_ping}% (logged{' '}
+                      {new Date(rider.suspectedPowerOff.server_logged_at).toLocaleString()})
+                    </p>
+                  </div>
+                )}
+                {rider.speedMps != null && rider.speedMps >= 0 && (
+                  <div className="flex items-center justify-between bg-blue-50/50 p-2 rounded-xl border border-blue-100">
+                    <span className="font-bold text-blue-500 uppercase">Speed</span>
+                    <span className="font-mono font-bold">{(rider.speedMps * 3.6).toFixed(1)} km/h</span>
+                  </div>
+                )}
+                {rider.lastLocationAt && (
+                  <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-zinc-100">
+                    <span className="font-bold text-zinc-400 uppercase">Last fix</span>
+                    <span className="font-mono text-zinc-700">
+                      {new Date(rider.lastLocationAt).toLocaleString()}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {rider.order && (
@@ -77,47 +169,8 @@ function RiderCard({ rider, selected, onClick }: any) {
                     <Package size={12} className="text-emerald-600" />
                     <span className="text-[10px] font-black text-emerald-700 uppercase">{rider.order}</span>
                   </div>
-                  <span className="text-[9px] font-bold text-emerald-600/70">In Transit</span>
                 </div>
               )}
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex flex-col bg-blue-50/50 p-2 rounded-xl">
-                  <span className="text-[8px] font-bold text-blue-400 uppercase mb-0.5">Route Time</span>
-                  <div className="flex items-center gap-1">
-                    <Timer size={10} className="text-blue-500" />
-                    <span className="text-[11px] font-bold text-zinc-600 font-mono">{fmt(deliverySecs)}</span>
-                  </div>
-                </div>
-                {rider.waitingSecs > 0 && (
-                  <div className="flex flex-col bg-amber-50/30 p-2 rounded-xl">
-                    <span className="text-[8px] font-bold text-amber-400 uppercase mb-0.5">Clinic Wait</span>
-                    <div className="flex items-center gap-1">
-                      <Clock size={10} className="text-amber-600" />
-                      <span className="text-[11px] font-bold text-amber-600 font-mono">{fmt(waitSecs)}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Stats Row */}
-              <div className="flex items-center justify-between text-[10px] font-bold text-zinc-500 bg-white/50 p-2 rounded-xl border border-zinc-100">
-                <div className="flex items-center gap-3">
-                  <div className={`flex items-center gap-1 ${rider.battery > 30 ? 'text-zinc-600' : 'text-red-500 animate-pulse'}`}>
-                    <Battery size={12} /> {rider.battery}%
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Signal size={12} className="text-zinc-400" /> {rider.signal}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <History size={12} className="text-zinc-400" /> {rider.shiftStart}
-                </div>
-              </div>
-
-              <button className="w-full flex items-center justify-center gap-2 py-1.5 bg-emerald-500 text-white rounded-xl text-[11px] font-black hover:bg-emerald-600 transition-all shadow-sm active:scale-[0.98]">
-                <Navigation size={12} /> FOCUS RIDER
-              </button>
             </div>
           </motion.div>
         )}
@@ -126,40 +179,200 @@ function RiderCard({ rider, selected, onClick }: any) {
   );
 }
 
-export default function Tracking() {
-  const { socket } = useSocket();
-  const [liveLocations, setLiveLocations] = useState<Record<number, any>>({});
-  const [lastRefresh, setLastRefresh] = useState(new Date());
-  const [selected, setSelected] = useState<number | null>(null);
-  const [selectedStats, setSelectedStats] = useState<any>(null);
-
-  useEffect(() => {
-    if (selected) {
-      mockApi.getDeliveryBoyStats(selected).then(setSelectedStats);
-    } else {
-      setSelectedStats(null);
-    }
-  }, [selected]);
-
-  useEffect(() => {
-    // No users needed for task creation anymore
-  }, []);
-
-  useEffect(() => {
-    if (socket) {
-      socket.on('location_update', (data: any) => {
-        setLiveLocations(prev => ({ ...prev, [data.user_id]: data }));
-        setLastRefresh(new Date());
-      });
-    }
-  }, [socket]);
-
-  const allRiders = MOCK_RIDERS.map(r => {
-    const live = liveLocations[r.id];
-    return live ? { ...r, status: live.status } : r;
+function mergeSnapshotWithLive(
+  rows: OnDutyDeliveryRow[],
+  live: Record<number, LocationUpdateMessage>,
+): DisplayRider[] {
+  return rows.map((s) => {
+    const u = live[s.user_id];
+    const lat = u?.lat ?? s.lat;
+    const lng = u?.lng ?? s.lng;
+    const rawStatus = (u?.status ?? s.status) as string;
+    const status: 'moving' | 'waiting' = rawStatus === 'moving' ? 'moving' : 'waiting';
+    const lastAt = u?.last_location_at ?? s.last_location_at;
+    const speed = u?.speed_mps ?? s.speed_mps;
+    const name = (u?.full_name ?? s.full_name)?.trim() || s.email;
+    const battery = u?.battery_percent ?? s.battery_percent ?? null;
+    return {
+      id: s.user_id,
+      name,
+      initials: initialsFromName(u?.full_name ?? s.full_name, s.email),
+      status,
+      statusLabel: statusLabelFor(status, lat, lng, lastAt),
+      order: null,
+      lat,
+      lng,
+      speedMps: speed,
+      lastLocationAt: lastAt,
+      batteryPercent: battery,
+      suspectedPowerOff: s.suspected_power_off,
+    };
   });
+}
 
-  const riders = selected ? allRiders.filter(r => r.id === selected) : allRiders;
+export default function Tracking() {
+  const { token, user } = useAuth();
+  const canTrack = user?.role === 'admin' || user?.role === 'manager';
+
+  const { connected, subscribe } = useTrackingSocket(Boolean(canTrack && token));
+  const [snapshots, setSnapshots] = useState<OnDutyDeliveryRow[]>([]);
+  const [liveLocations, setLiveLocations] = useState<Record<number, LocationUpdateMessage>>({});
+  const [lastRefresh, setLastRefresh] = useState(() => new Date());
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadingList, setLoadingList] = useState(false);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [pathDate, setPathDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [selectedPath, setSelectedPath] = useState<[number, number][]>([]);
+  const [pathSource, setPathSource] = useState<string>('none');
+  const [loadingPath, setLoadingPath] = useState(false);
+  const [todayDeliveries, setTodayDeliveries] = useState<ApiInvoice[]>([]);
+
+  const loadSnapshots = useCallback(async () => {
+    if (!token || !canTrack) return;
+    setLoadingList(true);
+    setLoadError(null);
+    try {
+      const rows = await getOnDutyDeliveries(token);
+      setSnapshots(rows);
+      setLastRefresh(new Date());
+    } catch (e) {
+      setLoadError(normalizeFetchError(e, 'Tracking'));
+    } finally {
+      setLoadingList(false);
+    }
+  }, [token, canTrack]);
+
+  useEffect(() => {
+    loadSnapshots();
+  }, [loadSnapshots]);
+
+  useEffect(() => {
+    if (!canTrack || !token) return;
+    const id = window.setInterval(() => {
+      loadSnapshots();
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [canTrack, token, loadSnapshots]);
+
+  useEffect(() => {
+    if (!canTrack) return;
+    return subscribe((data) => {
+      setLiveLocations((prev) => ({ ...prev, [data.user_id]: data }));
+      setLastRefresh(new Date());
+    });
+  }, [canTrack, subscribe]);
+
+  useEffect(() => {
+    if (!token || !canTrack || selected == null) {
+      setSelectedPath([]);
+      setPathSource('none');
+      return;
+    }
+    let cancelled = false;
+    setLoadingPath(true);
+    getDeliveryDayPath(token, selected, pathDate)
+      .then((res) => {
+        if (cancelled) return;
+        const route: [number, number][] = (res.points || [])
+          .filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number')
+          .map((p) => [p.lat, p.lng]);
+        setSelectedPath(route);
+        setPathSource(res.source || 'none');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSelectedPath([]);
+        setPathSource('none');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPath(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, canTrack, selected, pathDate]);
+
+  useEffect(() => {
+    if (!token || !canTrack || selected == null) {
+      setTodayDeliveries([]);
+      return;
+    }
+    let cancelled = false;
+    const today = new Date().toISOString().slice(0, 10);
+    getInvoices(token, {
+      assigned_to: selected,
+      status: 'delivered',
+      date_from: today,
+      date_to: today,
+      page: 1,
+      page_size: 100,
+      sort_by: 'delivered_at',
+      sort_order: 'asc',
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setTodayDeliveries(res.items || []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTodayDeliveries([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, canTrack, selected]);
+
+  const allRiders = mergeSnapshotWithLive(snapshots, liveLocations);
+  const riders = selected ? allRiders.filter((r) => r.id === selected) : allRiders;
+
+  const mapRiders = allRiders
+    .filter((r) => r.lat != null && r.lng != null)
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      pos: [r.lat!, r.lng!] as [number, number],
+      status: r.statusLabel,
+      motion: r.status,
+      order: 'N/A' as const,
+      batteryPercent: r.batteryPercent,
+    }));
+
+  const deliveryCheckpoints = todayDeliveries
+    .filter(
+      (inv) =>
+        typeof inv.delivery_latitude === 'number' &&
+        typeof inv.delivery_longitude === 'number'
+    )
+    .map((inv) => ({
+      pos: [inv.delivery_latitude as number, inv.delivery_longitude as number] as [number, number],
+      label: `${inv.invoice_number} - ${inv.hospital_name}`,
+      time: new Date(inv.delivered_at || inv.created_at).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      status: 'completed' as const,
+    }));
+
+  let mapCenter = DEFAULT_MAP_CENTER;
+  if (selectedPath.length > 0) {
+    const last = selectedPath[selectedPath.length - 1];
+    mapCenter = [last[0], last[1]];
+  }
+  if (mapRiders.length > 0) {
+    const sum = mapRiders.reduce(
+      (acc, m) => ({ lat: acc.lat + m.pos[0], lng: acc.lng + m.pos[1] }),
+      { lat: 0, lng: 0 },
+    );
+    mapCenter = [sum.lat / mapRiders.length, sum.lng / mapRiders.length];
+  }
+
+  if (!canTrack) {
+    return (
+      <div className="p-8 rounded-3xl border border-zinc-200 bg-white text-zinc-600 text-sm">
+        Live fleet tracking is limited to admin and manager accounts.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 h-[calc(100vh-6rem)] flex flex-col">
@@ -167,7 +380,7 @@ export default function Tracking() {
         <div className="flex items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-zinc-900 tracking-tight">Live Fleet</h1>
-            <p className="text-zinc-500 text-sm">Real-time command center</p>
+            <p className="text-zinc-500 text-sm">On-duty delivery staff and live GPS</p>
           </div>
           <div className="h-10 w-px bg-zinc-200 mx-2 hidden md:block" />
           <div className="hidden md:flex flex-col">
@@ -178,31 +391,67 @@ export default function Tracking() {
               className="bg-white border border-zinc-200 rounded-lg px-3 py-1 text-xs font-bold text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer min-w-[160px]"
             >
               <option value="">All Fleet View</option>
-              {allRiders.map(r => (
-                <option key={r.id} value={r.id}>{r.name}</option>
+              {allRiders.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
               ))}
             </select>
           </div>
+            <div className="hidden md:flex flex-col">
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Travel Date</label>
+              <input
+                type="date"
+                value={pathDate}
+                onChange={(e) => setPathDate(e.target.value)}
+                className="bg-white border border-zinc-200 rounded-lg px-3 py-1 text-xs font-bold text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20 min-w-[140px]"
+              />
+            </div>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => loadSnapshots()}
+            disabled={loadingList}
+            className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-zinc-600 bg-white border border-zinc-200 rounded-lg px-3 py-2 hover:bg-zinc-50 disabled:opacity-50"
+            title="Refresh list from server"
+          >
+            <RefreshCw size={14} className={loadingList ? 'animate-spin' : ''} />
+            Refresh
+          </button>
           <div className="flex flex-col items-end">
-             <div className="flex items-center gap-2 text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 uppercase tracking-wider">
-               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Tracking
-             </div>
-             <div className="flex items-center gap-1.5 text-[9px] text-zinc-400 font-bold uppercase tracking-wider mt-1">
-               <RefreshCw size={10} className="animate-spin-slow" /> {lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-             </div>
+            <div
+              className={`flex items-center gap-2 text-[10px] font-black px-2 py-1 rounded-lg border uppercase tracking-wider ${
+                connected
+                  ? 'text-emerald-600 bg-emerald-50 border-emerald-100'
+                  : 'text-amber-700 bg-amber-50 border-amber-100'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+              {connected ? 'Live socket' : 'Connecting…'}
+            </div>
+            <div className="flex items-center gap-1.5 text-[9px] text-zinc-400 font-bold uppercase tracking-wider mt-1">
+              Updated {lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Metric Cards Row */}
+      {loadError && (
+        <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{loadError}</div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
         {[
-          { label: 'Total Active', value: riders.length, icon: Users, color: 'blue' },
-          { label: 'In-Transit', value: riders.filter(r => r.status === 'moving').length, icon: Truck, color: 'emerald' },
-          { label: 'Waiting', value: riders.filter(r => r.status === 'waiting').length, icon: Clock, color: 'amber' },
-          { label: 'With Orders', value: riders.filter(r => r.order).length, icon: Package, color: 'indigo' },
+          { label: 'On duty', value: riders.length, icon: Users, color: 'blue' },
+          { label: 'Moving', value: riders.filter((r) => r.status === 'moving').length, icon: Truck, color: 'emerald' },
+          { label: 'Waiting', value: riders.filter((r) => r.status === 'waiting').length, icon: Clock, color: 'amber' },
+          {
+            label: 'On map',
+            value: riders.filter((r) => r.lat != null && r.lng != null).length,
+            icon: MapPin,
+            color: 'indigo',
+          },
         ].map((card, i) => (
           <motion.div
             key={card.label}
@@ -226,7 +475,13 @@ export default function Tracking() {
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-0">
         <div className="lg:col-span-3 bg-white rounded-3xl border border-zinc-100 shadow-inner overflow-hidden min-h-[300px] lg:min-h-0 relative">
-          <MapPreview />
+          <MapPreview
+            riders={mapRiders}
+            route={selectedPath}
+            checkpoints={selected ? deliveryCheckpoints : []}
+            center={mapCenter}
+            zoom={selectedPath.length > 0 || mapRiders.length === 1 ? 15 : 13}
+          />
         </div>
 
         <div className="bg-white rounded-3xl border border-zinc-100 shadow-sm flex flex-col min-h-0">
@@ -236,7 +491,7 @@ export default function Tracking() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-hide">
-            {riders.map(rider => (
+            {riders.map((rider) => (
               <RiderCard
                 key={rider.id}
                 rider={rider}
@@ -254,7 +509,18 @@ export default function Tracking() {
 
           {selected && (
             <div className="p-4 border-t border-zinc-100 shrink-0 bg-zinc-50/50">
-              <button 
+              <div className="mb-3 text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center justify-between">
+                <span>
+                  {loadingPath ? 'Loading day path…' : `Path points: ${selectedPath.length}`}
+                </span>
+                <span>source: {pathSource}</span>
+              </div>
+              <div className="mb-3 text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center justify-between">
+                <span>Today's delivered stops</span>
+                <span>{deliveryCheckpoints.length}</span>
+              </div>
+              <button
+                type="button"
                 onClick={() => setSelected(null)}
                 className="w-full flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-100 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 transition-all shadow-sm"
               >
@@ -267,7 +533,6 @@ export default function Tracking() {
           )}
         </div>
       </div>
-
     </div>
   );
 }

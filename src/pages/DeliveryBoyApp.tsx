@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
 import {
@@ -7,7 +7,7 @@ import {
   FileCheck, LogOut, XCircle, Camera, Bell, X, Map as MapIcon, Flag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { mockApi } from '../lib/mockApi';
+import { appApi } from '../lib/appApi';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -30,7 +30,6 @@ function fmtTime(secs: number) {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
   const s = secs % 60;
-  return h > 0
   return h > 0
     ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
     : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
@@ -94,9 +93,31 @@ export default function DeliveryBoyApp() {
   activeTasksRef.current = activeTasks;
   socketRef.current = socket;
 
+  useEffect(() => {
+    if (!socket) return;
+    const unsubscribe = socket.on('new_invoice', async (evt: any) => {
+      const inv = evt?.invoice;
+      if (inv?.invoice_number) {
+        appApi.saveNotification({
+          title: `New Task - ${inv.invoice_number}`,
+          message: `${inv.hospital_name} - Rs ${Number(inv.amount || 0).toLocaleString()}`,
+          targets: ['delivery_boy'],
+          priority: 'important',
+          sentBy: 'System',
+          isSystem: true,
+        });
+      }
+      await fetchInvoices();
+      setActiveTab('available');
+    });
+    return () => {
+      unsubscribe?.();
+    };
+  }, [socket, fetchInvoices]);
+
   // Load notifications
   useEffect(() => {
-    const all = mockApi.getNotifications();
+    const all = appApi.getNotifications();
     const mine = all.filter((n: any) =>
       n.targets.includes('all') || n.targets.includes('delivery_boy')
     );
@@ -143,7 +164,7 @@ export default function DeliveryBoyApp() {
         // Send alert for the "current" or most recent task logic? 
         // For now, let's just use the first active task for the alert reference
         const task = activeTasks[0];
-        mockApi.pushWaitingAlert(
+        appApi.pushWaitingAlert(
           task.invoice_number,
           task.hospital_name, // Keeping the variable name for now as it's from the API
           user?.username || 'Delivery Boy'
@@ -160,10 +181,17 @@ export default function DeliveryBoyApp() {
       (pos) => {
         locationRef.current = pos;
         if (isAvailableRef.current && socketRef.current) {
-          socketRef.current.emit('tracking', {
+          socketRef.current.emit('location_update', {
             lat: pos.coords.latitude, lng: pos.coords.longitude,
-            status: activeTasksRef.current.length > 0 ? 'moving' : 'waiting'
+            speed_mps: pos.coords.speed ?? null,
+            heading: pos.coords.heading ?? null,
           });
+          appApi.sendDeliveryLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            speed_mps: pos.coords.speed ?? null,
+            heading: pos.coords.heading ?? null,
+          }).catch(() => {});
         }
       },
       undefined,
@@ -172,13 +200,13 @@ export default function DeliveryBoyApp() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
-  const fetchInvoices = useCallback(async () => {
-    const data = await mockApi.getInvoices(user);
+  async function fetchInvoices() {
+    const data = await appApi.getInvoices();
     setInvoices(data);
     const active = data.filter((inv: any) => inv.status === 'assigned' && inv.assigned_to === user?.id);
     setActiveTasks(active);
     return data;
-  }, [user]);
+  }
 
   useEffect(() => {
     fetchInvoices().then(data => {
@@ -193,7 +221,7 @@ export default function DeliveryBoyApp() {
     if (!user) return;
     setAcceptingId(id);
     try {
-      const res = await mockApi.acceptInvoice(id, user.id);
+      const res = await appApi.acceptInvoice(id, user.id);
       if (res.success) {
         await fetchInvoices();
         setExpandedTaskId(id);
@@ -216,13 +244,15 @@ export default function DeliveryBoyApp() {
       return;
     }
     setSubmitError(prev => ({ ...prev, [taskId]: '' }));
-    const res = await mockApi.deliverInvoice(taskId, {
+    const res = await appApi.deliverInvoice(taskId, {
       cash: Number(cash[taskId]) || 0,
       cheque: chqAmt || 0,
       cheque_number: chequeNumber[taskId],
       bank_name: bankName[taskId],
       cheque_photo_url: chequePhotoUrl[taskId],
       signed_copy_url: signedCopy[taskId],
+      delivery_latitude: locationRef.current?.coords.latitude ?? null,
+      delivery_longitude: locationRef.current?.coords.longitude ?? null,
     });
     if (res.success) {
       setSubmitted(prev => ({ ...prev, [taskId]: true }));
@@ -233,7 +263,7 @@ export default function DeliveryBoyApp() {
 
   const handleFeedbackSubmit = async () => {
     if (feedbackTaskId && feedback) {
-      await mockApi.submitFeedback(feedbackTaskId, feedback, feedbackReason);
+      await appApi.submitFeedback(feedbackTaskId, feedback, feedbackReason);
     }
     setShowFeedbackModal(false);
 
@@ -246,22 +276,25 @@ export default function DeliveryBoyApp() {
 
   const handleCancelOrder = async () => {
     if (!cancelReason.trim() || !activeTasks[0]) return;
-    await mockApi.cancelInvoice(activeTasks[0].id, cancelReason);
+    await appApi.cancelInvoice(activeTasks[0].id, cancelReason);
     setShowCancelModal(false);
     setCancelReason('');
     fetchInvoices();
     setActiveTab('available');
   };
 
-  // Mock signed copy capture
   const handleCapture = () => {
+    const taskId = activeTasks[0]?.id;
+    if (!taskId) return;
     const url = `https://picsum.photos/seed/${Date.now()}/400/300`;
-    setSignedCopy(url);
+    setSignedCopy((prev) => ({ ...prev, [taskId]: url }));
   };
 
   const handleCaptureCheque = () => {
+    const taskId = activeTasks[0]?.id;
+    if (!taskId) return;
     const url = `https://picsum.photos/seed/${Date.now() + 1}/400/300`;
-    setChequePhotoUrl(url);
+    setChequePhotoUrl((prev) => ({ ...prev, [taskId]: url }));
   };
 
   const handleAddCheckpoint = () => {
@@ -277,7 +310,7 @@ export default function DeliveryBoyApp() {
       };
       setCheckpoints([...checkpoints, pos]);
       // Mock sending to manager
-      mockApi.saveNotification({
+      appApi.saveNotification({
         title: 'New Checkpoint Recorded',
         message: `${user?.username} recorded a checkpoint: "${desc}" for order ${activeTasks[0]?.invoice_number || 'N/A'}`,
         targets: ['manager', 'admin'],
@@ -308,7 +341,16 @@ export default function DeliveryBoyApp() {
               </span>
             )}
           </button>
-          <button onClick={() => setIsAvailable(a => !a)}
+          <button
+            onClick={async () => {
+              const next = !isAvailable;
+              try {
+                await appApi.setDeliveryPresence(next);
+                setIsAvailable(next);
+              } catch {
+                // Presence update failed; keep current state unchanged.
+              }
+            }}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-[11px] font-bold transition-all active:scale-95 ${isAvailable ? 'bg-emerald-500 text-white' : 'bg-zinc-200 text-zinc-600'
               }`}>
             <Power size={14} />{isAvailable ? 'Offline' : 'Online'}
@@ -343,7 +385,7 @@ export default function DeliveryBoyApp() {
                       <div key={notif.id} className={`p-3 rounded-xl border transition-all ${isRead ? 'bg-white border-zinc-100' : 'bg-blue-50 border-blue-200'}`}
                         onClick={() => {
                           if (!isRead) {
-                            mockApi.markNotifRead(notif.id, user?.id);
+                            appApi.markNotifRead(notif.id, user?.id);
                             setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, readBy: [...(n.readBy || []), user?.id] } : n));
                           }
                         }}>

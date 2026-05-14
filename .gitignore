@@ -7,3 +7,5 @@ coverage/
 .env*
 !.env.example
 mobile-app
+# Generated from .env by Vite (Firebase Messaging service worker)
+public/firebase-messaging-sw.js

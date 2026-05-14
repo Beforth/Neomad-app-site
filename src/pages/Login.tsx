@@ -192,12 +192,6 @@ export default function Login() {
             )}
           </AnimatePresence>
 
-          {/* Developer Portal Link */}
-          <div className="text-center pt-4">
-            <a href="/dev" className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors font-medium">
-              Developer Portal →
-            </a>
-          </div>
         </motion.div>
       </div>
     </div>

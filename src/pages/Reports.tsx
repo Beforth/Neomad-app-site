@@ -5,33 +5,8 @@ import {
 } from 'recharts';
 import { Calendar, Download, Clock, TrendingUp, Users, AlertCircle, TrendingDown, Gauge, CheckCircle2, Map as MapIcon, Navigation, Package, BarChart3, Search, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { mockApi } from '../lib/mockApi';
-import MapPreview, { DEFAULT_RIDERS } from '../components/MapPreview';
-
-const deliveryData = [
-  { name: 'Mon', deliveries: 45, time: 22, waiting: 8 },
-  { name: 'Tue', deliveries: 52, time: 25, waiting: 10 },
-  { name: 'Wed', deliveries: 38, time: 20, waiting: 5 },
-  { name: 'Thu', deliveries: 65, time: 28, waiting: 14 },
-  { name: 'Fri', deliveries: 48, time: 24, waiting: 9 },
-  { name: 'Sat', deliveries: 30, time: 18, waiting: 4 },
-  { name: 'Sun', deliveries: 25, time: 15, waiting: 3 },
-];
-
-const availabilityData = [
-  { name: 'Sagar', available: 480, delivery: 210, waiting: 90 },
-  { name: 'Rahul', available: 420, delivery: 185, waiting: 65 },
-  { name: 'Amit', available: 390, delivery: 160, waiting: 50 },
-  { name: 'Pooja', available: 450, delivery: 230, waiting: 80 },
-];
-
-const pieData = [
-  { name: 'On Time', value: 85, color: '#10b981' },
-  { name: 'Delayed', value: 10, color: '#f59e0b' },
-  { name: 'Cancelled', value: 5, color: '#ef4444' },
-];
-
-
+import { appApi } from '../lib/appApi';
+import MapPreview from '../components/MapPreview';
 
 const CHART_STYLE = {
   contentStyle: { backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #f4f4f5', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' },
@@ -50,17 +25,76 @@ export default function Reports() {
   const [globalStats, setGlobalStats] = useState({ totalBoys: 0, totalDelivered: 0 });
   const [boyStats, setBoyStats] = useState({ delivered: 0, kmDriven: '0.0', daily_distance: [] as any[] });
   const [boyRoute, setBoyRoute] = useState<{ path: [number, number][], checkpoints: any[] }>({ path: [], checkpoints: [] });
+  const [deliveryData, setDeliveryData] = useState<any[]>([]);
+  const [availabilityData, setAvailabilityData] = useState<any[]>([]);
+  const [pieData, setPieData] = useState<any[]>([]);
   const [loadingRoute, setLoadingRoute] = useState(false);
 
   useEffect(() => {
-    mockApi.getUsers().then(users => {
+    Promise.all([appApi.getUsers(), appApi.getStats(), appApi.getInvoices()])
+      .then(([users, s, invoices]) => {
       const boys = users.filter((u: any) => u.role === 'delivery_boy');
       setDeliveryBoys(boys);
       setGlobalStats(prev => ({ ...prev, totalBoys: boys.length }));
-    });
-    mockApi.getStats().then(s => {
       setGlobalStats(prev => ({ ...prev, totalDelivered: s.delivered.count }));
-    });
+
+      const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const byDay = new Map<string, { deliveries: number; assigned: number; pending: number }>();
+      weekdayNames.forEach((day) => byDay.set(day, { deliveries: 0, assigned: 0, pending: 0 }));
+
+      invoices.forEach((inv: any) => {
+        const dateStr = inv.delivered_at || inv.accepted_at || inv.created_at;
+        const d = new Date(dateStr);
+        if (Number.isNaN(d.getTime())) return;
+        const day = weekdayNames[d.getDay()];
+        const row = byDay.get(day);
+        if (!row) return;
+        if (inv.status === 'delivered') row.deliveries += 1;
+        if (inv.status === 'assigned') row.assigned += 1;
+        if (inv.status === 'pending') row.pending += 1;
+      });
+
+      setDeliveryData(
+        weekdayNames.map((day) => {
+          const row = byDay.get(day)!;
+          return {
+            name: day,
+            deliveries: row.deliveries,
+            time: row.assigned,
+            waiting: row.pending,
+          };
+        })
+      );
+
+      const total = Math.max(1, invoices.length);
+      const delivered = invoices.filter((x: any) => x.status === 'delivered').length;
+      const pending = invoices.filter((x: any) => x.status === 'pending').length;
+      const cancelled = invoices.filter((x: any) => x.status === 'cancelled').length;
+      setPieData([
+        { name: 'Delivered', value: Math.round((delivered / total) * 100), color: '#10b981' },
+        { name: 'Pending', value: Math.round((pending / total) * 100), color: '#f59e0b' },
+        { name: 'Cancelled', value: Math.round((cancelled / total) * 100), color: '#ef4444' },
+      ]);
+
+      const byBoy = boys.map((boy: any) => {
+        const mine = invoices.filter((i: any) => i.assigned_to === boy.id);
+        const completed = mine.filter((i: any) => i.status === 'delivered').length;
+        const inProgress = mine.filter((i: any) => i.status === 'assigned').length;
+        const queued = mine.filter((i: any) => i.status === 'pending').length;
+        return {
+          name: boy.username,
+          available: mine.length,
+          delivery: completed + inProgress,
+          waiting: queued,
+        };
+      });
+      setAvailabilityData(byBoy);
+    })
+      .catch(() => {
+        setDeliveryData([]);
+        setAvailabilityData([]);
+        setPieData([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -68,8 +102,8 @@ export default function Reports() {
       const boyId = Number(boyFilter);
       setLoadingRoute(true);
       Promise.all([
-        mockApi.getDeliveryBoyStats(boyId),
-        mockApi.getBoyRoute(boyId, dateRange)
+        appApi.getDeliveryBoyStats(boyId),
+        appApi.getBoyRoute(boyId, dateRange)
       ]).then(([s, r]) => {
         setBoyStats({ delivered: s.total_delivered, kmDriven: s.km_driven, daily_distance: s.daily_distance });
         setBoyRoute(r);
@@ -220,7 +254,7 @@ export default function Reports() {
                   </div>
                 ) : null}
                 <MapPreview
-                  riders={boyFilter === 'All' ? DEFAULT_RIDERS : DEFAULT_RIDERS.filter(r => r.id === Number(boyFilter))}
+                  riders={[]}
                   route={boyRoute.path}
                   checkpoints={boyRoute.checkpoints}
                   center={boyRoute.path[0] || [19.9975, 73.7898]}
@@ -282,15 +316,15 @@ export default function Reports() {
             </div>
 
             <div className="bg-white p-4 md:p-6 rounded-2xl border border-zinc-100 shadow-sm">
-              <h3 className="font-bold text-zinc-900 mb-6">Waiting Time per Day (mins)</h3>
+                <h3 className="font-bold text-zinc-900 mb-6">Pending Tasks per Day</h3>
               <div className="h-[260px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={deliveryData}>
+                    <LineChart data={deliveryData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} />
                     <Tooltip {...CHART_STYLE} />
-                    <Line type="monotone" dataKey="waiting" stroke="#f59e0b" strokeWidth={2.5} dot={{ fill: '#f59e0b', r: 4 }} name="Waiting (min)" />
+                    <Line type="monotone" dataKey="waiting" stroke="#f59e0b" strokeWidth={2.5} dot={{ fill: '#f59e0b', r: 4 }} name="Pending" />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -330,10 +364,28 @@ export default function Reports() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
           {/* Metric cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {[
-              { label: 'Total Available', value: '28.5 hrs', icon: Clock, color: 'blue', sub: 'Across all boys' },
-              { label: 'Total On Delivery', value: '13.0 hrs', icon: TrendingUp, color: 'emerald', sub: 'Active time' },
-              { label: 'Total Waiting', value: '4.8 hrs', icon: AlertCircle, color: 'amber', sub: 'At hospitals' },
+              {[
+              {
+                label: 'Total Assigned',
+                value: `${availabilityData.reduce((s, r) => s + (r.available || 0), 0)}`,
+                icon: Clock,
+                color: 'blue',
+                sub: 'Tasks across riders',
+              },
+              {
+                label: 'In Progress/Done',
+                value: `${availabilityData.reduce((s, r) => s + (r.delivery || 0), 0)}`,
+                icon: TrendingUp,
+                color: 'emerald',
+                sub: 'Assigned + delivered',
+              },
+              {
+                label: 'Pending',
+                value: `${availabilityData.reduce((s, r) => s + (r.waiting || 0), 0)}`,
+                icon: AlertCircle,
+                color: 'amber',
+                sub: 'Pending tasks',
+              },
             ].map(card => (
               <div key={card.label} className="bg-white p-4 rounded-xl border border-zinc-100 shadow-sm">
                 <div className="flex items-center gap-3 mb-2">
@@ -350,7 +402,7 @@ export default function Reports() {
 
           {/* Stacked bar — availability breakdown */}
           <div className="bg-white p-6 rounded-2xl border border-zinc-100 shadow-sm">
-            <h3 className="font-bold text-zinc-900 mb-6">Availability Breakdown per Rider (mins)</h3>
+            <h3 className="font-bold text-zinc-900 mb-6">Task Breakdown per Rider (counts)</h3>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={availabilityData} layout="vertical">
@@ -358,14 +410,14 @@ export default function Reports() {
                   <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} />
                   <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 11 }} width={48} />
                   <Tooltip {...CHART_STYLE} />
-                  <Bar dataKey="available" stackId="a" fill="#6366f1" name="Available (min)" />
-                  <Bar dataKey="delivery" stackId="a" fill="#10b981" name="On Delivery (min)" />
-                  <Bar dataKey="waiting" stackId="a" fill="#f59e0b" name="Waiting (min)" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="available" stackId="a" fill="#6366f1" name="Assigned" />
+                  <Bar dataKey="delivery" stackId="a" fill="#10b981" name="In Progress/Done" />
+                  <Bar dataKey="waiting" stackId="a" fill="#f59e0b" name="Pending" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
             <div className="flex flex-wrap gap-4 mt-4">
-              {[['Available', '#6366f1'], ['On Delivery', '#10b981'], ['Waiting', '#f59e0b']].map(([l, c]) => (
+              {[['Assigned', '#6366f1'], ['In Progress/Done', '#10b981'], ['Pending', '#f59e0b']].map(([l, c]) => (
                 <div key={l} className="flex items-center gap-2 text-xs text-zinc-600">
                   <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: c }} />
                   {l}
@@ -382,7 +434,7 @@ export default function Reports() {
             <table className="w-full text-left">
               <thead className="bg-zinc-50 border-b border-zinc-100">
                 <tr>
-                  {['Rider', 'Available', 'On Delivery', 'Waiting', 'Efficiency'].map(h => (
+                  {['Rider', 'Assigned', 'In Progress/Done', 'Pending', 'Efficiency'].map(h => (
                     <th key={h} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{h}</th>
                   ))}
                 </tr>
@@ -391,9 +443,9 @@ export default function Reports() {
                 {availabilityData.map(r => (
                   <tr key={r.name} className="hover:bg-zinc-50/50">
                     <td className="px-4 py-3 text-sm font-bold text-zinc-900">{r.name}</td>
-                    <td className="px-4 py-3 text-xs text-zinc-600">{r.available} min</td>
-                    <td className="px-4 py-3 text-xs text-emerald-600 font-medium">{r.delivery} min</td>
-                    <td className="px-4 py-3 text-xs text-amber-600 font-medium">{r.waiting} min</td>
+                    <td className="px-4 py-3 text-xs text-zinc-600">{r.available}</td>
+                    <td className="px-4 py-3 text-xs text-emerald-600 font-medium">{r.delivery}</td>
+                    <td className="px-4 py-3 text-xs text-amber-600 font-medium">{r.waiting}</td>
                     <td className="px-4 py-3">
                       <span className="text-xs font-bold text-zinc-900">{Math.round(r.delivery / r.available * 100)}%</span>
                     </td>

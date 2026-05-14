@@ -40,9 +40,10 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      /* Main SW includes Firebase Messaging (generated on `vite` / `vite build` as public/firebase-messaging-sw.js). */
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js');
+          navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(() => {});
         });
       }
     </script>

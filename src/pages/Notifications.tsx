@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { mockApi } from '../lib/mockApi';
+import { APP_NOTIFICATIONS_UPDATED_EVENT, appApi } from '../lib/appApi';
 import {
   Bell, Plus, Send, Trash2, Users, Shield, Truck,
   CheckCircle2, Clock, X, Bot
@@ -32,9 +32,16 @@ export default function Notifications() {
   const [filterTarget, setFilterTarget] = useState('all');
   const [notificationToDelete, setNotificationToDelete] = useState<number | null>(null);
 
-  const load = () => setNotifications(mockApi.getNotifications());
+  const load = () => setNotifications(appApi.getNotifications());
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const onUpdated = () => load();
+    window.addEventListener(APP_NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+    return () => {
+      window.removeEventListener(APP_NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+    };
+  }, []);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
 
@@ -52,7 +59,7 @@ export default function Notifications() {
 
   const handleSend = () => {
     if (!title.trim() || !message.trim()) return;
-    mockApi.saveNotification({ title, message, targets, priority, sentBy: user?.username });
+    appApi.saveNotification({ title, message, targets, priority, sentBy: user?.username });
     setTitle('');
     setMessage('');
     setTargets(['all']);
@@ -63,8 +70,7 @@ export default function Notifications() {
   };
 
   const handleDelete = (id: number) => {
-    const list = mockApi.getNotifications().filter((n: any) => n.id !== id);
-    localStorage.setItem('mock_notifications', JSON.stringify(list));
+    appApi.deleteNotification(id);
     load();
     setNotificationToDelete(null);
     showToast('Notification deleted');

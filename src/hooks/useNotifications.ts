@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { mockApi } from '../lib/mockApi';
+import { APP_NOTIFICATIONS_UPDATED_EVENT, appApi } from '../lib/appApi';
+import { isWebPushConfigured } from '../lib/webPush';
 
 const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; // Professional chime
 
 export function useNotifications() {
     const { user } = useAuth();
+    const useFirebase = isWebPushConfigured();
     const lastNotifId = useRef<number | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -20,10 +22,10 @@ export function useNotifications() {
     }, []);
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || useFirebase) return;
 
         const checkNewNotifications = () => {
-            const all = mockApi.getNotifications();
+            const all = appApi.getNotifications();
             const mine = all.filter((n: any) =>
                 (n.targets.includes('all') || n.targets.includes(user.role)) &&
                 !(n.readBy || []).includes(user.id)
@@ -55,6 +57,11 @@ export function useNotifications() {
         };
 
         const interval = setInterval(checkNewNotifications, 5000);
-        return () => clearInterval(interval);
-    }, [user]);
+        const onUpdated = () => checkNewNotifications();
+        window.addEventListener(APP_NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener(APP_NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+        };
+    }, [user, useFirebase]);
 }

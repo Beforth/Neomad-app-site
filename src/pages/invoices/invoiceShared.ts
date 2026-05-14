@@ -9,7 +9,21 @@ export const INVOICE_STATUS_COLORS: Record<string, string> = {
 
 export function fakeDuration(inv: ApiInvoice) {
   if (inv.status !== 'delivered') return null;
-  return { travel: '18 mins', waiting: '6 mins', total: '24 mins' };
+  if (!inv.accepted_at || !inv.delivered_at) return null;
+
+  const acceptedAt = new Date(inv.accepted_at).getTime();
+  const deliveredAt = new Date(inv.delivered_at).getTime();
+  if (!Number.isFinite(acceptedAt) || !Number.isFinite(deliveredAt) || deliveredAt <= acceptedAt) {
+    return null;
+  }
+
+  const totalMinutes = Math.round((deliveredAt - acceptedAt) / 60000);
+  return {
+    // Backend currently does not return wait-time splits, so show total as travel time.
+    travel: `${totalMinutes} mins`,
+    waiting: 'N/A',
+    total: `${totalMinutes} mins`,
+  };
 }
 
 export type InstallmentUiStatus = 'paid' | 'pending' | 'before_paid' | 'current_paid';

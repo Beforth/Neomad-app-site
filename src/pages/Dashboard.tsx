@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
-import { mockApi } from '../lib/mockApi';
+import { appApi } from '../lib/appApi';
 import MapPreview from '../components/MapPreview';
 
 export default function Dashboard() {
@@ -18,11 +18,11 @@ export default function Dashboard() {
   const [recentDeliveries, setRecentDeliveries] = useState<any[]>([]);
 
   useEffect(() => {
-    mockApi.getUsers().then(users => {
+    appApi.getUsers().then(users => {
       setDeliveryBoys(users.filter((u: any) => u.role === 'delivery_boy'));
     });
-    mockApi.getStats().then(setStats);
-    mockApi.getInvoices(user).then(invoices => {
+    appApi.getStats().then(setStats);
+    appApi.getInvoices().then(invoices => {
       const delivered = invoices
         .filter((i: any) => i.status === 'delivered')
         .sort((a, b) => new Date(b.delivered_at || b.created_at).getTime() - new Date(a.delivered_at || a.created_at).getTime())
@@ -87,12 +87,6 @@ export default function Dashboard() {
             </div>
           )}
 
-          {user?.role === 'admin' && (
-            <button onClick={async () => { await mockApi.seedDemoData(); window.location.reload(); }}
-              className="flex items-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100">
-              <CheckCircle2 size={14} /> Reset Demo Data
-            </button>
-          )}
           <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-zinc-200 text-sm font-medium text-zinc-600 shadow-sm">
             <Clock size={16} className="text-zinc-400" />
             Last updated: {new Date().toLocaleTimeString()}

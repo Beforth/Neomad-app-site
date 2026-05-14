@@ -8,6 +8,14 @@ const getBaseUrl = (): string => {
   return 'http://localhost:8080';
 };
 
+/** WebSocket origin (ws/wss) matching the REST API base. */
+export const getWsBaseUrl = (): string => {
+  const base = getBaseUrl();
+  if (base.startsWith('https://')) return `wss://${base.slice(8)}`;
+  if (base.startsWith('http://')) return `ws://${base.slice(7)}`;
+  return base;
+};
+
 export interface LoginResponseUser {
   id: number;
   email: string;
@@ -107,6 +115,73 @@ export async function getUsers(token: string, params?: { role_code?: string }): 
     notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load users'));
+  }
+  return res.json();
+}
+
+export interface SuspectedPowerOffRow {
+  server_logged_at: string;
+  last_device_ping_at: string;
+  battery_percent_at_last_ping: number;
+}
+
+export interface OnDutyDeliveryRow {
+  user_id: number;
+  full_name: string | null;
+  email: string;
+  lat: number | null;
+  lng: number | null;
+  status: string;
+  speed_mps: number | null;
+  last_location_at: string | null;
+  battery_percent: number | null;
+  suspected_power_off: SuspectedPowerOffRow | null;
+}
+
+export interface DeliveryPathPoint {
+  lat: number;
+  lng: number;
+  at: string;
+  speed_mps: number | null;
+  battery_percent: number | null;
+}
+
+export interface DeliveryDayPathResponse {
+  user_id: number;
+  date: string;
+  source: string;
+  points: DeliveryPathPoint[];
+}
+
+/** On-duty delivery users with last known GPS (admin or manager). */
+export async function getOnDutyDeliveries(token: string): Promise<OnDutyDeliveryRow[]> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/tracking/on-duty-deliveries`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load tracking'));
+  }
+  return res.json();
+}
+
+/** Delivery user's recorded day path (from Redis hot buffer or DB archive). */
+export async function getDeliveryDayPath(
+  token: string,
+  userId: number,
+  date?: string
+): Promise<DeliveryDayPathResponse> {
+  const base = getBaseUrl();
+  const qs = date ? `?date=${encodeURIComponent(date)}` : '';
+  const res = await fetch(`${base}/tracking/delivery-path/${userId}${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load travel path'));
   }
   return res.json();
 }
@@ -314,6 +389,8 @@ export interface ApiInvoice {
   assigned_to?: number | null;
   accepted_at?: string | null;
   delivered_at?: string | null;
+  delivery_latitude?: number | null;
+  delivery_longitude?: number | null;
   cash_received?: number | null;
   cheque_received?: number | null;
   cheque_number?: string | null;
@@ -426,6 +503,8 @@ export async function updateInvoice(
     assigned_to?: number | null;
     cancel_reason?: string | null;
     signed_copy_url?: string | null;
+    delivery_latitude?: number | null;
+    delivery_longitude?: number | null;
     cash_received?: number | null;
     cheque_received?: number | null;
     cheque_number?: string | null;
@@ -443,6 +522,8 @@ export async function updateInvoice(
   if (data.assigned_to !== undefined) body.assigned_to = data.assigned_to;
   if (data.cancel_reason !== undefined) body.cancel_reason = data.cancel_reason;
   if (data.signed_copy_url !== undefined) body.signed_copy_url = data.signed_copy_url;
+  if (data.delivery_latitude !== undefined) body.delivery_latitude = data.delivery_latitude;
+  if (data.delivery_longitude !== undefined) body.delivery_longitude = data.delivery_longitude;
   if (data.cash_received !== undefined) body.cash_received = data.cash_received;
   if (data.cheque_received !== undefined) body.cheque_received = data.cheque_received;
   if (data.cheque_number !== undefined) body.cheque_number = data.cheque_number;
@@ -528,6 +609,201 @@ export async function changePassword(
     notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Change password failed'));
+  }
+  return res.json();
+}
+
+/** Register or clear browser FCM token (admin/manager web push). */
+export async function updateWebPushToken(token: string, fcmToken: string | null): Promise<void> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/users/me/web-push`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ fcm_token: fcmToken }),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to update web push token'));
+  }
+}
+
+export interface GmailAccountStatus {
+  id: number;
+  email: string;
+  is_active: boolean;
+  connected_at: string;
+  last_sync_at: string | null;
+}
+
+export interface GmailStatusResponse {
+  connected: boolean;
+  account: GmailAccountStatus | null;
+}
+
+export interface GmailAuthUrlResponse {
+  authorization_url: string;
+  state: string;
+  redirect_uri: string;
+  code_verifier?: string | null;
+}
+
+export interface GmailEmail {
+  id: number;
+  gmail_message_id: string;
+  thread_id: string | null;
+  subject: string;
+  sender: string;
+  recipient: string;
+  sent_at: string;
+  snippet: string;
+  body: string;
+  labels: string[];
+  is_read: boolean;
+  is_starred: boolean;
+}
+
+export interface GmailEmailListResponse {
+  items: GmailEmail[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export async function getGmailAuthUrl(token: string): Promise<GmailAuthUrlResponse> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/gmail/auth-url`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to get Gmail auth URL'));
+  }
+  return res.json();
+}
+
+export async function completeGmailOAuth(
+  token: string,
+  code: string,
+  state?: string,
+  codeVerifier?: string
+): Promise<GmailStatusResponse> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/gmail/oauth2callback`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ code, state: state || null, code_verifier: codeVerifier || null }),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to complete Gmail OAuth'));
+  }
+  return res.json();
+}
+
+export async function getGmailStatus(token: string): Promise<GmailStatusResponse> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/gmail/status`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load Gmail status'));
+  }
+  return res.json();
+}
+
+export async function disconnectGmail(token: string): Promise<void> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/gmail/disconnect`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to disconnect Gmail'));
+  }
+}
+
+export async function listGmailEmails(
+  token: string,
+  params?: { q?: string; unread_only?: boolean; starred_only?: boolean; page?: number; page_size?: number }
+): Promise<GmailEmailListResponse> {
+  const base = getBaseUrl();
+  const sp = new URLSearchParams();
+  if (params?.q) sp.set('q', params.q);
+  if (params?.unread_only) sp.set('unread_only', 'true');
+  if (params?.starred_only) sp.set('starred_only', 'true');
+  if (params?.page != null) sp.set('page', String(params.page));
+  if (params?.page_size != null) sp.set('page_size', String(params.page_size));
+  const qs = sp.toString();
+  const res = await fetch(`${base}/gmail/emails${qs ? `?${qs}` : ''}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load Gmail emails'));
+  }
+  return res.json();
+}
+
+export async function syncRecentGmailEmails(token: string, limit = 20): Promise<{ success: boolean; synced: number; message: string }> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/gmail/emails/sync-recent`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ limit }),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to sync recent Gmail emails'));
+  }
+  return res.json();
+}
+
+export async function markGmailEmailRead(token: string, emailId: number, isRead: boolean): Promise<GmailEmail> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/gmail/emails/${emailId}/mark-read`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ is_read: isRead }),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to update email read state'));
+  }
+  return res.json();
+}
+
+export async function toggleGmailEmailStar(token: string, emailId: number): Promise<GmailEmail> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/gmail/emails/${emailId}/toggle-star`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to toggle email star'));
   }
   return res.json();
 }

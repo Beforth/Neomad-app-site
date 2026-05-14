@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { mockApi } from '../lib/mockApi';
+import { APP_NOTIFICATIONS_UPDATED_EVENT, appApi } from '../lib/appApi';
 import { isNavItemActive } from '../lib/navActive';
 
 export default function Sidebar() {
@@ -17,7 +17,7 @@ export default function Sidebar() {
 
   useEffect(() => {
     const refresh = () => {
-      const all = mockApi.getNotifications();
+      const all = appApi.getNotifications();
       const mine = all.filter((n: any) =>
         n.targets.includes('all') ||
         n.targets.includes(user?.role || '')
@@ -25,9 +25,14 @@ export default function Sidebar() {
       const count = mine.filter((n: any) => !(n.readBy || []).includes(user?.id)).length;
       setUnread(count);
     };
+    const onUpdated = () => refresh();
+    window.addEventListener(APP_NOTIFICATIONS_UPDATED_EVENT, onUpdated);
     refresh();
     const t = setInterval(refresh, 5000);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener(APP_NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+    };
   }, [user?.id, user?.role]);
 
   const menuItems = [
