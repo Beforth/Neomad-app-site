@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getUsers } from '../../lib/api';
 import {
   MapPin, FileImage, IndianRupee, FileText, AlertCircle, Trash2, List,
   Building, Hash, Banknote, Clock, UserPlus, XCircle, CheckCircle2,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { clearInvoicesError, deleteInvoiceThunk } from '../../features/invoices/invoicesSlice';
 import { useInvoiceLoader } from './useInvoiceLoader';
 import { fakeDuration, INVOICE_STATUS_COLORS, parseInvoiceRouteId } from './invoiceShared';
 import { InvoiceSectionFrame, invoiceInnerCardClassName } from '../../components/invoices/InvoiceSectionFrame';
@@ -14,8 +17,36 @@ export default function InvoiceDetailPage() {
   const { invoiceId: idParam } = useParams<{ invoiceId: string }>();
   const id = parseInvoiceRouteId(idParam);
   const { token, user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useAppDispatch();
+  const deleteError = useAppSelector((s) => s.invoices.error);
   const { invoice, loading, error } = useInvoiceLoader(token, id);
   const [deliveryUsers, setDeliveryUsers] = useState<{ id: number; name: string }[]>([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  useEffect(() => {
+    if (!invoice) return;
+    if (user?.role !== 'admin' && user?.role !== 'manager') return;
+    const s = location.state as { openInvoiceDeleteConfirm?: boolean } | undefined;
+    if (!s?.openInvoiceDeleteConfirm) return;
+    dispatch(clearInvoicesError());
+    setShowDeleteModal(true);
+    navigate(`/invoices/${invoice.id}`, { replace: true, state: {} });
+  }, [invoice, user?.role, location.state, navigate, dispatch]);
+
+  useEffect(() => {
+    if (!showDeleteModal || deleteBusy) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      setShowDeleteModal(false);
+      dispatch(clearInvoicesError());
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showDeleteModal, deleteBusy, dispatch]);
 
   useEffect(() => {
     if (!token || (user?.role !== 'admin' && user?.role !== 'manager')) return;
@@ -112,12 +143,16 @@ export default function InvoiceDetailPage() {
             </>
           ) : null}
           {isManager ? (
-            <Link
-              to={`/invoices/${invoice.id}/delete`}
+            <button
+              type="button"
+              onClick={() => {
+                dispatch(clearInvoicesError());
+                setShowDeleteModal(true);
+              }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700 hover:bg-red-100"
             >
               <Trash2 size={16} /> Delete
-            </Link>
+            </button>
           ) : null}
         </div>
       }
@@ -310,6 +345,73 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showDeleteModal && invoice ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invoice-delete-title"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden"
+            >
+              <div className="p-6 border-b border-zinc-100">
+                <h2 id="invoice-delete-title" className="text-lg font-bold text-zinc-900">
+                  Delete invoice?
+                </h2>
+                <p className="text-sm text-zinc-600 mt-2">
+                  <span className="font-semibold text-zinc-800">{invoice.invoice_number}</span>
+                  {' · '}
+                  {invoice.hospital_name}
+                </p>
+                <p className="text-xs text-red-600 font-medium mt-2">This action cannot be undone.</p>
+                {deleteError ? <p className="text-sm text-red-600 mt-3">{deleteError}</p> : null}
+              </div>
+              <div className="p-4 flex flex-wrap gap-2 justify-end bg-zinc-50/80">
+                <button
+                  type="button"
+                  disabled={deleteBusy}
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    dispatch(clearInvoicesError());
+                  }}
+                  className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deleteBusy || !token}
+                  onClick={() => {
+                    if (!token) return;
+                    setDeleteBusy(true);
+                    dispatch(clearInvoicesError());
+                    dispatch(deleteInvoiceThunk({ token, id: invoice.id }))
+                      .unwrap()
+                      .then(() => {
+                        setShowDeleteModal(false);
+                        navigate('/invoices');
+                      })
+                      .catch(() => {})
+                      .finally(() => setDeleteBusy(false));
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                >
+                  <Trash2 size={16} /> {deleteBusy ? 'Deleting…' : 'Delete invoice'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </InvoiceSectionFrame>
   );
 }

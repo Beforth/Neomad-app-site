@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Search,
@@ -11,8 +11,10 @@ import {
   List,
   Pencil,
   Trash2,
+  FileText,
+  UserPlus,
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import * as api from '../lib/api';
 import { TASKS_PAGE_SUBTITLE, TASKS_PAGE_TITLE } from '../components/tasks/TaskSectionFrame';
 import { TASK_STATUS_COLORS, assigneeName, type AssigneeLike } from './tasks/taskShared';
@@ -20,6 +22,7 @@ import { TASK_STATUS_COLORS, assigneeName, type AssigneeLike } from './tasks/tas
 export default function Tasks() {
   const { token } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [tasks, setTasks] = useState<api.ApiTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +30,19 @@ export default function Tasks() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [availableAssignees, setAvailableAssignees] = useState<AssigneeLike[]>([]);
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createData, setCreateData] = useState({ task_name: '', assigned_to: '', description: '' });
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const s = location.state as { openTaskCreate?: boolean } | undefined;
+    if (!s?.openTaskCreate) return;
+    setShowCreateModal(true);
+    setCreateError(null);
+    navigate('/tasks', { replace: true, state: {} });
+  }, [location.state, navigate]);
 
   useEffect(() => {
     if (!token) return;
@@ -60,6 +76,47 @@ export default function Tasks() {
     return matchSearch && matchStatus;
   });
 
+  const closeCreateModal = () => {
+    if (creating) return;
+    setShowCreateModal(false);
+    setCreateError(null);
+    setCreateData({ task_name: '', assigned_to: '', description: '' });
+  };
+
+  useEffect(() => {
+    if (!showCreateModal || creating) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      setShowCreateModal(false);
+      setCreateError(null);
+      setCreateData({ task_name: '', assigned_to: '', description: '' });
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showCreateModal, creating]);
+
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      await api.createTask(token, {
+        title: createData.task_name.trim() || 'New Task',
+        description: createData.description.trim() || undefined,
+        assigned_to: createData.assigned_to ? Number(createData.assigned_to) : undefined,
+      });
+      setShowCreateModal(false);
+      setCreateData({ task_name: '', assigned_to: '', description: '' });
+      fetchTasks();
+    } catch (err) {
+      setCreateError(api.normalizeFetchError(err, 'Failed to create task'));
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -86,7 +143,10 @@ export default function Tasks() {
           </div>
           <button
             type="button"
-            onClick={() => navigate('/tasks/new')}
+            onClick={() => {
+              setCreateError(null);
+              setShowCreateModal(true);
+            }}
             className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors flex items-center gap-2 shadow-sm shadow-emerald-100"
           >
             <Plus size={16} /> New Task
@@ -281,6 +341,120 @@ export default function Tasks() {
           </table>
         </div>
       )}
+
+      <AnimatePresence>
+        {showCreateModal ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="task-create-title"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-zinc-100 flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 border-b border-zinc-50 bg-zinc-50/50 flex items-center justify-between shrink-0">
+                <div>
+                  <h2 id="task-create-title" className="text-xl font-bold text-zinc-900">
+                    Create New Task
+                  </h2>
+                  <p className="text-xs text-zinc-500 font-medium mt-0.5">Add a new generic task for delivery</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => closeCreateModal()}
+                  disabled={creating}
+                  className="p-2 hover:bg-white rounded-xl transition-colors text-zinc-400 disabled:opacity-50"
+                  aria-label="Cancel"
+                >
+                  <XCircle size={24} />
+                </button>
+              </div>
+
+              {createError ? (
+                <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm">{createError}</div>
+              ) : null}
+
+              <form onSubmit={handleCreateTask} className="p-6 space-y-5 overflow-y-auto">
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Package size={12} /> Task Name
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      placeholder="e.g. Get Coffee or Visit Client"
+                      value={createData.task_name}
+                      onChange={(e) => setCreateData({ ...createData, task_name: e.target.value })}
+                      className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText size={12} /> Task Description
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Provide details about the task..."
+                      value={createData.description}
+                      onChange={(e) => setCreateData({ ...createData, description: e.target.value })}
+                      className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium resize-none"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <UserPlus size={12} /> Assign To (Optional)
+                    </label>
+                    <select
+                      value={createData.assigned_to}
+                      onChange={(e) => setCreateData({ ...createData, assigned_to: e.target.value })}
+                      className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
+                    >
+                      <option value="">Keep Pending (Unassigned)</option>
+                      {availableAssignees.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.full_name ?? u.email ?? u.name ?? String(u.id)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => closeCreateModal()}
+                    disabled={creating}
+                    className="flex-1 py-3 border border-zinc-200 rounded-xl font-bold text-sm text-zinc-600 hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creating}
+                    className="flex-[2] py-3 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {creating ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Creating…
+                      </>
+                    ) : (
+                      'Create Task'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
