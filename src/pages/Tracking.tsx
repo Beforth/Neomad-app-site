@@ -11,62 +11,21 @@ import {
   normalizeFetchError,
   type ApiInvoice,
   type OnDutyDeliveryRow,
-  type SuspectedPowerOffRow,
 } from '../lib/api';
+import {
+  DEFAULT_MAP_CENTER,
+  displayRidersToMapPreviewMarkers,
+  mergeOnDutySnapshotsWithLive,
+  type LiveFleetDisplayRider,
+} from '../lib/liveFleetMap';
 import type { LocationUpdateMessage } from '../hooks/useSocket';
-
-const DEFAULT_MAP_CENTER: [number, number] = [19.9975, 73.7898];
-
-function initialsFromName(name: string | null, email: string): string {
-  const n = (name || '').trim();
-  if (!n) return (email[0] || '?').toUpperCase();
-  return n
-    .split(/\s+/)
-    .map((p) => p[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 3);
-}
-
-function statusLabelFor(
-  status: string,
-  lat: number | null,
-  lng: number | null,
-  lastAt: string | null,
-): string {
-  if (lat == null || lng == null) return 'No GPS fix yet';
-  if (status === 'moving') return 'Moving';
-  if (lastAt) {
-    const d = new Date(lastAt);
-    if (!Number.isNaN(d.getTime())) {
-      const stale = Date.now() - d.getTime() > 10 * 60 * 1000;
-      if (stale) return 'Location stale (last fix older than 10 min)';
-    }
-  }
-  return 'Stationary / waiting';
-}
-
-interface DisplayRider {
-  id: number;
-  name: string;
-  initials: string;
-  status: 'moving' | 'waiting';
-  statusLabel: string;
-  order: string | null;
-  lat: number | null;
-  lng: number | null;
-  speedMps: number | null;
-  lastLocationAt: string | null;
-  batteryPercent: number | null;
-  suspectedPowerOff: SuspectedPowerOffRow | null;
-}
 
 function RiderCard({
   rider,
   selected,
   onClick,
 }: {
-  rider: DisplayRider;
+  rider: LiveFleetDisplayRider;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -177,37 +136,6 @@ function RiderCard({
       </AnimatePresence>
     </button>
   );
-}
-
-function mergeSnapshotWithLive(
-  rows: OnDutyDeliveryRow[],
-  live: Record<number, LocationUpdateMessage>,
-): DisplayRider[] {
-  return rows.map((s) => {
-    const u = live[s.user_id];
-    const lat = u?.lat ?? s.lat;
-    const lng = u?.lng ?? s.lng;
-    const rawStatus = (u?.status ?? s.status) as string;
-    const status: 'moving' | 'waiting' = rawStatus === 'moving' ? 'moving' : 'waiting';
-    const lastAt = u?.last_location_at ?? s.last_location_at;
-    const speed = u?.speed_mps ?? s.speed_mps;
-    const name = (u?.full_name ?? s.full_name)?.trim() || s.email;
-    const battery = u?.battery_percent ?? s.battery_percent ?? null;
-    return {
-      id: s.user_id,
-      name,
-      initials: initialsFromName(u?.full_name ?? s.full_name, s.email),
-      status,
-      statusLabel: statusLabelFor(status, lat, lng, lastAt),
-      order: null,
-      lat,
-      lng,
-      speedMps: speed,
-      lastLocationAt: lastAt,
-      batteryPercent: battery,
-      suspectedPowerOff: s.suspected_power_off,
-    };
-  });
 }
 
 export default function Tracking() {
@@ -322,20 +250,10 @@ export default function Tracking() {
     };
   }, [token, canTrack, selected]);
 
-  const allRiders = mergeSnapshotWithLive(snapshots, liveLocations);
+  const allRiders = mergeOnDutySnapshotsWithLive(snapshots, liveLocations);
   const riders = selected ? allRiders.filter((r) => r.id === selected) : allRiders;
 
-  const mapRiders = allRiders
-    .filter((r) => r.lat != null && r.lng != null)
-    .map((r) => ({
-      id: r.id,
-      name: r.name,
-      pos: [r.lat!, r.lng!] as [number, number],
-      status: r.statusLabel,
-      motion: r.status,
-      order: 'N/A' as const,
-      batteryPercent: r.batteryPercent,
-    }));
+  const mapRiders = displayRidersToMapPreviewMarkers(allRiders);
 
   const deliveryCheckpoints = todayDeliveries
     .filter(

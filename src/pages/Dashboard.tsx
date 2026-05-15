@@ -1,21 +1,65 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
-  FileText, Clock, CheckCircle2, XCircle, Truck,
-  ArrowUpRight, TrendingUp, IndianRupee, AlertCircle, Users,
-  ShieldCheck, Wallet
+  Clock, CheckCircle2, XCircle, Truck,
+  ArrowUpRight, Users,
+  Wallet, MapPin
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
+import { useTrackingSocket } from '../hooks/useSocket';
 import { appApi } from '../lib/appApi';
+import { getOnDutyDeliveries, normalizeFetchError, type OnDutyDeliveryRow } from '../lib/api';
+import {
+  DEFAULT_MAP_CENTER,
+  averageCenterForMarkers,
+  displayRidersToMapPreviewMarkers,
+  mergeOnDutySnapshotsWithLive,
+} from '../lib/liveFleetMap';
+import type { LocationUpdateMessage } from '../hooks/useSocket';
 import MapPreview from '../components/MapPreview';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const canLiveMap = user?.role === 'admin' || user?.role === 'manager';
+
+  const [dutySnapshots, setDutySnapshots] = useState<OnDutyDeliveryRow[]>([]);
+  const [liveLocations, setLiveLocations] = useState<Record<number, LocationUpdateMessage>>({});
+  const [mapLoadError, setMapLoadError] = useState<string | null>(null);
   const [selectedBoyId, setSelectedBoyId] = useState<string>('all');
   const [customBoyName, setCustomBoyName] = useState<string>('');
   const [deliveryBoys, setDeliveryBoys] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [recentDeliveries, setRecentDeliveries] = useState<any[]>([]);
+
+  const { subscribe } = useTrackingSocket(Boolean(canLiveMap && token));
+
+  const loadOnDutyForMap = useCallback(async () => {
+    if (!token || !canLiveMap) return;
+    try {
+      const rows = await getOnDutyDeliveries(token);
+      setDutySnapshots(rows);
+      setMapLoadError(null);
+    } catch (e) {
+      setMapLoadError(normalizeFetchError(e, 'Live map'));
+    }
+  }, [token, canLiveMap]);
+
+  useEffect(() => {
+    loadOnDutyForMap();
+  }, [loadOnDutyForMap]);
+
+  useEffect(() => {
+    if (!canLiveMap || !token) return;
+    const id = window.setInterval(loadOnDutyForMap, 60_000);
+    return () => window.clearInterval(id);
+  }, [canLiveMap, token, loadOnDutyForMap]);
+
+  useEffect(() => {
+    if (!canLiveMap) return;
+    return subscribe((data) => {
+      setLiveLocations((prev) => ({ ...prev, [data.user_id]: data }));
+    });
+  }, [canLiveMap, subscribe]);
 
   useEffect(() => {
     appApi.getUsers().then(users => {
@@ -30,6 +74,11 @@ export default function Dashboard() {
       setRecentDeliveries(delivered);
     });
   }, [user]);
+
+  const mergedDuty = mergeOnDutySnapshotsWithLive(dutySnapshots, liveLocations);
+  const mapRiders = displayRidersToMapPreviewMarkers(mergedDuty);
+  const mapCenter = averageCenterForMarkers(mapRiders, DEFAULT_MAP_CENTER);
+
   const allCards = [
     { label: 'Total Boys', value: stats?.total_boys?.count || 0, icon: Users, color: 'blue', roles: ['admin', 'manager'], hideIfBoySelected: true },
     { label: 'Pending', value: stats?.pending?.count || 0, icon: Clock, color: 'amber', roles: ['admin', 'manager'] },
@@ -119,8 +168,8 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-zinc-100 shadow-sm p-4">
+      <div className={`grid grid-cols-1 gap-6 ${canLiveMap ? 'lg:grid-cols-3' : ''}`}>
+        <div className={`bg-white rounded-xl border border-zinc-100 shadow-sm p-4 ${canLiveMap ? 'lg:col-span-2' : ''}`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-zinc-900">Recent Deliveries</h3>
             <button className="text-emerald-600 text-[10px] font-bold uppercase tracking-wider hover:underline">View all</button>
@@ -154,22 +203,52 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {canLiveMap && (
         <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4">
-          <h3 className="text-sm font-bold text-zinc-900 mb-4">Live Map Preview (Nashik)</h3>
-          <div className="h-64 md:h-72 lg:aspect-square lg:h-auto bg-white rounded-lg relative overflow-hidden border border-zinc-100 shadow-inner">
-            <MapPreview />
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <h3 className="text-sm font-bold text-zinc-900">Live fleet map</h3>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider shrink-0">
+              {mapRiders.length}/{mergedDuty.length} on map
+            </span>
           </div>
-          <div className="mt-4 space-y-3">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-zinc-500 font-medium whitespace-nowrap">Active Team Density</span>
-              <div className="h-1.5 flex-1 bg-zinc-100 mx-4 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: '65%' }} />
+          {mapLoadError && (
+            <p className="text-xs text-red-600 mb-2">{mapLoadError}</p>
+          )}
+          <div className="h-64 md:h-72 lg:aspect-square lg:h-auto bg-white rounded-lg relative overflow-hidden border border-zinc-100 shadow-inner">
+            <MapPreview
+              riders={mapRiders}
+              route={[]}
+              checkpoints={[]}
+              center={mapCenter}
+              zoom={mapRiders.length === 1 ? 15 : 13}
+            />
+            {mergedDuty.length === 0 && !mapLoadError && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-white/95 to-transparent pt-8 pb-2 text-center">
+                <p className="text-[10px] font-bold text-zinc-400">No delivery staff on duty</p>
               </div>
-              <span className="font-bold text-zinc-900">High</span>
+            )}
+            {mergedDuty.length > 0 && mapRiders.length === 0 && !mapLoadError && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-white/95 to-transparent pt-8 pb-2 text-center">
+                <p className="text-[10px] font-bold text-zinc-400">On duty — waiting for GPS</p>
+              </div>
+            )}
+          </div>
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between text-[11px] text-zinc-600">
+              <span className="flex items-center gap-1.5 font-medium">
+                <Users size={12} className="text-zinc-400" /> On duty
+              </span>
+              <span className="font-bold text-zinc-900">{mergedDuty.length}</span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-zinc-600">
+              <span className="flex items-center gap-1.5 font-medium">
+                <MapPin size={12} className="text-zinc-400" /> With live position
+              </span>
+              <span className="font-bold text-zinc-900">{mapRiders.length}</span>
             </div>
           </div>
         </div>
-      </div>
-    </div >
+        )}      </div>
+    </div>
   );
 }

@@ -1,11 +1,11 @@
 /**
- * Backend API client. Base URL from .env: VITE_API_BASE_URL (default http://localhost:8080)
+ * Backend API client. Base URL from .env: VITE_API_BASE_URL
  */
 
 const getBaseUrl = (): string => {
   const url = import.meta.env.VITE_API_BASE_URL;
   if (url && String(url).trim()) return String(url).trim().replace(/\/$/, '');
-  return 'http://localhost:8080';
+  return 'https://api-neomed.encryptedbar.com';
 };
 
 /** WebSocket origin (ws/wss) matching the REST API base. */
@@ -85,7 +85,7 @@ export function normalizeFetchError(e: unknown, context: string): string {
   const msg = e instanceof Error ? e.message : '';
   const base = getBaseUrl();
   if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed')) {
-    return `Cannot reach the API at ${base}. Is the backend running? Check VITE_API_BASE_URL in .env (e.g. http://localhost:8080).`;
+    return `Cannot reach the API at ${base}. Is the backend running? Check VITE_API_BASE_URL in .env (e.g. https://api-neomed.encryptedbar.com).`;
   }
   return e instanceof Error ? e.message : context;
 }
