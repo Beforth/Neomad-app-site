@@ -50,9 +50,7 @@ export default function DeliveryBoyApp() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [activeTasks, setActiveTasks] = useState<any[]>([]);
   const [acceptingId, setAcceptingId] = useState<number | null>(null);
-  const [deliveryStatus, setDeliveryStatus] = useState<'moving' | 'waiting' | 'at_location'>('moving');
   const [deliverySeconds, setDeliverySeconds] = useState<Record<number, number>>({});
-  const [waitingSeconds, setWaitingSeconds] = useState(0);
   const [availableSeconds, setAvailableSeconds] = useState(0);
 
   // Payment states (now mapped to task ID)
@@ -150,31 +148,6 @@ export default function DeliveryBoyApp() {
     return () => clearInterval(tick);
   }, [activeTasks]);
 
-  // Waiting accumulator + alert
-  const waitingAlertSentRef = useRef(false);
-  useEffect(() => {
-    if (deliveryStatus !== 'waiting') {
-      waitingAlertSentRef.current = false;
-      return;
-    }
-    const tick = setInterval(() => setWaitingSeconds(s => s + 1), 1000);
-    // Send a system alert to admin/manager after 5 seconds of waiting
-    const alertTimer = setTimeout(() => {
-      if (!waitingAlertSentRef.current && activeTasks.length > 0) {
-        // Send alert for the "current" or most recent task logic? 
-        // For now, let's just use the first active task for the alert reference
-        const task = activeTasks[0];
-        appApi.pushWaitingAlert(
-          task.invoice_number,
-          task.hospital_name, // Keeping the variable name for now as it's from the API
-          user?.username || 'Delivery Boy'
-        );
-        waitingAlertSentRef.current = true;
-      }
-    }, 5000);
-    return () => { clearInterval(tick); clearTimeout(alertTimer); };
-  }, [deliveryStatus, activeTasks]);
-
   // Geolocation
   useEffect(() => {
     const watchId = navigator.geolocation.watchPosition(
@@ -221,8 +194,6 @@ export default function DeliveryBoyApp() {
         setExpandedTaskId(id);
         setActiveTab('active');
         setShowMap(true);
-        setDeliveryStatus('moving');
-        setWaitingSeconds(0);
       }
     } finally { setAcceptingId(null); }
   };
@@ -589,33 +560,11 @@ export default function DeliveryBoyApp() {
                                 </div>
                                 <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><Navigation size={20} /></div>
                               </div>
-                              <div className="flex items-center gap-6 mb-4">
+                              <div className="flex items-center gap-6">
                                 <div className="space-y-1">
                                   <p className="text-emerald-100 text-[10px]">Delivery Time</p>
                                   <p className="text-2xl font-mono font-bold tabular-nums">{fmtTime(deliverySeconds[task.id] || 0)}</p>
                                 </div>
-                                {waitingSeconds > 0 && (
-                                  <>
-                                    <div className="h-8 w-px bg-white/20" />
-                                    <div className="space-y-1">
-                                      <p className="text-amber-200 text-[10px]">Total Waiting</p>
-                                      <p className="text-xl font-mono font-bold text-amber-200 tabular-nums">{fmtTime(waitingSeconds)}</p>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                              <div className="flex gap-2">
-                                {(['moving', 'waiting', 'at_location'] as const).map(s => (
-                                  <button key={s} onClick={() => !submitted[task.id] && setDeliveryStatus(s)} disabled={submitted[task.id]}
-                                    className={`flex-1 py-1.5 rounded-xl text-[10px] font-bold transition-all ${deliveryStatus === s ? 'bg-white text-emerald-700' : 'bg-white/20 text-white hover:bg-white/30'}`}>
-                                    <div className="flex items-center justify-center gap-1.5">
-                                      {s === 'moving' && <Truck size={12} />}
-                                      {s === 'waiting' && <Clock size={12} />}
-                                      {s === 'at_location' && <MapPin size={12} />}
-                                      {s === 'moving' ? 'Moving' : s === 'waiting' ? 'Waiting' : 'Arrived'}
-                                    </div>
-                                  </button>
-                                ))}
                               </div>
                             </div>
 
