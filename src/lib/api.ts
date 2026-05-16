@@ -448,6 +448,9 @@ export interface InvoiceListParams {
   sort_order?: 'asc' | 'desc';
   page?: number;
   page_size?: number;
+  omit_completed?: boolean;
+  completion_from?: string;
+  completion_to?: string;
 }
 
 export interface InvoiceListResult {
@@ -473,6 +476,9 @@ export async function getInvoices(
   if (params?.sort_order) sp.set('sort_order', params.sort_order);
   if (params?.page != null) sp.set('page', String(params.page));
   if (params?.page_size != null) sp.set('page_size', String(params.page_size));
+  if (params?.omit_completed) sp.set('omit_completed', 'true');
+  if (params?.completion_from) sp.set('completion_from', params.completion_from);
+  if (params?.completion_to) sp.set('completion_to', params.completion_to);
   const qs = sp.toString();
   const url = `${base}/invoices${qs ? `?${qs}` : ''}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });

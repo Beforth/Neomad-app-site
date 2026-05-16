@@ -162,6 +162,36 @@ const getAllInvoices = async (): Promise<Invoice[]> => {
   return items;
 };
 
+export async function getDeliveryOpenInvoices(token: string): Promise<Invoice[]> {
+  const r = await getInvoicesApi(token, {
+    page: 1,
+    page_size: 100,
+    omit_completed: true,
+    sort_by: 'created_at',
+    sort_order: 'desc',
+  });
+  return r.items as Invoice[];
+}
+
+export async function getDeliveryCompletedHistoryPage(
+  token: string,
+  page: number,
+  opts?: { search?: string; completion_from?: string; includeCancelled?: boolean }
+): Promise<{ items: Invoice[]; total: number }> {
+  const status =
+    opts?.includeCancelled === false ? 'delivered' : 'delivered,cancelled';
+  const r = await getInvoicesApi(token, {
+    page,
+    page_size: 25,
+    status,
+    search: opts?.search?.trim() || undefined,
+    completion_from: opts?.completion_from,
+    sort_by: 'delivered_at',
+    sort_order: 'desc',
+  });
+  return { items: r.items as Invoice[], total: r.total };
+}
+
 export const appApi = {
   getUsers: async () => {
     const token = getTokenOrThrow();
@@ -177,6 +207,14 @@ export const appApi = {
   getInvoices: async () => {
     return getAllInvoices();
   },
+
+  getDeliveryOpenInvoices: async (token: string) => getDeliveryOpenInvoices(token),
+
+  getDeliveryCompletedHistoryPage: async (
+    token: string,
+    page: number,
+    opts?: { search?: string; completion_from?: string; includeCancelled?: boolean }
+  ) => getDeliveryCompletedHistoryPage(token, page, opts),
 
   assignInvoice: async (id: number, deliveryBoyId: number) => {
     const token = getTokenOrThrow();

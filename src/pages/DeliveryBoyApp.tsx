@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
 import {
@@ -35,19 +35,29 @@ function fmtTime(secs: number) {
     : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function isToday(dateString: string) {
-  if (!dateString) return false;
-  const d = new Date(dateString);
-  const now = new Date();
-  return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+/** YYYY-MM-DD for API completion_from (last N days). */
+function completionFromISO(days: number | null | undefined): string | undefined {
+  if (days == null || days <= 0) return undefined;
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
 }
 
 export default function DeliveryBoyApp() {
-  const { user, logout } = useAuth();
+  const { user, logout, token } = useAuth();
   const { socket } = useSocket();
   const [isAvailable, setIsAvailable] = useState(false);
   const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed'>('available');
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [completedHistory, setCompletedHistory] = useState<any[]>([]);
+  const [compPage, setCompPage] = useState(1);
+  const [compTotal, setCompTotal] = useState(0);
+  const [compLoading, setCompLoading] = useState(false);
+  const [compLoadingMore, setCompLoadingMore] = useState(false);
+  const [histSearch, setHistSearch] = useState('');
+  const [historySearchDraft, setHistorySearchDraft] = useState('');
+  const [histDays, setHistDays] = useState<number | null>(null);
+  const [histIncludeCancelled, setHistIncludeCancelled] = useState(true);
   const [activeTasks, setActiveTasks] = useState<any[]>([]);
   const [acceptingId, setAcceptingId] = useState<number | null>(null);
   const [deliverySeconds, setDeliverySeconds] = useState<Record<number, number>>({});
@@ -90,28 +100,6 @@ export default function DeliveryBoyApp() {
   isAvailableRef.current = isAvailable;
   activeTasksRef.current = activeTasks;
   socketRef.current = socket;
-
-  useEffect(() => {
-    if (!socket) return;
-    const unsubscribe = socket.on('new_invoice', async (evt: any) => {
-      const inv = evt?.invoice;
-      if (inv?.invoice_number) {
-        appApi.saveNotification({
-          title: `New Task - ${inv.invoice_number}`,
-          message: `${inv.hospital_name} - Rs ${Number(inv.amount || 0).toLocaleString()}`,
-          targets: ['delivery_boy'],
-          priority: 'important',
-          sentBy: 'System',
-          isSystem: true,
-        });
-      }
-      await fetchInvoices();
-      setActiveTab('available');
-    });
-    return () => {
-      unsubscribe?.();
-    };
-  }, [socket, fetchInvoices]);
 
   // Load notifications
   useEffect(() => {
@@ -167,22 +155,107 @@ export default function DeliveryBoyApp() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
-  async function fetchInvoices() {
-    const data = await appApi.getInvoices();
+  const fetchInvoices = useCallback(async () => {
+    let data: any[];
+    if (token) {
+      data = await appApi.getDeliveryOpenInvoices(token);
+    } else {
+      data = await appApi.getInvoices();
+    }
     setInvoices(data);
     const active = data.filter((inv: any) => inv.status === 'assigned' && inv.assigned_to === user?.id);
     setActiveTasks(active);
     return data;
-  }
+  }, [token, user?.id]);
+
+  const loadHistoryPage = useCallback(
+    async (page: number, append: boolean) => {
+      if (!user?.id) return;
+      if (token) {
+        if (append) setCompLoadingMore(true);
+        else setCompLoading(true);
+        try {
+          const r = await appApi.getDeliveryCompletedHistoryPage(token, page, {
+            search: histSearch || undefined,
+            completion_from: completionFromISO(histDays),
+            includeCancelled: histIncludeCancelled,
+          });
+          setCompTotal(r.total);
+          setCompPage(page);
+          if (append) setCompletedHistory((p) => [...p, ...r.items]);
+          else setCompletedHistory(r.items as any[]);
+        } finally {
+          setCompLoading(false);
+          setCompLoadingMore(false);
+        }
+        return;
+      }
+      const all = await appApi.getInvoices();
+      let mine = all.filter(
+        (i: any) =>
+          i.assigned_to === user.id &&
+          (i.status === 'delivered' || (histIncludeCancelled && i.status === 'cancelled'))
+      );
+      if (histSearch.trim()) {
+        const q = histSearch.trim().toLowerCase();
+        mine = mine.filter(
+          (i: any) =>
+            (i.invoice_number || '').toLowerCase().includes(q) ||
+            (i.hospital_name || '').toLowerCase().includes(q)
+        );
+      }
+      if (histDays != null && histDays > 0) {
+        const from = new Date();
+        from.setHours(0, 0, 0, 0);
+        from.setDate(from.getDate() - histDays);
+        mine = mine.filter((i: any) => {
+          const raw = i.status === 'delivered' ? i.delivered_at : i.updated_at;
+          if (!raw) return false;
+          return new Date(raw) >= from;
+        });
+      }
+      setCompletedHistory(mine);
+      setCompTotal(mine.length);
+      setCompPage(1);
+    },
+    [token, user?.id, histSearch, histDays, histIncludeCancelled]
+  );
 
   useEffect(() => {
-    fetchInvoices().then(data => {
+    if (!socket) return;
+    const unsubscribe = socket.on('new_invoice', async (evt: any) => {
+      const inv = evt?.invoice;
+      if (inv?.invoice_number) {
+        appApi.saveNotification({
+          title: `New Task - ${inv.invoice_number}`,
+          message: `${inv.hospital_name} - Rs ${Number(inv.amount || 0).toLocaleString()}`,
+          targets: ['delivery_boy'],
+          priority: 'important',
+          sentBy: 'System',
+          isSystem: true,
+        });
+      }
+      await fetchInvoices();
+      setActiveTab('available');
+    });
+    return () => {
+      unsubscribe?.();
+    };
+  }, [socket, fetchInvoices]);
+
+  useEffect(() => {
+    fetchInvoices().then((data) => {
       const active = data.filter((inv: any) => inv.status === 'assigned' && inv.assigned_to === user?.id);
       if (active.length > 0 && expandedTaskId === null) {
         setExpandedTaskId(active[0].id);
       }
     });
-  }, []);
+  }, [fetchInvoices, user?.id]);
+
+  useEffect(() => {
+    if (activeTab !== 'completed') return;
+    loadHistoryPage(1, false);
+  }, [activeTab, histSearch, histDays, histIncludeCancelled, loadHistoryPage]);
 
   const handleAccept = async (id: number) => {
     if (!user) return;
@@ -738,67 +811,145 @@ export default function DeliveryBoyApp() {
             </motion.div>
           )}
 
-          {/* COMPLETED DELIVERIES */}
+          {/* COMPLETED DELIVERIES — API-paginated when logged in; signed copy hidden by API after 2 days */}
           {activeTab === 'completed' && (
             <motion.div key="completed" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-3">
-              <h3 className="font-bold text-zinc-900 mb-2">Today's History</h3>
-              {invoices.filter(i => i.status === 'delivered' && i.assigned_to === user?.id && isToday(i.delivered_at)).map(inv => (
-                <div key={inv.id} className="bg-white p-3.5 rounded-xl border border-zinc-100 shadow-sm space-y-2.5 active:scale-[0.98] transition-transform">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
-                        <CheckCircle2 size={18} />
+              <h3 className="font-bold text-zinc-900 mb-1">Delivery history</h3>
+              <div className="bg-zinc-50 rounded-xl p-3 space-y-2 border border-zinc-100">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={historySearchDraft}
+                    onChange={(e) => setHistorySearchDraft(e.target.value)}
+                    placeholder="Search invoice or hospital"
+                    className="flex-1 text-sm rounded-lg border border-zinc-200 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setHistSearch(historySearchDraft.trim())}
+                    className="shrink-0 px-3 py-2 rounded-lg bg-zinc-900 text-white text-xs font-bold"
+                  >
+                    Search
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  {([
+                    { label: 'All time', v: null as number | null },
+                    { label: '7 days', v: 7 },
+                    { label: '30 days', v: 30 },
+                  ] as const).map(({ label, v }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => setHistDays(v)}
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${histDays === v ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-zinc-200 bg-white text-zinc-600'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  <label className="flex items-center gap-1.5 text-[10px] font-bold text-zinc-600 ml-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={histIncludeCancelled}
+                      onChange={(e) => setHistIncludeCancelled(e.target.checked)}
+                      className="rounded border-zinc-300"
+                    />
+                    Include cancelled
+                  </label>
+                </div>
+              </div>
+
+              {compLoading && completedHistory.length === 0 ? (
+                <p className="text-center text-sm text-zinc-500 py-8">Loading history…</p>
+              ) : null}
+
+              {completedHistory.map((inv: any) =>
+                inv.status === 'cancelled' ? (
+                  <div
+                    key={inv.id}
+                    className="bg-white p-3.5 rounded-xl border border-zinc-100 shadow-sm space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center text-red-500">
+                          <XCircle size={18} />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-zinc-400">{inv.invoice_number}</p>
+                          <h4 className="font-bold text-zinc-900 text-[13px]">{inv.hospital_name}</h4>
+                        </div>
                       </div>
+                      <span className="text-[9px] font-bold text-red-600">CANCELLED</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    key={inv.id}
+                    className="bg-white p-3.5 rounded-xl border border-zinc-100 shadow-sm space-y-2.5 active:scale-[0.98] transition-transform"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
+                          <CheckCircle2 size={18} />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-zinc-400">{inv.invoice_number}</p>
+                          <h4 className="font-bold text-zinc-900 text-[13px]">{inv.hospital_name}</h4>
+                          <p className="text-[7px] text-zinc-400 font-bold uppercase">Task / Entity</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[13px] font-bold text-zinc-900">₹{Number(inv.amount).toLocaleString()}</p>
+                        <p className="text-[9px] text-zinc-500">
+                          {inv.delivered_at ? new Date(inv.delivered_at).toLocaleDateString() : '—'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {inv.signed_copy_url ? (
                       <div>
-                        <p className="text-[10px] font-bold text-zinc-400">{inv.invoice_number}</p>
-                        <h4 className="font-bold text-zinc-900 text-[13px]">{inv.hospital_name}</h4>
-                        <p className="text-[7px] text-zinc-400 font-bold uppercase">Task / Entity</p>
+                        <p className="text-[9px] font-bold text-zinc-400 uppercase mb-1">Signed copy</p>
+                        <img src={inv.signed_copy_url} alt="Signed" className="w-full h-24 object-cover rounded-lg border border-zinc-200" />
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[13px] font-bold text-zinc-900">₹{inv.amount.toLocaleString()}</p>
-                      <p className="text-[9px] text-zinc-500">{new Date(inv.delivered_at).toLocaleDateString()}</p>
+                    ) : inv.status === 'delivered' ? (
+                      <p className="text-[9px] text-zinc-400">Signed copy not shown (older delivery or unavailable).</p>
+                    ) : null}
+
+                    <div className="flex gap-1.5 flex-wrap pt-2 border-t border-zinc-50">
+                      {inv.cash_received > 0 && (
+                        <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
+                          <IndianRupee size={9} />Cash: ₹{inv.cash_received}
+                        </span>
+                      )}
+                      {inv.cheque_received > 0 && (
+                        <span className="flex items-center gap-1 text-[9px] font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-md">
+                          <IndianRupee size={9} />Cheque: ₹{inv.cheque_received}
+                        </span>
+                      )}
                     </div>
                   </div>
-
-                  {/* Signed copy preview */}
-                  {inv.signed_copy_url && (
-                    <div>
-                      <p className="text-[9px] font-bold text-zinc-400 uppercase mb-1">Signed Copy</p>
-                      <img src={inv.signed_copy_url} alt="Signed" className="w-full h-24 object-cover rounded-lg border border-zinc-200" />
-                    </div>
-                  )}
-
-                  {/* Duration chips */}
-                  <div className="flex gap-1.5 flex-wrap pt-2 border-t border-zinc-50">
-                    <span className="flex items-center gap-1 text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
-                      <Clock size={9} />Travel: 18 min
-                    </span>
-                    <span className="flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">
-                      <Clock size={9} />Waiting: 6 min
-                    </span>
-                    <span className="flex items-center gap-1 text-[9px] font-bold text-zinc-600 bg-zinc-100 px-2 py-1 rounded-md">
-                      Total: 24 min
-                    </span>
-                    {inv.cash_received > 0 && (
-                      <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
-                        <IndianRupee size={9} />Cash: ₹{inv.cash_received}
-                      </span>
-                    )}
-                    {inv.cheque_received > 0 && (
-                      <span className="flex items-center gap-1 text-[9px] font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-md">
-                        <IndianRupee size={9} />Cheque: ₹{inv.cheque_received}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {invoices.filter(i => i.status === 'delivered' && i.assigned_to === user?.id && isToday(i.delivered_at)).length === 0 && (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-400"><History size={32} /></div>
-                  <p className="text-zinc-500 font-medium">No deliveries yet</p>
-                </div>
+                )
               )}
+
+              {token && completedHistory.length > 0 && completedHistory.length < compTotal ? (
+                <button
+                  type="button"
+                  disabled={compLoadingMore}
+                  onClick={() => loadHistoryPage(compPage + 1, true)}
+                  className="w-full py-3 rounded-xl border border-zinc-200 text-sm font-bold text-zinc-700 disabled:opacity-50"
+                >
+                  {compLoadingMore ? 'Loading…' : 'Load more'}
+                </button>
+              ) : null}
+
+              {!compLoading && completedHistory.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-400">
+                    <History size={32} />
+                  </div>
+                  <p className="text-zinc-500 font-medium">No deliveries match filters</p>
+                </div>
+              ) : null}
             </motion.div>
           )}
         </AnimatePresence>
