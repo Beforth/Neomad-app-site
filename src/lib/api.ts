@@ -16,6 +16,38 @@ export const getWsBaseUrl = (): string => {
   return base;
 };
 
+/** HTTP fallback when `/ws/delivery` is down (same contract as WS `location_update`). */
+export async function patchDeliveryLocationHttp(
+  token: string,
+  body: {
+    lat: number;
+    lng: number;
+    speed_mps?: number | null;
+    heading?: number | null;
+    battery_percent?: number | null;
+  },
+): Promise<void> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/users/me/delivery-location`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      lat: body.lat,
+      lng: body.lng,
+      speed_mps: body.speed_mps ?? null,
+      heading: body.heading ?? null,
+      battery_percent: body.battery_percent ?? null,
+    }),
+  });
+  if (res.ok || res.status === 409) return;
+  notifyIfUnauthorized(res, true);
+  const err = (await res.json().catch(() => ({}))) as { detail?: string };
+  throw new Error(getApiError(err, res.statusText || 'Location update failed'));
+}
+
 export interface LoginResponseUser {
   id: number;
   email: string;

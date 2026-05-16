@@ -186,12 +186,6 @@ export default function DeliveryBoyApp() {
             speed_mps: pos.coords.speed ?? null,
             heading: pos.coords.heading ?? null,
           });
-          appApi.sendDeliveryLocation({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            speed_mps: pos.coords.speed ?? null,
-            heading: pos.coords.heading ?? null,
-          }).catch(() => {});
         }
       },
       undefined,

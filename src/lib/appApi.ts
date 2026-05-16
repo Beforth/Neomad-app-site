@@ -378,15 +378,4 @@ export const appApi = {
     await authedPatch('/users/me/delivery-presence', { on_duty: onDuty });
     return { success: true };
   },
-
-  sendDeliveryLocation: async (payload: {
-    lat: number;
-    lng: number;
-    speed_mps?: number | null;
-    heading?: number | null;
-    battery_percent?: number | null;
-  }) => {
-    await authedPatch('/users/me/delivery-location', payload);
-    return { success: true };
-  },
 };

@@ -176,11 +176,12 @@ export default function Tracking() {
 
   useEffect(() => {
     if (!canTrack || !token) return;
+    const pollMs = connected ? 45_000 : 5_000;
     const id = window.setInterval(() => {
       loadSnapshots();
-    }, 60_000);
+    }, pollMs);
     return () => window.clearInterval(id);
-  }, [canTrack, token, loadSnapshots]);
+  }, [canTrack, token, loadSnapshots, connected]);
 
   useEffect(() => {
     if (!canTrack) return;

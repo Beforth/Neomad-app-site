@@ -31,7 +31,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
   const [recentDeliveries, setRecentDeliveries] = useState<any[]>([]);
 
-  const { subscribe } = useTrackingSocket(Boolean(canLiveMap && token));
+  const { subscribe, connected } = useTrackingSocket(Boolean(canLiveMap && token));
 
   const loadOnDutyForMap = useCallback(async () => {
     if (!token || !canLiveMap) return;
@@ -50,9 +50,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!canLiveMap || !token) return;
-    const id = window.setInterval(loadOnDutyForMap, 60_000);
+    const pollMs = connected ? 45_000 : 5_000;
+    const id = window.setInterval(loadOnDutyForMap, pollMs);
     return () => window.clearInterval(id);
-  }, [canLiveMap, token, loadOnDutyForMap]);
+  }, [canLiveMap, token, loadOnDutyForMap, connected]);
 
   useEffect(() => {
     if (!canLiveMap) return;
