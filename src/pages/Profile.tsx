@@ -350,6 +350,10 @@ export default function Profile() {
               </AnimatePresence>
 
               <div className="space-y-4">
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Invoices are created from <strong className="text-zinc-700">inbox emails with PDF attachments</strong> (text must be readable in the PDF).
+                  Connect Gmail as an <strong className="text-zinc-700">admin or manager</strong> user, then use Sync — new invoices appear under Invoices.
+                </p>
                 {gmailConnected ? (
                   <>
                     {/* Connected info */}
@@ -437,6 +441,26 @@ export default function Profile() {
                                 </p>
                                 <p className="text-xs text-zinc-500 truncate">{email.sender}</p>
                                 <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{email.snippet}</p>
+                                {email.import_status ? (
+                                  <p
+                                    className={`text-[10px] mt-1 font-semibold ${
+                                      email.import_status === 'imported'
+                                        ? 'text-emerald-600'
+                                        : email.import_status === 'error'
+                                          ? 'text-red-600'
+                                          : 'text-amber-600'
+                                    }`}
+                                    title={email.import_error || undefined}
+                                  >
+                                    Invoice: {email.import_status.replace(/_/g, ' ')}
+                                    {email.imported_invoice_id
+                                      ? ` (#${email.imported_invoice_id})`
+                                      : ''}
+                                    {email.import_error ? ` — ${email.import_error}` : ''}
+                                  </p>
+                                ) : (
+                                  <p className="text-[10px] text-zinc-400 mt-1">Invoice: pending scan</p>
+                                )}
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
                                 <button

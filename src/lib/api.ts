@@ -105,7 +105,7 @@ function getApiError(err: { detail?: string | { msg?: string }[] }, fallback: st
  */
 export const API_UNAUTHORIZED_EVENT = 'neomed-api-401';
 
-function notifyIfUnauthorized(res: Response, sentAuthorization: boolean): void {
+export function notifyIfUnauthorized(res: Response, sentAuthorization: boolean): void {
   if (typeof window === 'undefined') return;
   if (res.status === 401 && sentAuthorization) {
     window.dispatchEvent(new CustomEvent(API_UNAUTHORIZED_EVENT));
@@ -702,6 +702,10 @@ export interface GmailEmail {
   labels: string[];
   is_read: boolean;
   is_starred: boolean;
+  has_attachments?: boolean;
+  import_status?: string | null;
+  import_error?: string | null;
+  imported_invoice_id?: number | null;
 }
 
 export interface GmailEmailListResponse {
@@ -796,7 +800,10 @@ export async function listGmailEmails(
   return res.json();
 }
 
-export async function syncRecentGmailEmails(token: string, limit = 20): Promise<{ success: boolean; synced: number; message: string }> {
+export async function syncRecentGmailEmails(
+  token: string,
+  limit = 20,
+): Promise<{ success: boolean; synced: number; message: string; invoices_imported?: number; import_errors?: number }> {
   const base = getBaseUrl();
   const res = await fetch(`${base}/gmail/emails/sync-recent`, {
     method: 'POST',

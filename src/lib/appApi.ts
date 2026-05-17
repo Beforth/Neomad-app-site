@@ -6,6 +6,7 @@ import {
   getInvoices as getInvoicesApi,
   getUsers as getUsersApi,
   mapBackendRoleToFrontend,
+  notifyIfUnauthorized,
   updateInvoice,
   updateUser as updateUserApi,
 } from './api';
@@ -78,6 +79,7 @@ const authedPatch = async (path: string, body: Record<string, unknown>): Promise
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(err.detail || `Request failed: ${res.status}`);
   }
