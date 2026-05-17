@@ -27,6 +27,7 @@ import TaskDeletePage from './pages/tasks/TaskDeletePage';
 import { useNotifications } from './hooks/useNotifications';
 import { useWebPush } from './hooks/useWebPush';
 import BottomNav from './components/BottomNav';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
@@ -136,6 +137,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         {/* Main app — wrapped in AuthProvider */}
         <Route path="/*" element={
           <AuthProvider>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertCircle, Mail, ArrowLeft, CheckCircle2, Eye, EyeOff, X } from 'lucide-react';
@@ -194,6 +195,15 @@ export default function Login() {
 
         </motion.div>
       </div>
+
+      <footer className="px-6 pb-8 text-center">
+        <Link
+          to="/privacy-policy"
+          className="text-xs font-semibold text-zinc-500 hover:text-emerald-600 transition-colors"
+        >
+          Privacy Policy
+        </Link>
+      </footer>
     </div>
   );
 }

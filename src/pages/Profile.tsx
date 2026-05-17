@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   changePassword,
@@ -501,6 +502,15 @@ export default function Profile() {
               </div>
             </div>
         </div>
+
+        <p className="text-center pt-6 pb-2">
+          <Link
+            to="/privacy-policy"
+            className="text-xs font-semibold text-zinc-400 hover:text-emerald-600 transition-colors"
+          >
+            Privacy Policy
+          </Link>
+        </p>
       </div>
     </div>
   );
