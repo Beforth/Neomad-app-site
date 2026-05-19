@@ -624,6 +624,11 @@ export async function cancelInvoice(token: string, invoiceId: number, reason?: s
   return updateInvoice(token, invoiceId, { status: 'cancelled', cancel_reason: reason ?? null });
 }
 
+/** Restore a cancelled invoice to pending (unassigned) for delivery pool. Admin/manager only. */
+export async function restoreInvoiceToPending(token: string, invoiceId: number): Promise<ApiInvoice> {
+  return updateInvoice(token, invoiceId, { status: 'pending' });
+}
+
 /** Delete invoice. Admin or manager. */
 export async function deleteInvoice(token: string, invoiceId: number): Promise<void> {
   const base = getBaseUrl();

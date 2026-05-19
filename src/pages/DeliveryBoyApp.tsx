@@ -269,6 +269,7 @@ export default function DeliveryBoyApp() {
 
   const handleAccept = async (id: number) => {
     if (!user) return;
+    if (!isAvailable) return;
     setAcceptingId(id);
     try {
       const res = await appApi.acceptInvoice(id, user.id);
@@ -279,6 +280,16 @@ export default function DeliveryBoyApp() {
         setShowMap(true);
       }
     } finally { setAcceptingId(null); }
+  };
+
+  const pendingInvoices = invoices.filter((i) => i.status === 'pending');
+  const canShowAvailable = isAvailable;
+  const hasHistoryFilters = Boolean(histSearch || histDays !== null || !histIncludeCancelled);
+  const clearHistoryFilters = () => {
+    setHistSearch('');
+    setHistorySearchDraft('');
+    setHistDays(null);
+    setHistIncludeCancelled(true);
   };
 
   const handleDeliver = async (taskId: number) => {
@@ -490,15 +501,17 @@ export default function DeliveryBoyApp() {
         {showCancelModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-zinc-900/50 flex items-center justify-center p-4">
             <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
-              <h3 className="text-xl font-bold text-zinc-900">Cancel Order</h3>
-              <p className="text-sm text-zinc-500">Please provide a reason for cancelling this order.</p>
+              <h3 className="text-xl font-bold text-zinc-900">Release order?</h3>
+              <p className="text-sm text-zinc-500">
+                This returns the invoice to Available so another delivery person can accept it. Please provide a reason.
+              </p>
               <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)}
                 className="w-full p-3 bg-zinc-50 rounded-xl border border-zinc-200 text-sm h-24 outline-none focus:ring-2 focus:ring-red-500/20"
                 placeholder="Reason..." />
               <div className="flex gap-3">
                 <button onClick={() => setShowCancelModal(false)} className="flex-1 py-3 bg-zinc-100 text-zinc-600 rounded-xl font-bold">Back</button>
                 <button onClick={handleCancelOrder} disabled={!cancelReason.trim()}
-                  className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold disabled:opacity-50">Confirm Cancellation</button>
+                  className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold disabled:opacity-50">Release to pool</button>
               </div>
             </motion.div>
           </motion.div>
@@ -551,9 +564,15 @@ export default function DeliveryBoyApp() {
             <motion.div key="available" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-3">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-bold text-zinc-900">Available Tasks</h3>
-                <span className="text-xs text-zinc-500">{invoices.filter(i => i.status === 'pending').length} found</span>
+                <span className="text-xs text-zinc-500">{canShowAvailable ? pendingInvoices.length : 0} found</span>
               </div>
-              {invoices.filter(i => i.status === 'pending').map(inv => (
+              {!canShowAvailable ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-400"><Power size={32} /></div>
+                  <p className="text-zinc-500 font-medium">You are offline</p>
+                  <p className="text-xs text-zinc-400 mt-1">Go online to view and accept available tasks</p>
+                </div>
+              ) : pendingInvoices.map(inv => (
                 <div key={inv.id} className="bg-white p-3.5 rounded-xl border border-zinc-100 shadow-sm space-y-3 active:scale-[0.98] transition-transform">
                   <div className="flex justify-between items-start">
                     <div>
@@ -567,7 +586,7 @@ export default function DeliveryBoyApp() {
                     <div className="flex items-center gap-1"><MapPin size={13} /><span>2.4 km</span></div>
                     <div className="flex items-center gap-1"><Clock size={13} /><span>~15 mins</span></div>
                   </div>
-                  <button onClick={() => handleAccept(inv.id)} disabled={acceptingId === inv.id}
+                  <button onClick={() => handleAccept(inv.id)} disabled={!isAvailable || acceptingId === inv.id}
                     className={`w-full py-3.5 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 text-[13px] ${acceptingId === inv.id ? 'bg-emerald-400 text-white cursor-wait'
                       : 'bg-zinc-900 text-white'}`}>
                     {acceptingId === inv.id ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Accepting...</>
@@ -575,7 +594,7 @@ export default function DeliveryBoyApp() {
                   </button>
                 </div>
               ))}
-              {invoices.filter(i => i.status === 'pending').length === 0 && (
+              {canShowAvailable && pendingInvoices.length === 0 && (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-400"><AlertCircle size={32} /></div>
                   <p className="text-zinc-500 font-medium">No tasks available right now</p>
@@ -866,6 +885,15 @@ export default function DeliveryBoyApp() {
                     />
                     Include cancelled
                   </label>
+                  {hasHistoryFilters ? (
+                    <button
+                      type="button"
+                      onClick={clearHistoryFilters}
+                      className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-zinc-200 bg-white text-zinc-600"
+                    >
+                      Clear filters
+                    </button>
+                  ) : null}
                 </div>
               </div>
 

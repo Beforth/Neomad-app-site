@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { XCircle } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { cancelInvoiceThunk, clearInvoicesError } from '../../features/invoices/invoicesSlice';
+import { clearInvoicesError, restoreInvoiceToPendingThunk } from '../../features/invoices/invoicesSlice';
 import { useInvoiceLoader } from './useInvoiceLoader';
 import { parseInvoiceRouteId } from './invoiceShared';
 import { InvoiceSectionFrame, invoiceInnerCardClassName } from '../../components/invoices/InvoiceSectionFrame';
 
-export default function InvoiceVoidPage() {
+export default function InvoiceRestorePage() {
   const { invoiceId: idParam } = useParams<{ invoiceId: string }>();
   const id = parseInvoiceRouteId(idParam);
   const { token, user } = useAuth();
@@ -29,7 +29,7 @@ export default function InvoiceVoidPage() {
   if (user?.role !== 'admin' && user?.role !== 'manager') {
     return (
       <InvoiceSectionFrame context="Access denied">
-        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-zinc-600`}>You don&apos;t have access to void invoices.</div>
+        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-zinc-600`}>You don&apos;t have access to restore invoices.</div>
       </InvoiceSectionFrame>
     );
   }
@@ -50,14 +50,14 @@ export default function InvoiceVoidPage() {
     );
   }
 
-  const canVoid = invoice.status === 'pending' || invoice.status === 'assigned';
+  const canRestore = invoice.status === 'cancelled';
 
-  async function onVoid() {
-    if (!token || !canVoid) return;
+  async function onRestore() {
+    if (!token || !canRestore) return;
     setBusy(true);
     dispatch(clearInvoicesError());
     try {
-      await dispatch(cancelInvoiceThunk({ token, id: invoice.id })).unwrap();
+      await dispatch(restoreInvoiceToPendingThunk({ token, id: invoice.id })).unwrap();
       navigate(`/invoices/${invoice.id}`);
     } catch {
       /* slice */
@@ -68,7 +68,7 @@ export default function InvoiceVoidPage() {
 
   return (
     <InvoiceSectionFrame
-      context={`Void invoice · ${invoice.invoice_number} · ${invoice.hospital_name}`}
+      context={`Restore invoice · ${invoice.invoice_number} · ${invoice.hospital_name}`}
       right={
         <div className="flex flex-wrap items-center gap-2 justify-end">
           <button
@@ -77,27 +77,34 @@ export default function InvoiceVoidPage() {
             onClick={() => navigate(`/invoices/${invoice.id}`)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
           >
-            Keep invoice
+            Keep cancelled
           </button>
           <button
             type="button"
-            disabled={busy || !canVoid}
-            onClick={() => void onVoid()}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-50"
+            disabled={busy || !canRestore}
+            onClick={() => void onRestore()}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
           >
-            <XCircle size={16} /> Void invoice
+            <RotateCcw size={16} /> Restore to pending
           </button>
         </div>
       }
     >
       <div className={invoiceInnerCardClassName()}>
         <div className="p-6 space-y-2">
-          <p className="text-sm font-bold text-zinc-900">Void this invoice?</p>
+          <p className="text-sm font-bold text-zinc-900">Restore this invoice to pending?</p>
           <p className="text-xs text-zinc-500">
-            The invoice will be marked as cancelled. You can restore it to pending later from the invoice detail page
-            or the invoices list.
+            The invoice returns to the open pool (unassigned) so delivery staff can accept it again.
+            The previous cancel reason is kept for audit.
           </p>
-          {!canVoid ? <p className="text-sm text-amber-700 pt-1">Only pending or assigned invoices can be voided here.</p> : null}
+          {invoice.cancel_reason ? (
+            <p className="text-xs text-zinc-600 bg-zinc-50 border border-zinc-100 rounded-xl p-3">
+              <span className="font-bold text-zinc-500 uppercase tracking-wide text-[10px]">Cancel reason</span>
+              <br />
+              {invoice.cancel_reason}
+            </p>
+          ) : null}
+          {!canRestore ? <p className="text-sm text-amber-700 pt-1">Only cancelled invoices can be restored here.</p> : null}
           {sliceError ? <p className="text-sm text-red-600 pt-2">{sliceError}</p> : null}
         </div>
       </div>

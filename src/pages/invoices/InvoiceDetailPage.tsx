@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getUsers } from '../../lib/api';
 import {
   MapPin, FileImage, IndianRupee, FileText, AlertCircle, Trash2, List,
-  Building, Hash, Banknote, Clock, UserPlus, XCircle, CheckCircle2,
+  Building, Hash, Banknote, Clock, UserPlus, XCircle, CheckCircle2, RotateCcw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -112,6 +112,8 @@ export default function InvoiceDetailPage() {
     (invoice.status === 'pending' || invoice.status === 'assigned') &&
     user?.role !== 'delivery_boy' &&
     isManager;
+  const showRestore =
+    invoice.status === 'cancelled' && user?.role !== 'delivery_boy' && isManager;
 
   return (
     <InvoiceSectionFrame
@@ -141,6 +143,14 @@ export default function InvoiceDetailPage() {
                 <XCircle size={16} /> Void
               </Link>
             </>
+          ) : null}
+          {showRestore ? (
+            <Link
+              to={`/invoices/${invoice.id}/restore`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
+            >
+              <RotateCcw size={16} /> Restore to pending
+            </Link>
           ) : null}
           {isManager ? (
             <button

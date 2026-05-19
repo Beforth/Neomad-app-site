@@ -11,6 +11,7 @@ import InvoiceConfirmPaymentPage from './pages/invoices/InvoiceConfirmPaymentPag
 import InvoiceAssignPage from './pages/invoices/InvoiceAssignPage';
 import InvoiceDeletePage from './pages/invoices/InvoiceDeletePage';
 import InvoiceVoidPage from './pages/invoices/InvoiceVoidPage';
+import InvoiceRestorePage from './pages/invoices/InvoiceRestorePage';
 import InvoiceSignedPreviewPage from './pages/invoices/InvoiceSignedPreviewPage';
 import Tracking from './pages/Tracking';
 import Profile from './pages/Profile';
@@ -116,6 +117,7 @@ function AppRoutes() {
             <Route path="/invoices/:invoiceId/assign" element={<InvoiceAssignPage />} />
             <Route path="/invoices/:invoiceId/delete" element={<InvoiceDeletePage />} />
             <Route path="/invoices/:invoiceId/void" element={<InvoiceVoidPage />} />
+            <Route path="/invoices/:invoiceId/restore" element={<InvoiceRestorePage />} />
             <Route path="/invoices/:invoiceId/signed-preview" element={<InvoiceSignedPreviewPage />} />
             <Route path="/invoices/:invoiceId" element={<InvoiceDetailPage />} />
             <Route path="/invoices" element={<Invoices />} />

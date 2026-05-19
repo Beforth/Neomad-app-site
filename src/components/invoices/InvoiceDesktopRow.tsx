@@ -4,6 +4,7 @@ import {
   ClipboardCheck,
   UserPlus,
   XCircle,
+  RotateCcw,
   Trash2,
   Banknote,
 } from 'lucide-react';
@@ -26,9 +27,11 @@ export interface InvoiceDesktopRowProps {
   onOpenDetail: (inv: ApiInvoice) => void;
   /** Open full-page signed document preview */
   onOpenSignedPreview: (invoiceId: number) => void;
+  onDownloadInvoice: (inv: ApiInvoice) => void;
   onConfirmPayment: (inv: ApiInvoice) => void;
   onAssign: (id: number) => void;
   onRequestCancel: (inv: ApiInvoice) => void;
+  onRequestRestore: (inv: ApiInvoice) => void;
   onRequestDelete: (inv: ApiInvoice) => void;
 }
 
@@ -40,9 +43,11 @@ function InvoiceDesktopRowInner({
   userRole,
   onOpenDetail,
   onOpenSignedPreview,
+  onDownloadInvoice,
   onConfirmPayment,
   onAssign,
   onRequestCancel,
+  onRequestRestore,
   onRequestDelete,
 }: InvoiceDesktopRowProps) {
   const stop = useCallback((e: React.MouseEvent) => e.stopPropagation(), []);
@@ -116,6 +121,8 @@ function InvoiceDesktopRowInner({
           <InvoiceIconTooltip label="Download invoice">
             <button
               type="button"
+              onClick={() => onDownloadInvoice(invoice)}
+              disabled={!invoice.signed_copy_url}
               className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
               aria-label="Download invoice"
             >
@@ -160,6 +167,18 @@ function InvoiceDesktopRowInner({
               </button>
             </InvoiceIconTooltip>
           )}
+          {invoice.status === 'cancelled' && (userRole === 'admin' || userRole === 'manager') && (
+            <InvoiceIconTooltip label="Restore to pending">
+              <button
+                type="button"
+                onClick={() => onRequestRestore(invoice)}
+                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                aria-label="Restore to pending"
+              >
+                <RotateCcw size={14} />
+              </button>
+            </InvoiceIconTooltip>
+          )}
           {(userRole === 'admin' || userRole === 'manager') && (
             <InvoiceIconTooltip label="Delete invoice">
               <button
@@ -187,9 +206,11 @@ function propsEqual(prev: InvoiceDesktopRowProps, next: InvoiceDesktopRowProps) 
     prev.userRole === next.userRole &&
     prev.onOpenDetail === next.onOpenDetail &&
     prev.onOpenSignedPreview === next.onOpenSignedPreview &&
+    prev.onDownloadInvoice === next.onDownloadInvoice &&
     prev.onConfirmPayment === next.onConfirmPayment &&
     prev.onAssign === next.onAssign &&
     prev.onRequestCancel === next.onRequestCancel &&
+    prev.onRequestRestore === next.onRequestRestore &&
     prev.onRequestDelete === next.onRequestDelete
   );
 }

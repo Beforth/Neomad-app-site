@@ -13,6 +13,7 @@ import {
   resetInvoices,
   deleteInvoiceThunk,
   cancelInvoiceThunk,
+  restoreInvoiceToPendingThunk,
   assignInvoiceThunk,
   confirmPaymentThunk,
 } from '../features/invoices/invoicesSlice';
@@ -193,6 +194,21 @@ export default function Invoices() {
     [dispatch, token]
   );
 
+  const openRestore = useCallback(
+    (inv: ApiInvoice) => {
+      if (
+        window.confirm(
+          `Restore invoice ${inv.invoice_number} to pending?\nIt will be unassigned and available for delivery staff to accept.`
+        )
+      ) {
+        if (!token) return;
+        dispatch(clearInvoicesError());
+        dispatch(restoreInvoiceToPendingThunk({ token, id: inv.id })).catch(() => {});
+      }
+    },
+    [dispatch, token]
+  );
+
   const openDelete = useCallback(
     (inv: ApiInvoice) => {
       if (window.confirm(`Are you sure you want to delete invoice ${inv.invoice_number}?\nThis action cannot be undone.`)) {
@@ -205,6 +221,45 @@ export default function Invoices() {
   );
 
   const filtered = invoices;
+  const handleExport = useCallback(() => {
+    const rows = filtered;
+    if (rows.length === 0) return;
+    const escapeCsv = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const header = [
+      'Invoice Number',
+      'Hospital Name',
+      'Amount',
+      'Status',
+      'Assigned To',
+      'Cash Received',
+      'Cheque Received',
+      'Created At',
+      'Delivered At',
+    ];
+    const body = rows.map((inv) => [
+      inv.invoice_number,
+      inv.hospital_name,
+      inv.amount,
+      inv.status,
+      assigneeName(inv),
+      inv.cash_received ?? 0,
+      inv.cheque_received ?? 0,
+      inv.created_at,
+      inv.delivered_at ?? '',
+    ]);
+    const csv = [header, ...body]
+      .map((line) => line.map(escapeCsv).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `invoices-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [filtered, assigneeName]);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const startRow = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
   const endRow = Math.min(page * pageSize, totalCount);
@@ -242,7 +297,12 @@ export default function Invoices() {
           >
             <RefreshCw size={14} className={listLoading || isRefreshing ? 'animate-spin' : ''} /> Refresh
           </button>
-          <button className="bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors flex items-center gap-2 shadow-sm">
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={filtered.length === 0}
+            className="bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
+          >
             <Download size={14} />Export
           </button>
         </div>
@@ -382,6 +442,7 @@ export default function Invoices() {
                       onConfirmPayment={openConfirmPayment}
                       onAssign={openAssign}
                       onRequestCancel={openVoid}
+                      onRequestRestore={openRestore}
                       onRequestDelete={openDelete}
                     />
                   );
