@@ -4,6 +4,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 import { Calendar, Download, Clock, TrendingUp, Users, AlertCircle, TrendingDown, Gauge, CheckCircle2, Map as MapIcon, Navigation, Package, BarChart3, Search, Filter } from 'lucide-react';
+import SearchableSelect from '../components/SearchableSelect';
 import { motion, AnimatePresence } from 'motion/react';
 import { appApi } from '../lib/appApi';
 import MapPreview from '../components/MapPreview';
@@ -146,44 +147,47 @@ export default function Reports() {
                 onChange={e => setEndDate(e.target.value)}
                 className="bg-white border border-zinc-100 px-2 py-1 rounded-lg text-[11px] font-bold text-zinc-600 outline-none focus:border-emerald-500"
               />
-              <select 
-                className="bg-transparent text-[11px] font-bold text-zinc-500 outline-none px-2 cursor-pointer border-l border-zinc-200"
+              <SearchableSelect
                 value={dateRange}
-                onChange={e => setDateRange(e.target.value)}
-              >
-                <option value="custom">Custom</option>
-                <option value="today">Today</option>
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-              </select>
+                onChange={setDateRange}
+                className="min-w-[140px]"
+                options={[
+                  { value: 'custom', label: 'Custom' },
+                  { value: 'today', label: 'Today' },
+                  { value: '7d', label: 'Last 7 Days' },
+                  { value: '30d', label: 'Last 30 Days' },
+                ]}
+              />
             </div>
 
             {/* Status Filter */}
             <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-1.5">
               <Filter size={14} className="text-zinc-400" />
-              <select 
-                className="bg-transparent outline-none cursor-pointer text-[11px] font-bold text-zinc-600"
+              <SearchableSelect
                 value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-              >
-                <option value="all">All Status</option>
-                <option value="delivered">Delivered</option>
-                <option value="pending">Pending</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
+                onChange={setStatusFilter}
+                className="min-w-[130px]"
+                options={[
+                  { value: 'all', label: 'All Status' },
+                  { value: 'delivered', label: 'Delivered' },
+                  { value: 'pending', label: 'Pending' },
+                  { value: 'cancelled', label: 'Cancelled' },
+                ]}
+              />
             </div>
 
             {/* Boy Filter */}
             <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-1.5">
               <Users size={14} className="text-zinc-400" />
-              <select 
-                className="bg-transparent outline-none cursor-pointer text-[11px] font-bold text-zinc-600"
+              <SearchableSelect
                 value={boyFilter}
-                onChange={e => setBoyFilter(e.target.value)}
-              >
-                <option value="All">All Delivery Boys</option>
-                {deliveryBoys.map(b => <option key={b.id} value={b.id}>{b.username}</option>)}
-              </select>
+                onChange={setBoyFilter}
+                className="min-w-[170px]"
+                options={[
+                  { value: 'All', label: 'All Delivery Boys' },
+                  ...deliveryBoys.map((b) => ({ value: String(b.id), label: b.username })),
+                ]}
+              />
             </div>
           </div>
 

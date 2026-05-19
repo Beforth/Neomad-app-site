@@ -19,6 +19,7 @@ import {
 } from '../features/invoices/invoicesSlice';
 import { InvoiceDesktopRow } from '../components/invoices/InvoiceDesktopRow';
 import { InvoiceMobileCard } from '../components/invoices/InvoiceMobileCard';
+import SearchableSelect from '../components/SearchableSelect';
 import { fakeDuration } from './invoices/invoiceShared';
 import type { ApiInvoice } from '../lib/api';
 import { INVOICES_PAGE_SUBTITLE, INVOICES_PAGE_TITLE } from '../components/invoices/InvoiceSectionFrame';
@@ -163,6 +164,19 @@ export default function Invoices() {
     },
     [navigate]
   );
+
+  const downloadInvoice = useCallback((inv: ApiInvoice) => {
+    if (!inv.signed_copy_url) return;
+    const ext = inv.signed_copy_url.split('.').pop()?.split('?')[0] || 'file';
+    const a = document.createElement('a');
+    a.href = inv.signed_copy_url;
+    a.download = `${inv.invoice_number || `invoice-${inv.id}`}.${ext}`;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }, []);
 
   const openConfirmPayment = useCallback(
     (inv: ApiInvoice) => {
@@ -333,29 +347,27 @@ export default function Invoices() {
             className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
           />
         </div>
-        <select
+        <SearchableSelect
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none cursor-pointer"
-        >
-          <option value="all">All Status</option>
-          <option value="pending">Pending</option>
-          <option value="assigned">Assigned</option>
-          <option value="delivered">Delivered</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-        <select
+          onChange={setStatusFilter}
+          options={[
+            { value: 'all', label: 'All Status' },
+            { value: 'pending', label: 'Pending' },
+            { value: 'assigned', label: 'Assigned' },
+            { value: 'delivered', label: 'Delivered' },
+            { value: 'cancelled', label: 'Cancelled' },
+          ]}
+          className="min-w-[150px]"
+        />
+        <SearchableSelect
           value={boyFilter}
-          onChange={(e) => setBoyFilter(e.target.value)}
-          className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none cursor-pointer"
-        >
-          <option value="all">All Assignees</option>
-          {availableAssignees.map((b) => (
-            <option key={b.id} value={String(b.id)}>
-              {b.name}
-            </option>
-          ))}
-        </select>
+          onChange={setBoyFilter}
+          options={[
+            { value: 'all', label: 'All Assignees' },
+            ...availableAssignees.map((b) => ({ value: String(b.id), label: b.name })),
+          ]}
+          className="min-w-[180px]"
+        />
         <input
           type="date"
           value={dateFilter}
@@ -439,6 +451,7 @@ export default function Invoices() {
                       userRole={user?.role}
                       onOpenDetail={openInvoiceDetail}
                       onOpenSignedPreview={openSignedPreview}
+                      onDownloadInvoice={downloadInvoice}
                       onConfirmPayment={openConfirmPayment}
                       onAssign={openAssign}
                       onRequestCancel={openVoid}
@@ -513,18 +526,15 @@ export default function Invoices() {
               </button>
             </div>
             <div className="p-4 space-y-4">
-              <select
+              <SearchableSelect
                 value={assignTarget}
-                onChange={(e) => setAssignTarget(e.target.value)}
-                className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none"
-              >
-                <option value="">Select assignee...</option>
-                {availableAssignees.map((b) => (
-                  <option key={b.id} value={String(b.id)}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setAssignTarget}
+                options={[
+                  { value: '', label: 'Select assignee...' },
+                  ...availableAssignees.map((b) => ({ value: String(b.id), label: b.name })),
+                ]}
+                className="w-full"
+              />
               <div className="flex gap-2 justify-end">
                 <button 
                   onClick={() => setAssignModalInvId(null)} 

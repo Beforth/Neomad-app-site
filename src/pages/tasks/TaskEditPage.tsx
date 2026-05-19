@@ -5,6 +5,7 @@ import * as api from '../../lib/api';
 import { TaskSectionFrame, taskInnerCardClassName } from '../../components/tasks/TaskSectionFrame';
 import { parseTaskRouteId, type AssigneeLike } from './taskShared';
 import { useTaskLoader } from './useTaskLoader';
+import SearchableSelect from '../../components/SearchableSelect';
 
 export default function TaskEditPage() {
   const { token } = useAuth();
@@ -131,31 +132,29 @@ export default function TaskEditPage() {
           </div>
           <div>
             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">Status</label>
-            <select
+            <SearchableSelect
               value={editData.status}
-              onChange={(e) => setEditData((d) => ({ ...d, status: e.target.value }))}
-              className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
-            >
-              <option value="pending">Pending</option>
-              <option value="assigned">Assigned</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
+              onChange={(v) => setEditData((d) => ({ ...d, status: v }))}
+              className="w-full"
+              options={[
+                { value: 'pending', label: 'Pending' },
+                { value: 'assigned', label: 'Assigned' },
+                { value: 'delivered', label: 'Delivered' },
+                { value: 'cancelled', label: 'Cancelled' },
+              ]}
+            />
           </div>
           <div>
             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">Assigned to</label>
-            <select
+            <SearchableSelect
               value={editData.assigned_to}
-              onChange={(e) => setEditData((d) => ({ ...d, assigned_to: e.target.value }))}
-              className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
-            >
-              <option value="">Unassigned</option>
-              {assignees.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.full_name ?? u.email}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setEditData((d) => ({ ...d, assigned_to: v }))}
+              className="w-full"
+              options={[
+                { value: '', label: 'Unassigned' },
+                ...assignees.map((u) => ({ value: String(u.id), label: u.full_name ?? u.email })),
+              ]}
+            />
           </div>
           <div className="flex flex-wrap gap-3 pt-2">
             <button

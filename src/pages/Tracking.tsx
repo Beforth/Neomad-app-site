@@ -4,6 +4,7 @@ import { useTrackingSocket } from '../hooks/useSocket';
 import { Truck, Clock, RefreshCw, X, MapPin, Package, Users, ChevronRight, Battery, Power } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import MapPreview from '../components/MapPreview';
+import SearchableSelect from '../components/SearchableSelect';
 import {
   getDeliveryDayPath,
   getInvoices,
@@ -304,18 +305,15 @@ export default function Tracking() {
           <div className="h-10 w-px bg-zinc-200 mx-2 hidden md:block" />
           <div className="hidden md:flex flex-col">
             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Select Rider</label>
-            <select
-              value={selected || ''}
-              onChange={(e) => setSelected(e.target.value ? Number(e.target.value) : null)}
-              className="bg-white border border-zinc-200 rounded-lg px-3 py-1 text-xs font-bold text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer min-w-[160px]"
-            >
-              <option value="">All Fleet View</option>
-              {allRiders.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={selected ? String(selected) : ''}
+              onChange={(v) => setSelected(v ? Number(v) : null)}
+              options={[
+                { value: '', label: 'All Fleet View' },
+                ...allRiders.map((r) => ({ value: String(r.id), label: r.name })),
+              ]}
+              className="min-w-[180px]"
+            />
           </div>
             <div className="hidden md:flex flex-col">
               <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Travel Date</label>

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getUsers, getRoles, createUser, updateUser, resetUserPassword, mapBackendRoleToFrontend, normalizeFetchError } from '../lib/api';
+import SearchableSelect from '../components/SearchableSelect';
 
 const ROLE_COLORS: Record<string, string> = {
   super_admin: 'bg-rose-50 text-rose-700',
@@ -393,20 +394,21 @@ export default function UserManagement() {
             <Field label="Phone"><input type="tel" value={newUser.phone} onChange={(e) => setNewUser((prev) => ({ ...prev, phone: e.target.value }))} placeholder="+91 98765 43210" className={inputClassName} /></Field>
             <Field label="Password"><input type="password" required value={newUser.password} onChange={(e) => setNewUser((prev) => ({ ...prev, password: e.target.value }))} placeholder="Min. 6 characters" className={inputClassName} /></Field>
             <Field label="Role">
-              <select
+              <SearchableSelect
                 value={newUser.role}
-                onChange={(e) => setNewUser((prev) => ({ ...prev, role: e.target.value }))}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
-                required
+                onChange={(v) => setNewUser((prev) => ({ ...prev, role: v }))}
                 disabled={rolesLoading}
-              >
-                {rolesLoading && <option value="">Loading roles...</option>}
-                {!rolesLoading && rolesError && <option value="">Failed to load roles</option>}
-                {!rolesLoading && !rolesError && roles.length === 0 && <option value="">No roles</option>}
-                {!rolesLoading && roles.filter((r) => r.code !== 'user').map((r) => (
-                  <option key={r.id} value={r.code}>{r.name}</option>
-                ))}
-              </select>
+                className="w-full"
+                options={
+                  rolesLoading
+                    ? [{ value: '', label: 'Loading roles...' }]
+                    : rolesError
+                    ? [{ value: '', label: 'Failed to load roles' }]
+                    : roles.length === 0
+                    ? [{ value: '', label: 'No roles' }]
+                    : roles.filter((r) => r.code !== 'user').map((r) => ({ value: r.code, label: r.name }))
+                }
+              />
               {rolesError && (
                 <p className="mt-1 text-xs text-red-600 flex items-center gap-2">
                   {rolesError}
@@ -435,18 +437,19 @@ export default function UserManagement() {
             <Field label="Email"><input type="email" required value={editingUser.email} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, email: e.target.value }))} className={inputClassName} /></Field>
             <Field label="Phone"><input type="tel" value={editingUser.phone || ''} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, phone: e.target.value }))} placeholder="+91 98765 43210" className={inputClassName} /></Field>
             <Field label="Role">
-              <select
+              <SearchableSelect
                 value={editingUser.role_code ?? editingUser.role ?? ''}
-                onChange={(e) => setEditingUser((prev: any) => ({ ...prev, role_code: e.target.value }))}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                onChange={(v) => setEditingUser((prev: any) => ({ ...prev, role_code: v }))}
                 disabled={rolesLoading}
-              >
-                {rolesLoading && <option value="">Loading roles...</option>}
-                {!rolesLoading && rolesError && <option value="">Failed to load roles</option>}
-                {!rolesLoading && roles.map((r) => (
-                  <option key={r.id} value={r.code}>{r.name}</option>
-                ))}
-              </select>
+                className="w-full"
+                options={
+                  rolesLoading
+                    ? [{ value: '', label: 'Loading roles...' }]
+                    : rolesError
+                    ? [{ value: '', label: 'Failed to load roles' }]
+                    : roles.map((r) => ({ value: r.code, label: r.name }))
+                }
+              />
               {rolesError && (
                 <p className="mt-1 text-xs text-red-600 flex items-center gap-2">
                   {rolesError}

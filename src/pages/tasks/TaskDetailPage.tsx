@@ -20,6 +20,7 @@ import {
   type AssigneeLike,
 } from './taskShared';
 import { useTaskLoader } from './useTaskLoader';
+import SearchableSelect from '../../components/SearchableSelect';
 
 export default function TaskDetailPage() {
   const { token } = useAuth();
@@ -183,19 +184,16 @@ export default function TaskDetailPage() {
                       })()}
                     </div>
                     <div className="flex-1 min-w-[180px]">
-                      <select
-                        value={task.assigned_to ?? ''}
-                        onChange={(e) => void handleAssigneeChange(e.target.value)}
+                      <SearchableSelect
+                        value={task.assigned_to != null ? String(task.assigned_to) : ''}
+                        onChange={(v) => void handleAssigneeChange(v)}
                         disabled={updatingAssignee}
-                        className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:opacity-50"
-                      >
-                        <option value="">Unassigned</option>
-                        {assignees.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.full_name ?? u.email}
-                          </option>
-                        ))}
-                      </select>
+                        className="w-full"
+                        options={[
+                          { value: '', label: 'Unassigned' },
+                          ...assignees.map((u) => ({ value: String(u.id), label: u.full_name ?? u.email })),
+                        ]}
+                      />
                       {updatingAssignee ? <p className="text-[10px] text-zinc-400 mt-1">Updating…</p> : null}
                       <p className="text-[11px] text-zinc-500 mt-1 font-medium">{displayAssigneeName(task, assignees)}</p>
                     </div>

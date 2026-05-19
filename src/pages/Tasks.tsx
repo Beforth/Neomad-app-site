@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import * as api from '../lib/api';
 import { TASKS_PAGE_SUBTITLE, TASKS_PAGE_TITLE } from '../components/tasks/TaskSectionFrame';
 import { TASK_STATUS_COLORS, assigneeName, type AssigneeLike } from './tasks/taskShared';
+import SearchableSelect from '../components/SearchableSelect';
 
 export default function Tasks() {
   const { token } = useAuth();
@@ -174,17 +175,18 @@ export default function Tasks() {
             className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
           />
         </div>
-        <select
+        <SearchableSelect
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none cursor-pointer"
-        >
-          <option value="all">All Status</option>
-          <option value="pending">Pending</option>
-          <option value="assigned">Assigned</option>
-          <option value="delivered">Delivered</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
+          onChange={setStatusFilter}
+          options={[
+            { value: 'all', label: 'All Status' },
+            { value: 'pending', label: 'Pending' },
+            { value: 'assigned', label: 'Assigned' },
+            { value: 'delivered', label: 'Delivered' },
+            { value: 'cancelled', label: 'Cancelled' },
+          ]}
+          className="min-w-[150px]"
+        />
         {(search || statusFilter !== 'all') && (
           <button
             type="button"
@@ -412,18 +414,18 @@ export default function Tasks() {
                     <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                       <UserPlus size={12} /> Assign To (Optional)
                     </label>
-                    <select
+                    <SearchableSelect
                       value={createData.assigned_to}
-                      onChange={(e) => setCreateData({ ...createData, assigned_to: e.target.value })}
-                      className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
-                    >
-                      <option value="">Keep Pending (Unassigned)</option>
-                      {availableAssignees.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.full_name ?? u.email ?? u.name ?? String(u.id)}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v) => setCreateData({ ...createData, assigned_to: v })}
+                      className="w-full"
+                      options={[
+                        { value: '', label: 'Keep Pending (Unassigned)' },
+                        ...availableAssignees.map((u) => ({
+                          value: String(u.id),
+                          label: u.full_name ?? u.email ?? u.name ?? String(u.id),
+                        })),
+                      ]}
+                    />
                   </div>
                 </div>
                 <div className="flex gap-3 pt-2">

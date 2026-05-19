@@ -7,6 +7,7 @@ import { assignInvoiceThunk, clearInvoicesError } from '../../features/invoices/
 import { useInvoiceLoader } from './useInvoiceLoader';
 import { parseInvoiceRouteId } from './invoiceShared';
 import { InvoiceSectionFrame, invoiceInnerCardClassName } from '../../components/invoices/InvoiceSectionFrame';
+import SearchableSelect from '../../components/SearchableSelect';
 
 export default function InvoiceAssignPage() {
   const { invoiceId: idParam } = useParams<{ invoiceId: string }>();
@@ -110,18 +111,15 @@ export default function InvoiceAssignPage() {
         {!canAssign ? (
           <p className="text-sm text-zinc-600">This invoice can no longer be assigned.</p>
         ) : (
-          <select
+          <SearchableSelect
             value={assignTarget}
-            onChange={(e) => setAssignTarget(e.target.value)}
-            className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
-          >
-            <option value="">Select assignee...</option>
-            {assignees.map((b) => (
-              <option key={b.id} value={String(b.id)}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+            onChange={setAssignTarget}
+            options={[
+              { value: '', label: 'Select assignee...' },
+              ...assignees.map((b) => ({ value: String(b.id), label: b.name })),
+            ]}
+            className="w-full"
+          />
         )}
       </div>
     </InvoiceSectionFrame>
