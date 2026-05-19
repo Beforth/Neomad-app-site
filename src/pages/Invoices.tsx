@@ -21,6 +21,7 @@ import { InvoiceMobileCard } from '../components/invoices/InvoiceMobileCard';
 import { fakeDuration } from './invoices/invoiceShared';
 import type { ApiInvoice } from '../lib/api';
 import { INVOICES_PAGE_SUBTITLE, INVOICES_PAGE_TITLE } from '../components/invoices/InvoiceSectionFrame';
+import { NEW_INVOICE_EVENT } from '../lib/appApi';
 
 export default function Invoices() {
   const { user, token } = useAuth();
@@ -56,6 +57,30 @@ export default function Invoices() {
   useEffect(() => {
     setPage(1);
   }, [searchDebounced, statusFilter, boyFilter, dateFilter, sortBy, sortOrder]);
+
+  useEffect(() => {
+    if (!token) return;
+    const onNewInvoice = () => {
+      dispatch(
+        fetchInvoicesList({
+          token,
+          params: {
+            sort_by: sortBy,
+            sort_order: sortOrder,
+            page: 1,
+            page_size: pageSize,
+            ...(searchDebounced.trim() ? { search: searchDebounced.trim() } : {}),
+            ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+            ...(boyFilter !== 'all' ? { assigned_to: Number(boyFilter) } : {}),
+            ...(dateFilter ? { date_from: dateFilter, date_to: dateFilter } : {}),
+          },
+        })
+      );
+      setPage(1);
+    };
+    window.addEventListener(NEW_INVOICE_EVENT, onNewInvoice);
+    return () => window.removeEventListener(NEW_INVOICE_EVENT, onNewInvoice);
+  }, [token, dispatch, sortBy, sortOrder, pageSize, searchDebounced, statusFilter, boyFilter, dateFilter]);
 
   useEffect(() => {
     if (!token) {

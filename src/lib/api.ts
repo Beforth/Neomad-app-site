@@ -274,6 +274,33 @@ export async function updateUser(
   return res.json();
 }
 
+/** Reset another user's password. Requires admin token + current admin password. */
+export async function resetUserPassword(
+  token: string,
+  userId: number,
+  adminPassword: string,
+  newPassword: string,
+): Promise<{ message: string }> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/users/${userId}/reset-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      admin_password: adminPassword,
+      new_password: newPassword,
+    }),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to reset password'));
+  }
+  return res.json();
+}
+
 export interface ApiTask {
   id: number;
   task_number: string;

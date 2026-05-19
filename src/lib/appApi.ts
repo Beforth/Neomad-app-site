@@ -14,6 +14,18 @@ import {
 type FrontendRole = 'admin' | 'manager' | 'delivery_boy' | 'staff';
 type NotificationPriority = 'normal' | 'important' | 'urgent';
 export const APP_NOTIFICATIONS_UPDATED_EVENT = 'neomed-notifications-updated';
+export const NEW_INVOICE_EVENT = 'neomed-new-invoice';
+
+export type NewInvoiceEventDetail = {
+  invoice: {
+    id: number;
+    invoice_number: string;
+    hospital_name: string;
+    amount: number;
+    status?: string;
+  };
+  notification_id?: string;
+};
 
 export interface User {
   id: number;

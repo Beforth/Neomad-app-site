@@ -234,6 +234,16 @@ export default function DeliveryBoyApp() {
           sentBy: 'System',
           isSystem: true,
         });
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification(`New delivery — ${inv.invoice_number}`, {
+              body: `${inv.hospital_name} — ₹${Number(inv.amount || 0).toLocaleString('en-IN')}`,
+              icon: '/favicon.ico',
+            });
+          } catch {
+            /* ignore */
+          }
+        }
       }
       await fetchInvoices();
       setActiveTab('available');

@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getWsBaseUrl, patchDeliveryLocationHttp } from '../lib/api';
+import {
+  APP_NOTIFICATIONS_UPDATED_EVENT,
+  NEW_INVOICE_EVENT,
+  appApi,
+  type NewInvoiceEventDetail,
+} from '../lib/appApi';
+
+const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 export interface LocationUpdateMessage {
   type: 'location_update';
@@ -97,6 +105,111 @@ export function useTrackingSocket(enabled: boolean) {
   }, [enabled, token, user?.role]);
 
   return { connected, subscribe };
+}
+
+function dispatchNewInvoiceAlert(detail: NewInvoiceEventDetail) {
+  const inv = detail.invoice;
+  const title = `New invoice — ${inv.invoice_number}`;
+  const message = `${inv.hospital_name} — ₹${Number(inv.amount || 0).toLocaleString('en-IN')}`;
+
+  appApi.saveNotification({
+    title,
+    message,
+    targets: ['admin', 'manager', 'delivery_boy'],
+    priority: 'important',
+    sentBy: 'System',
+    isSystem: true,
+    notificationId: detail.notification_id,
+  });
+
+  window.dispatchEvent(new CustomEvent(NEW_INVOICE_EVENT, { detail }));
+  window.dispatchEvent(new CustomEvent(APP_NOTIFICATIONS_UPDATED_EVENT));
+}
+
+/**
+ * Admin/manager: listen on /ws/tracking for `new_invoice` (and location updates elsewhere).
+ */
+export function useStaffInvoiceAlerts(enabled: boolean) {
+  const { token, user } = useAuth();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    audioRef.current = new Audio(NOTIFICATION_SOUND);
+  }, []);
+
+  useEffect(() => {
+    if (!enabled || !token || !user) return;
+    if (user.role !== 'admin' && user.role !== 'manager') return;
+
+    const wsUrl = `${getWsBaseUrl()}/ws/tracking?token=${encodeURIComponent(token)}`;
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let reconnectDelayMs = WS_RECONNECT_MIN_MS;
+    let closedByUnmount = false;
+
+    const connect = () => {
+      if (closedByUnmount) return;
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        reconnectDelayMs = WS_RECONNECT_MIN_MS;
+      };
+      ws.onclose = () => {
+        if (!closedByUnmount) {
+          const wait = reconnectDelayMs;
+          reconnectDelayMs = Math.min(reconnectDelayMs * 2, WS_RECONNECT_MAX_MS);
+          reconnectTimer = setTimeout(connect, wait);
+        }
+      };
+      ws.onerror = () => {
+        try {
+          ws?.close();
+        } catch {
+          /* noop */
+        }
+      };
+      ws.onmessage = (ev: MessageEvent<string>) => {
+        try {
+          const msg = JSON.parse(ev.data) as Record<string, unknown>;
+          if (msg.type !== 'new_invoice' || !msg.invoice || typeof msg.invoice !== 'object') return;
+          const inv = msg.invoice as NewInvoiceEventDetail['invoice'];
+          const detail: NewInvoiceEventDetail = {
+            invoice: inv,
+            notification_id:
+              typeof msg.notification_id === 'string' ? msg.notification_id : undefined,
+          };
+          dispatchNewInvoiceAlert(detail);
+          audioRef.current?.play().catch(() => {});
+          if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification(`New invoice — ${inv.invoice_number}`, {
+                body: `${inv.hospital_name} — ₹${Number(inv.amount || 0).toLocaleString('en-IN')}`,
+                icon: '/favicon.ico',
+              });
+            } catch {
+              /* ignore */
+            }
+          }
+        } catch {
+          /* ignore malformed */
+        }
+      };
+    };
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      void Notification.requestPermission();
+    }
+
+    connect();
+
+    return () => {
+      closedByUnmount = true;
+      if (reconnectTimer !== undefined) clearTimeout(reconnectTimer);
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        ws.close();
+      }
+    };
+  }, [enabled, token, user?.id, user?.role]);
 }
 
 type DeliverySocketHandler = (payload: any) => void;

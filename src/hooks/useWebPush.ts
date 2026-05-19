@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { updateWebPushToken } from '../lib/api';
-import { appApi } from '../lib/appApi';
+import { APP_NOTIFICATIONS_UPDATED_EVENT, NEW_INVOICE_EVENT, appApi } from '../lib/appApi';
 import {
   getWebPushRegistrationToken,
   isWebPushConfigured,
@@ -62,6 +62,20 @@ export function useWebPush() {
         }
       }
       audioRef.current?.play().catch(() => {});
+
+      if (data?.type === 'new_invoice' && data?.invoice_json) {
+        try {
+          const inv = JSON.parse(String(data.invoice_json));
+          window.dispatchEvent(
+            new CustomEvent(NEW_INVOICE_EVENT, {
+              detail: { invoice: inv, notification_id: notificationId },
+            })
+          );
+          window.dispatchEvent(new CustomEvent(APP_NOTIFICATIONS_UPDATED_EVENT));
+        } catch {
+          /* ignore */
+        }
+      }
     });
 
     return () => {

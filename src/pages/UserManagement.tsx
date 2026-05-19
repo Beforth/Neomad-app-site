@@ -5,7 +5,7 @@ import {
   XCircle, Search, Key, X, Save, Eye, EyeOff, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { getUsers, getRoles, createUser, updateUser, mapBackendRoleToFrontend, normalizeFetchError } from '../lib/api';
+import { getUsers, getRoles, createUser, updateUser, resetUserPassword, mapBackendRoleToFrontend, normalizeFetchError } from '../lib/api';
 
 const ROLE_COLORS: Record<string, string> = {
   super_admin: 'bg-rose-50 text-rose-700',
@@ -87,7 +87,10 @@ export default function UserManagement() {
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [resetUser, setResetUser] = useState<any | null>(null);
   const [newPw, setNewPw] = useState('');
+  const [adminPw, setAdminPw] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [showAdminPw, setShowAdminPw] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [roles, setRoles] = useState<{ id: number; name: string; code: string }[]>([]);
   const [rolesLoading, setRolesLoading] = useState(false);
   const [rolesError, setRolesError] = useState<string | null>(null);
@@ -195,10 +198,29 @@ export default function UserManagement() {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPw.length < 6) return;
-    setResetUser(null);
-    setNewPw('');
-    showToast('Reset password: API not implemented yet');
+    if (!token || !resetUser?.id) return;
+    if (newPw.length < 6) {
+      showToast('Password must be at least 6 characters');
+      return;
+    }
+    if (!adminPw) {
+      showToast('Enter admin password to continue');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      await resetUserPassword(token, resetUser.id, adminPw, newPw);
+      setResetUser(null);
+      setNewPw('');
+      setAdminPw('');
+      setShowPw(false);
+      setShowAdminPw(false);
+      showToast('Password reset successfully');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to reset password');
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   const filtered = users.filter(u =>
@@ -317,7 +339,7 @@ export default function UserManagement() {
                         className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-md transition-all" title="Edit User">
                         <Edit2 size={14} />
                       </button>
-                      <button onClick={() => { setResetUser(u); setNewPw(''); }}
+                      <button onClick={() => { setResetUser(u); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }}
                         className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title="Reset Password">
                         <Key size={14} />
                       </button>
@@ -345,7 +367,7 @@ export default function UserManagement() {
                 </div>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setEditingUser({ ...u })} className="p-2 text-zinc-400 hover:text-zinc-700"><Edit2 size={16} /></button>
-                  <button onClick={() => { setResetUser(u); setNewPw(''); }} className="p-2 text-zinc-400 hover:text-blue-600"><Key size={16} /></button>
+                  <button onClick={() => { setResetUser(u); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }} className="p-2 text-zinc-400 hover:text-blue-600"><Key size={16} /></button>
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -447,6 +469,14 @@ export default function UserManagement() {
           <form onSubmit={handleResetPassword} className="p-5 space-y-4">
             <p className="text-sm text-zinc-500">Enter a new password for <strong>{resetUser.username}</strong>.</p>
             <div className="relative">
+              <input type={showAdminPw ? 'text' : 'password'} placeholder="Your admin password"
+                value={adminPw} onChange={(e) => setAdminPw(e.target.value)} required className={inputClassName} />
+              <button type="button" onClick={() => setShowAdminPw(p => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
+                {showAdminPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <div className="relative">
               <input type={showPw ? 'text' : 'password'} placeholder="New password (min 6 chars)"
                 value={newPw} onChange={(e) => setNewPw(e.target.value)} minLength={6} required className={inputClassName} />
               <button type="button" onClick={() => setShowPw(p => !p)}
@@ -454,8 +484,8 @@ export default function UserManagement() {
                 {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-              <Key size={16} /> Reset Password
+            <button type="submit" disabled={resetLoading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+              <Key size={16} /> {resetLoading ? 'Resetting...' : 'Reset Password'}
             </button>
           </form>
         </Modal>
