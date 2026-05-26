@@ -3,20 +3,25 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   changePassword,
+  createStoreGeoSetting,
+  deleteStoreGeoSetting,
   completeGmailOAuth,
   disconnectGmail,
+  listStoreGeoSettings,
   getGmailAuthUrl,
   getGmailStatus,
   listGmailEmails,
   markGmailEmailRead,
   syncRecentGmailEmails,
   toggleGmailEmailStar,
+  updateStoreGeoSetting,
   type GmailEmail,
+  type StoreGeoSetting,
 } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ShieldCheck, LogOut, Mail, Lock, RefreshCw,
-  CheckCircle2, XCircle, AlertTriangle, Clock, Search, Star
+  CheckCircle2, XCircle, AlertTriangle, Clock, Search, Star, MapPin
 } from 'lucide-react';
 
 export default function Profile() {
@@ -40,6 +45,13 @@ export default function Profile() {
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
   const [pwMsg, setPwMsg] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
+  const canManageStoreGeo = user?.role === 'admin' || user?.role === 'manager';
+  const [geoForm, setGeoForm] = useState({ latitude: '', longitude: '', radius_meters: '500' });
+  const [geoList, setGeoList] = useState<StoreGeoSetting[]>([]);
+  const [editingGeoId, setEditingGeoId] = useState<number | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoSaving, setGeoSaving] = useState(false);
+  const [geoMsg, setGeoMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadGmail = async () => {
     if (!token) return;
@@ -83,6 +95,25 @@ export default function Profile() {
   useEffect(() => {
     loadGmail();
   }, [token]);
+
+  useEffect(() => {
+    const loadStoreGeo = async () => {
+      if (!token || !canManageStoreGeo) return;
+      setGeoLoading(true);
+      try {
+        const geo = await listStoreGeoSettings(token);
+        setGeoList(geo);
+      } catch (err) {
+        setGeoMsg({
+          type: 'error',
+          text: err instanceof Error ? err.message : 'Failed to load store geofence',
+        });
+      } finally {
+        setGeoLoading(false);
+      }
+    };
+    loadStoreGeo();
+  }, [token, canManageStoreGeo]);
 
   useEffect(() => {
     loadEmails();
@@ -222,6 +253,95 @@ export default function Profile() {
     }
   };
 
+  const handleSaveStoreGeo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    const latitude = Number(geoForm.latitude);
+    const longitude = Number(geoForm.longitude);
+    const radiusMeters = Number(geoForm.radius_meters);
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+      setGeoMsg({ type: 'error', text: 'Latitude must be between -90 and 90.' });
+      return;
+    }
+    if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      setGeoMsg({ type: 'error', text: 'Longitude must be between -180 and 180.' });
+      return;
+    }
+    if (!Number.isFinite(radiusMeters) || radiusMeters <= 0 || radiusMeters > 10000) {
+      setGeoMsg({ type: 'error', text: 'Radius must be between 1 and 10000 meters.' });
+      return;
+    }
+    setGeoSaving(true);
+    setGeoMsg(null);
+    try {
+      if (editingGeoId) {
+        await updateStoreGeoSetting(token, editingGeoId, {
+          latitude,
+          longitude,
+          radius_meters: radiusMeters,
+        });
+      } else {
+        await createStoreGeoSetting(token, {
+          latitude,
+          longitude,
+          radius_meters: radiusMeters,
+        });
+      }
+      const next = await listStoreGeoSettings(token);
+      setGeoList(next);
+      setGeoForm({ latitude: '', longitude: '', radius_meters: '500' });
+      setEditingGeoId(null);
+      setGeoMsg({ type: 'success', text: editingGeoId ? 'Store geofence updated.' : 'Store geofence added.' });
+    } catch (err) {
+      setGeoMsg({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to save store geofence',
+      });
+    } finally {
+      setGeoSaving(false);
+    }
+  };
+
+  const startEditGeo = (row: StoreGeoSetting) => {
+    setEditingGeoId(row.id);
+    setGeoForm({
+      latitude: String(row.latitude),
+      longitude: String(row.longitude),
+      radius_meters: String(row.radius_meters),
+    });
+    setGeoMsg(null);
+  };
+
+  const cancelEditGeo = () => {
+    setEditingGeoId(null);
+    setGeoForm({ latitude: '', longitude: '', radius_meters: '500' });
+    setGeoMsg(null);
+  };
+
+  const handleDeleteGeo = async (id: number) => {
+    if (!token) return;
+    const ok = window.confirm('Delete this store geofence?');
+    if (!ok) return;
+    setGeoSaving(true);
+    setGeoMsg(null);
+    try {
+      await deleteStoreGeoSetting(token, id);
+      const next = await listStoreGeoSettings(token);
+      setGeoList(next);
+      if (editingGeoId === id) {
+        cancelEditGeo();
+      }
+      setGeoMsg({ type: 'success', text: 'Store geofence deleted.' });
+    } catch (err) {
+      setGeoMsg({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to delete store geofence',
+      });
+    } finally {
+      setGeoSaving(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div>
@@ -317,6 +437,102 @@ export default function Profile() {
               </div>
             </div>
           </div>
+
+          {canManageStoreGeo && (
+            <div className="bg-white p-6 rounded-2xl border border-zinc-100 shadow-sm">
+              <h3 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
+                <MapPin size={20} className="text-emerald-500" />
+                Store Geofence
+              </h3>
+              <p className="text-sm text-zinc-500 mb-4">
+                Delivery users can accept invoices only within any configured store radius.
+              </p>
+              <form onSubmit={handleSaveStoreGeo} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="Latitude"
+                    value={geoForm.latitude}
+                    onChange={(e) => setGeoForm((prev) => ({ ...prev, latitude: e.target.value }))}
+                    className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={geoLoading || geoSaving}
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="Longitude"
+                    value={geoForm.longitude}
+                    onChange={(e) => setGeoForm((prev) => ({ ...prev, longitude: e.target.value }))}
+                    className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={geoLoading || geoSaving}
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    max="10000"
+                    placeholder="Radius (meters)"
+                    value={geoForm.radius_meters}
+                    onChange={(e) => setGeoForm((prev) => ({ ...prev, radius_meters: e.target.value }))}
+                    className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={geoLoading || geoSaving}
+                  />
+                </div>
+                {geoMsg && (
+                  <div className={`text-sm ${geoMsg.type === 'success' ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {geoMsg.text}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={geoLoading || geoSaving}
+                  className="px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60"
+                >
+                  {geoSaving ? 'Saving...' : editingGeoId ? 'Update Geofence' : 'Add Geofence'}
+                </button>
+                {editingGeoId && (
+                  <button
+                    type="button"
+                    onClick={cancelEditGeo}
+                    disabled={geoLoading || geoSaving}
+                    className="ml-2 px-4 py-2 rounded-xl border border-zinc-300 text-zinc-700 text-sm font-semibold hover:bg-zinc-50 disabled:opacity-60"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </form>
+              <div className="mt-5 space-y-2">
+                <h4 className="text-sm font-semibold text-zinc-900">Configured Geofences</h4>
+                {geoList.length === 0 ? (
+                  <p className="text-xs text-zinc-500">No geofences added yet.</p>
+                ) : geoList.map((g) => (
+                  <div key={g.id} className="rounded-xl border border-zinc-200 px-3 py-2 flex items-center justify-between gap-3">
+                    <div className="text-xs text-zinc-700">
+                      <span className="font-semibold">Lat:</span> {g.latitude}, <span className="font-semibold">Lng:</span> {g.longitude}, <span className="font-semibold">Radius:</span> {g.radius_meters}m
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => startEditGeo(g)}
+                        disabled={geoSaving}
+                        className="px-2 py-1 rounded-lg border border-zinc-300 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteGeo(g.id)}
+                        disabled={geoSaving}
+                        className="px-2 py-1 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Gmail Connect + Emails */}
           <div className="bg-white p-6 rounded-2xl border border-zinc-100 shadow-sm">

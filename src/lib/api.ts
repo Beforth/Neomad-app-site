@@ -170,6 +170,15 @@ export interface OnDutyDeliveryRow {
   suspected_power_off: SuspectedPowerOffRow | null;
 }
 
+export interface StoreGeoSetting {
+  id: number;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
+  created_at: string;
+  updated_at?: string | null;
+}
+
 export interface DeliveryPathPoint {
   lat: number;
   lng: number;
@@ -185,6 +194,18 @@ export interface DeliveryDayPathResponse {
   points: DeliveryPathPoint[];
 }
 
+export interface DeliveryCheckpointRow {
+  id: number;
+  user_id: number;
+  invoice_id?: number | null;
+  task_id?: number | null;
+  checkpoint_type: string;
+  started_at: string;
+  ended_at: string;
+  point_count: number;
+  created_at: string;
+}
+
 /** On-duty delivery users with last known GPS (admin or manager). */
 export async function getOnDutyDeliveries(token: string): Promise<OnDutyDeliveryRow[]> {
   const base = getBaseUrl();
@@ -197,6 +218,112 @@ export async function getOnDutyDeliveries(token: string): Promise<OnDutyDelivery
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load tracking'));
   }
   return res.json();
+}
+
+/** List store geofences (admin/manager). */
+export async function listStoreGeoSettings(token: string): Promise<StoreGeoSetting[]> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/store-geo-settings`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load store geofence'));
+  }
+  const data = await res.json();
+  if (Array.isArray(data)) return data as StoreGeoSetting[];
+  if (data && typeof data === 'object') return [data as StoreGeoSetting];
+  return [];
+}
+
+/** Create one store geofence (admin/manager). */
+export async function createStoreGeoSetting(
+  token: string,
+  data: { latitude: number; longitude: number; radius_meters: number }
+): Promise<StoreGeoSetting> {
+  const base = getBaseUrl();
+  let res = await fetch(`${base}/store-geo-settings`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      latitude: data.latitude,
+      longitude: data.longitude,
+      radius_meters: data.radius_meters,
+    }),
+  });
+  // Legacy backend compatibility: older API used PUT /store-geo-settings for upsert.
+  if (res.status === 404 || res.status === 405) {
+    res = await fetch(`${base}/store-geo-settings`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        latitude: data.latitude,
+        longitude: data.longitude,
+        radius_meters: data.radius_meters,
+      }),
+    });
+  }
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to save store geofence'));
+  }
+  return res.json();
+}
+
+/** Update one store geofence (admin/manager). */
+export async function updateStoreGeoSetting(
+  token: string,
+  settingId: number,
+  data: { latitude: number; longitude: number; radius_meters: number }
+): Promise<StoreGeoSetting> {
+  const base = getBaseUrl();
+  let res = await fetch(`${base}/store-geo-settings/${settingId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  // Legacy backend compatibility: older API used PUT /store-geo-settings for singleton update.
+  if (res.status === 404 || res.status === 405) {
+    res = await fetch(`${base}/store-geo-settings`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  }
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to update store geofence'));
+  }
+  return res.json();
+}
+
+/** Delete one store geofence (admin/manager). */
+export async function deleteStoreGeoSetting(token: string, settingId: number): Promise<void> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/store-geo-settings/${settingId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to delete store geofence'));
+  }
 }
 
 /** Delivery user's recorded day path (from Redis hot buffer or DB archive). */
@@ -214,6 +341,29 @@ export async function getDeliveryDayPath(
     notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load travel path'));
+  }
+  return res.json();
+}
+
+/** Checkpoint history uploaded by delivery app. */
+export async function getDeliveryCheckpoints(
+  token: string,
+  params?: { user_id?: number; invoice_id?: number; task_id?: number; checkpoint_type?: string; date_from?: string; date_to?: string }
+): Promise<DeliveryCheckpointRow[]> {
+  const base = getBaseUrl();
+  const sp = new URLSearchParams();
+  if (params?.user_id != null) sp.set('user_id', String(params.user_id));
+  if (params?.invoice_id != null) sp.set('invoice_id', String(params.invoice_id));
+  if (params?.task_id != null) sp.set('task_id', String(params.task_id));
+  if (params?.checkpoint_type) sp.set('checkpoint_type', params.checkpoint_type);
+  if (params?.date_from) sp.set('date_from', params.date_from);
+  if (params?.date_to) sp.set('date_to', params.date_to);
+  const url = `${base}/tracking/checkpoints${sp.toString() ? `?${sp.toString()}` : ''}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load checkpoints'));
   }
   return res.json();
 }
@@ -458,6 +608,10 @@ export interface ApiInvoice {
   signed_copy_url?: string | null;
   description?: string | null;
   cancel_reason?: string | null;
+  release_to_pool_reason?: string | null;
+  release_to_pool_by_user_id?: number | null;
+  release_to_pool_by_name?: string | null;
+  release_to_pool_at?: string | null;
   delivery_feedback?: string | null;
   feedback_reason?: string | null;
   cash_confirmed?: boolean;

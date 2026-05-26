@@ -7,11 +7,13 @@ import MapPreview from '../components/MapPreview';
 import SearchableSelect from '../components/SearchableSelect';
 import {
   getDeliveryDayPath,
+  getDeliveryCheckpoints,
   getInvoices,
   getOnDutyDeliveries,
   normalizeFetchError,
   type ApiInvoice,
   type OnDutyDeliveryRow,
+  type DeliveryCheckpointRow,
 } from '../lib/api';
 import {
   DEFAULT_MAP_CENTER,
@@ -155,6 +157,7 @@ export default function Tracking() {
   const [pathSource, setPathSource] = useState<string>('none');
   const [loadingPath, setLoadingPath] = useState(false);
   const [todayDeliveries, setTodayDeliveries] = useState<ApiInvoice[]>([]);
+  const [storeReturns, setStoreReturns] = useState<DeliveryCheckpointRow[]>([]);
 
   const loadSnapshots = useCallback(async () => {
     if (!token || !canTrack) return;
@@ -251,6 +254,32 @@ export default function Tracking() {
       cancelled = true;
     };
   }, [token, canTrack, selected]);
+
+  useEffect(() => {
+    if (!token || !canTrack) {
+      setStoreReturns([]);
+      return;
+    }
+    let cancelled = false;
+    const day = pathDate;
+    getDeliveryCheckpoints(token, {
+      checkpoint_type: 'invoice_returned_store',
+      user_id: selected ?? undefined,
+      date_from: day,
+      date_to: day,
+    })
+      .then((rows) => {
+        if (cancelled) return;
+        setStoreReturns(rows || []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setStoreReturns([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, canTrack, selected, pathDate]);
 
   const allRiders = mergeOnDutySnapshotsWithLive(snapshots, liveLocations);
   const riders = selected ? allRiders.filter((r) => r.id === selected) : allRiders;
@@ -436,6 +465,20 @@ export default function Tracking() {
                 <span>Today's delivered stops</span>
                 <span>{deliveryCheckpoints.length}</span>
               </div>
+              <div className="mb-3 text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center justify-between">
+                <span>Returned to store</span>
+                <span>{storeReturns.length}</span>
+              </div>
+              {storeReturns.length > 0 && (
+                <div className="mb-3 max-h-28 overflow-auto rounded-lg border border-zinc-100 bg-white">
+                  {storeReturns.slice(0, 8).map((row) => (
+                    <div key={row.id} className="px-2 py-1.5 border-b border-zinc-50 text-[10px] text-zinc-600 flex items-center justify-between">
+                      <span>#{row.invoice_id ?? row.task_id ?? row.id}</span>
+                      <span>{new Date(row.ended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setSelected(null)}

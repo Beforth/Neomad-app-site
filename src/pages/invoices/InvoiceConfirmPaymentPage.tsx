@@ -22,6 +22,7 @@ export default function InvoiceConfirmPaymentPage() {
   const sliceError = useAppSelector((s) => s.invoices.error);
   const { invoice, loading, error } = useInvoiceLoader(token, id);
   const [busy, setBusy] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
 
   if (id == null) {
     return (
@@ -66,7 +67,10 @@ export default function InvoiceConfirmPaymentPage() {
     dispatch(clearInvoicesError());
     try {
       await dispatch(confirmPaymentThunk({ token, invoice })).unwrap();
-      navigate(`/invoices/${invoice.id}`);
+      setSuccessMsg('Payment confirmed successfully.');
+      setTimeout(() => {
+        navigate(`/invoices/${invoice.id}`, { state: { paymentConfirmed: true } });
+      }, 700);
     } catch {
       /* slice */
     } finally {
@@ -99,6 +103,11 @@ export default function InvoiceConfirmPaymentPage() {
     >
       {sliceError ? (
         <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm">{sliceError}</div>
+      ) : null}
+      {successMsg ? (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl px-4 py-3 text-sm">
+          {successMsg}
+        </div>
       ) : null}
 
       <div className={invoiceInnerCardClassName()}>

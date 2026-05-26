@@ -25,6 +25,7 @@ export default function InvoiceDetailPage() {
   const [deliveryUsers, setDeliveryUsers] = useState<{ id: number; name: string }[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [pageNotice, setPageNotice] = useState('');
 
   useEffect(() => {
     if (!invoice) return;
@@ -35,6 +36,15 @@ export default function InvoiceDetailPage() {
     setShowDeleteModal(true);
     navigate(`/invoices/${invoice.id}`, { replace: true, state: {} });
   }, [invoice, user?.role, location.state, navigate, dispatch]);
+
+  useEffect(() => {
+    const s = location.state as { paymentConfirmed?: boolean } | undefined;
+    if (!s?.paymentConfirmed) return;
+    setPageNotice('Payment confirmed successfully.');
+    navigate(`/invoices/${id}`, { replace: true, state: {} });
+    const t = setTimeout(() => setPageNotice(''), 2500);
+    return () => clearTimeout(t);
+  }, [location.state, navigate, id]);
 
   useEffect(() => {
     if (!showDeleteModal || deleteBusy) return;
@@ -167,6 +177,11 @@ export default function InvoiceDetailPage() {
         </div>
       }
     >
+      {pageNotice ? (
+        <div className="mb-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl px-4 py-3 text-sm">
+          {pageNotice}
+        </div>
+      ) : null}
       <div className={invoiceInnerCardClassName()}>
         <div className="px-6 py-4 border-b border-zinc-100 flex items-center gap-3 flex-wrap bg-zinc-50/40">
           <div className="w-10 h-10 bg-zinc-50 rounded-xl flex items-center justify-center border border-zinc-100 shrink-0">
@@ -347,6 +362,25 @@ export default function InvoiceDetailPage() {
                       <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-zinc-900 border-4 border-white ring-1 ring-zinc-200 shadow-sm" />
                       <p className="text-xs font-bold text-zinc-900 uppercase">Successfully delivered</p>
                       <p className="text-[11px] text-zinc-500 mt-0.5 font-medium">{new Date(invoice.delivered_at).toLocaleString()}</p>
+                    </div>
+                  )}
+                  {invoice.release_to_pool_at && (
+                    <div className="relative">
+                      <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-amber-500 border-4 border-white ring-1 ring-amber-100 shadow-sm" />
+                      <p className="text-xs font-bold text-zinc-900 uppercase">Released back to available pool</p>
+                      <p className="text-[11px] text-zinc-500 mt-0.5 font-medium">
+                        {new Date(invoice.release_to_pool_at).toLocaleString()}
+                      </p>
+                      {invoice.release_to_pool_by_name ? (
+                        <p className="text-[10px] text-amber-700 font-bold mt-1 bg-amber-50 w-fit px-2 py-0.5 rounded-lg border border-amber-100">
+                          By: {invoice.release_to_pool_by_name}
+                        </p>
+                      ) : null}
+                      {invoice.release_to_pool_reason ? (
+                        <p className="text-[10px] text-zinc-600 mt-1">
+                          Reason: <span className="font-semibold">{invoice.release_to_pool_reason}</span>
+                        </p>
+                      ) : null}
                     </div>
                   )}
                 </div>

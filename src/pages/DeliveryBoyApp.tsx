@@ -60,6 +60,7 @@ export default function DeliveryBoyApp() {
   const [histIncludeCancelled, setHistIncludeCancelled] = useState(true);
   const [activeTasks, setActiveTasks] = useState<any[]>([]);
   const [acceptingId, setAcceptingId] = useState<number | null>(null);
+  const [acceptError, setAcceptError] = useState('');
   const [deliverySeconds, setDeliverySeconds] = useState<Record<number, number>>({});
   const [availableSeconds, setAvailableSeconds] = useState(0);
 
@@ -134,6 +135,29 @@ export default function DeliveryBoyApp() {
       });
     }, 1000);
     return () => clearInterval(tick);
+  }, [activeTasks]);
+
+  // Keep per-task UI state in sync with current active tasks so stale ids don't keep controls disabled.
+  useEffect(() => {
+    const activeIds = new Set(activeTasks.map((t) => t.id));
+    const pruneByActive = <T extends Record<number, any>>(prev: T): T => {
+      const next: Record<number, any> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const id = Number(k);
+        if (activeIds.has(id)) next[id] = v;
+      });
+      return next as T;
+    };
+    setSubmitted((prev) => pruneByActive(prev));
+    setSubmitError((prev) => pruneByActive(prev));
+    setShowCashInput((prev) => pruneByActive(prev));
+    setShowChequeInput((prev) => pruneByActive(prev));
+    setCash((prev) => pruneByActive(prev));
+    setCheque((prev) => pruneByActive(prev));
+    setChequeNumber((prev) => pruneByActive(prev));
+    setBankName((prev) => pruneByActive(prev));
+    setChequePhotoUrl((prev) => pruneByActive(prev));
+    setSignedCopy((prev) => pruneByActive(prev));
   }, [activeTasks]);
 
   // Geolocation
@@ -226,9 +250,12 @@ export default function DeliveryBoyApp() {
     const unsubscribe = socket.on('new_invoice', async (evt: any) => {
       const inv = evt?.invoice;
       if (inv?.invoice_number) {
+        const assignedToMe = inv.assigned_to === user?.id && inv.status === 'assigned';
         appApi.saveNotification({
-          title: `New Task - ${inv.invoice_number}`,
-          message: `${inv.hospital_name} - Rs ${Number(inv.amount || 0).toLocaleString()}`,
+          title: assignedToMe ? `Invoice assigned - ${inv.invoice_number}` : `New Task - ${inv.invoice_number}`,
+          message: assignedToMe
+            ? `Check assigned invoice in Active tab`
+            : `${inv.hospital_name} - Rs ${Number(inv.amount || 0).toLocaleString()}`,
           targets: ['delivery_boy'],
           priority: 'important',
           sentBy: 'System',
@@ -246,7 +273,11 @@ export default function DeliveryBoyApp() {
         }
       }
       await fetchInvoices();
-      setActiveTab('available');
+      if (inv?.assigned_to === user?.id && inv?.status === 'assigned') {
+        setActiveTab('active');
+      } else {
+        setActiveTab('available');
+      }
     });
     return () => {
       unsubscribe?.();
@@ -270,6 +301,7 @@ export default function DeliveryBoyApp() {
   const handleAccept = async (id: number) => {
     if (!user) return;
     if (!isAvailable) return;
+    setAcceptError('');
     setAcceptingId(id);
     try {
       const res = await appApi.acceptInvoice(id, user.id);
@@ -279,6 +311,8 @@ export default function DeliveryBoyApp() {
         setActiveTab('active');
         setShowMap(true);
       }
+    } catch (e) {
+      setAcceptError(e instanceof Error ? e.message : 'Unable to accept this invoice.');
     } finally { setAcceptingId(null); }
   };
 
@@ -566,6 +600,11 @@ export default function DeliveryBoyApp() {
                 <h3 className="font-bold text-zinc-900">Available Tasks</h3>
                 <span className="text-xs text-zinc-500">{canShowAvailable ? pendingInvoices.length : 0} found</span>
               </div>
+              {acceptError && canShowAvailable && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                  {acceptError}
+                </div>
+              )}
               {!canShowAvailable ? (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-400"><Power size={32} /></div>
