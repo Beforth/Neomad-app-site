@@ -1,7 +1,6 @@
 import {
   assignInvoice,
   createInvoice,
-  getDeliveryDayPath,
   getBaseUrl,
   getInvoices as getInvoicesApi,
   getUsers as getUsersApi,
@@ -148,20 +147,6 @@ const toFrontendUser = (u: any): User => ({
   role: mapBackendRoleToFrontend(u.role_codes || []),
   status: u.is_active ? 'active' : 'inactive',
 });
-
-const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
-
-const pathDistanceKm = (path: Array<{ lat: number; lng: number }>): number => {
-  let km = 0;
-  for (let i = 1; i < path.length; i += 1) {
-    const a = path[i - 1];
-    const b = path[i];
-    const dx = (b.lat - a.lat) * 111;
-    const dy = (b.lng - a.lng) * 111;
-    km += Math.sqrt(dx * dx + dy * dy);
-  }
-  return km;
-};
 
 const getAllInvoices = async (): Promise<Invoice[]> => {
   const token = getTokenOrThrow();
@@ -340,59 +325,11 @@ export const appApi = {
   },
 
   getDeliveryBoyStats: async (boyId: number) => {
-    const token = getTokenOrThrow();
     const invoices = await getAllInvoices();
     const delivered = invoices.filter((i: any) => i.status === 'delivered' && i.assigned_to === boyId);
-
-    const today = new Date();
-    const days: string[] = [];
-    for (let i = 6; i >= 0; i -= 1) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      days.push(toIsoDate(d));
-    }
-
-    const daily_distance: Array<{ day: string; km: string }> = [];
-    let kmSum = 0;
-    for (const day of days) {
-      try {
-        const dayPath = await getDeliveryDayPath(token, boyId, day);
-        const km = pathDistanceKm(dayPath.points || []);
-        kmSum += km;
-        daily_distance.push({
-          day: new Date(day).toLocaleDateString(undefined, { weekday: 'short' }),
-          km: km.toFixed(1),
-        });
-      } catch {
-        daily_distance.push({
-          day: new Date(day).toLocaleDateString(undefined, { weekday: 'short' }),
-          km: '0.0',
-        });
-      }
-    }
-
     return {
       total_delivered: delivered.length,
-      km_driven: kmSum.toFixed(1),
-      daily_distance,
     };
-  },
-
-  getBoyRoute: async (boyId: number, date: string) => {
-    const token = getTokenOrThrow();
-    const targetDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : toIsoDate(new Date());
-    const res = await getDeliveryDayPath(token, boyId, targetDate);
-    const path = (res.points || []).map((p) => [p.lat, p.lng] as [number, number]);
-    const checkpoints = (res.points || [])
-      .filter((_, idx, arr) => idx === 0 || idx === arr.length - 1 || idx % 5 === 0)
-      .slice(0, 6)
-      .map((p, idx, arr) => ({
-        pos: [p.lat, p.lng] as [number, number],
-        label: idx === 0 ? 'Route start' : idx === arr.length - 1 ? 'Latest point' : `Checkpoint ${idx + 1}`,
-        time: new Date(p.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        status: idx === arr.length - 1 ? 'active' : 'completed',
-      }));
-    return { path, checkpoints };
   },
 
   pushWaitingAlert: (invoiceNumber: string, hospitalName: string, boyName: string) => {
