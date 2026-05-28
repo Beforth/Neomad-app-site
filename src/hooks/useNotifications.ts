@@ -49,7 +49,7 @@ export function useNotifications() {
                     if ('Notification' in window && Notification.permission === 'granted') {
                         new Notification(newest.title, {
                             body: newest.message,
-                            icon: '/logo192.png', // Assuming we'll add this for PWA
+                            icon: '/favicon.ico',
                         });
                     }
                 }

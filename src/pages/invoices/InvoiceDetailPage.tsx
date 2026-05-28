@@ -67,6 +67,15 @@ export default function InvoiceDetailPage() {
       .catch(() => setDeliveryUsers([]));
   }, [token, user?.role]);
 
+  const assigneeName = useMemo(() => {
+    if (!invoice) return '—';
+    return (
+      invoice.assignee_name ??
+      deliveryUsers.find((b) => b.id === invoice.assigned_to)?.name ??
+      '—'
+    );
+  }, [invoice, deliveryUsers]);
+
   if (id == null) {
     return (
       <InvoiceSectionFrame context="Invalid invoice link.">
@@ -103,14 +112,6 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  const assigneeName = useMemo(() => {
-    if (!invoice) return '—';
-    return (
-      invoice.assignee_name ??
-      deliveryUsers.find((b) => b.id === invoice.assigned_to)?.name ??
-      '—'
-    );
-  }, [invoice, deliveryUsers]);
   const assigneeInitialChar = assigneeName !== '—' ? (assigneeName[0]?.toUpperCase() ?? '?') : '?';
 
   const isManager = user?.role === 'admin' || user?.role === 'manager';

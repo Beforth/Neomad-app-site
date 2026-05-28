@@ -22,14 +22,14 @@ function statusLabelFor(
   lastAt: string | null,
 ): string {
   if (lat == null || lng == null) return 'No GPS fix yet';
-  if (status === 'moving') return 'Moving';
   if (lastAt) {
     const d = new Date(lastAt);
     if (!Number.isNaN(d.getTime())) {
       const stale = Date.now() - d.getTime() > 10 * 60 * 1000;
-      if (stale) return 'Location stale (last fix older than 10 min)';
+      if (stale) return `Disconnected since ${d.toLocaleString()}`;
     }
   }
+  if (status === 'moving') return 'Moving';
   return 'Stationary / waiting';
 }
 
@@ -37,7 +37,7 @@ export interface LiveFleetDisplayRider {
   id: number;
   name: string;
   initials: string;
-  status: 'moving' | 'waiting';
+  status: 'moving' | 'waiting' | 'disconnected';
   statusLabel: string;
   order: string | null;
   lat: number | null;
@@ -58,8 +58,17 @@ export function mergeOnDutySnapshotsWithLive(
     const lat = u?.lat ?? s.lat;
     const lng = u?.lng ?? s.lng;
     const rawStatus = (u?.status ?? s.status) as string;
-    const status: 'moving' | 'waiting' = rawStatus === 'moving' ? 'moving' : 'waiting';
     const lastAt = u?.last_location_at ?? s.last_location_at;
+    let disconnected = false;
+    if (lastAt) {
+      const d = new Date(lastAt);
+      disconnected = !Number.isNaN(d.getTime()) && Date.now() - d.getTime() > 10 * 60 * 1000;
+    }
+    const status: 'moving' | 'waiting' | 'disconnected' = disconnected
+      ? 'disconnected'
+      : rawStatus === 'moving'
+        ? 'moving'
+        : 'waiting';
     const speed = u?.speed_mps ?? s.speed_mps;
     const name = (u?.full_name ?? s.full_name)?.trim() || s.email;
     const battery = u?.battery_percent ?? s.battery_percent ?? null;
@@ -97,7 +106,7 @@ export function displayRidersToMapPreviewMarkers(riders: LiveFleetDisplayRider[]
       name: r.name,
       pos: [r.lat!, r.lng!] as [number, number],
       status: r.statusLabel,
-      motion: r.status,
+      motion: r.status === 'moving' ? 'moving' : 'waiting',
       order: 'N/A',
       batteryPercent: r.batteryPercent,
     }));

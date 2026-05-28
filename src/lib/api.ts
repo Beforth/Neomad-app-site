@@ -199,10 +199,15 @@ export interface DeliveryCheckpointRow {
   user_id: number;
   invoice_id?: number | null;
   task_id?: number | null;
+  path_id?: number | null;
   checkpoint_type: string;
-  started_at: string;
-  ended_at: string;
-  point_count: number;
+  source: string;
+  reason?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  speed_mps?: number | null;
+  battery_percent?: number | null;
+  recorded_at: string;
   created_at: string;
 }
 
@@ -324,6 +329,58 @@ export async function deleteStoreGeoSetting(token: string, settingId: number): P
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to delete store geofence'));
   }
+}
+
+export interface PathReportPoint {
+  lat: number;
+  lng: number;
+  at: string;
+  speed_mps: number | null;
+  battery_percent: number | null;
+  state: string | null;
+}
+
+export interface PathReportSegment {
+  segment_type: 'moving' | 'slow' | 'idle' | string;
+  started_at: string;
+  ended_at: string;
+  duration_secs: number;
+  avg_speed_mps: number | null;
+  distance_m: number;
+  points: PathReportPoint[];
+}
+
+export interface DeliveryPathReportResponse {
+  user_id: number;
+  date: string;
+  source: string;
+  summary: {
+    total_distance_m: number;
+    moving_time_secs: number;
+    slow_time_secs: number;
+    idle_time_secs: number;
+    idle_segments_ge_2min: number;
+  };
+  segments: PathReportSegment[];
+}
+
+/** Day path with movement segments (moving / slow / idle) for reports. */
+export async function getDeliveryPathReport(
+  token: string,
+  userId: number,
+  date?: string
+): Promise<DeliveryPathReportResponse> {
+  const base = getBaseUrl();
+  const qs = date ? `?date=${encodeURIComponent(date)}` : '';
+  const res = await fetch(`${base}/tracking/delivery-path-report/${userId}${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load path report'));
+  }
+  return res.json();
 }
 
 /** Delivery user's recorded day path (from Redis hot buffer or DB archive). */

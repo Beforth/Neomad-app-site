@@ -23,6 +23,25 @@ import {
 } from '../lib/liveFleetMap';
 import type { LocationUpdateMessage } from '../hooks/useSocket';
 
+function riderTone(status: LiveFleetDisplayRider['status']) {
+  if (status === 'moving') {
+    return {
+      avatar: 'bg-emerald-500 shadow-md shadow-emerald-200',
+      dot: 'bg-blue-500 animate-pulse',
+    };
+  }
+  if (status === 'disconnected') {
+    return {
+      avatar: 'bg-red-500 shadow-md shadow-red-200',
+      dot: 'bg-red-500',
+    };
+  }
+  return {
+    avatar: 'bg-amber-500 shadow-md shadow-amber-200',
+    dot: 'bg-amber-500',
+  };
+}
+
 function RiderCard({
   rider,
   selected,
@@ -32,6 +51,7 @@ function RiderCard({
   selected: boolean;
   onClick: () => void;
 }) {
+  const tone = riderTone(rider.status);
   return (
     <button
       type="button"
@@ -45,7 +65,7 @@ function RiderCard({
           <div
             className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black text-white transition-all ${
               selected ? 'scale-105' : ''
-            } ${rider.status === 'moving' ? 'bg-emerald-500 shadow-md shadow-emerald-200' : 'bg-amber-500 shadow-md shadow-amber-200'}`}
+            } ${tone.avatar}`}
           >
             {rider.initials}
           </div>
@@ -53,7 +73,7 @@ function RiderCard({
             <p className="text-sm font-bold text-zinc-900 truncate leading-tight">{rider.name}</p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span
-                className={`w-1.5 h-1.5 rounded-full ${rider.status === 'moving' ? 'bg-blue-500 animate-pulse' : 'bg-amber-500'}`}
+                className={`w-1.5 h-1.5 rounded-full ${tone.dot}`}
               />
               <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tight">{rider.status}</p>
             </div>
@@ -392,6 +412,7 @@ export default function Tracking() {
           { label: 'On duty', value: riders.length, icon: Users, color: 'blue' },
           { label: 'Moving', value: riders.filter((r) => r.status === 'moving').length, icon: Truck, color: 'emerald' },
           { label: 'Waiting', value: riders.filter((r) => r.status === 'waiting').length, icon: Clock, color: 'amber' },
+          { label: 'Disconnected', value: riders.filter((r) => r.status === 'disconnected').length, icon: Power, color: 'red' },
           {
             label: 'On map',
             value: riders.filter((r) => r.lat != null && r.lng != null).length,
@@ -474,7 +495,7 @@ export default function Tracking() {
                   {storeReturns.slice(0, 8).map((row) => (
                     <div key={row.id} className="px-2 py-1.5 border-b border-zinc-50 text-[10px] text-zinc-600 flex items-center justify-between">
                       <span>#{row.invoice_id ?? row.task_id ?? row.id}</span>
-                      <span>{new Date(row.ended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span>{new Date(row.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                   ))}
                 </div>

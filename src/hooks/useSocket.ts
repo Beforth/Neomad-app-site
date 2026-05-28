@@ -171,6 +171,34 @@ export function useStaffInvoiceAlerts(enabled: boolean) {
       ws.onmessage = (ev: MessageEvent<string>) => {
         try {
           const msg = JSON.parse(ev.data) as Record<string, unknown>;
+          if (msg.type === 'delivery_user_offline') {
+            const name =
+              (typeof msg.full_name === 'string' && msg.full_name.trim()) ||
+              (typeof msg.email === 'string' ? msg.email : 'Delivery user');
+            const title = `${name} went offline`;
+            const message =
+              msg.reason === 'disconnect'
+                ? 'Delivery app disconnected or network/mobile may be off.'
+                : 'The delivery user ended their shift from the app.';
+            appApi.saveNotification({
+              title,
+              message,
+              targets: ['admin', 'manager'],
+              priority: 'important',
+              sentBy: 'System',
+              isSystem: true,
+            });
+            window.dispatchEvent(new CustomEvent(APP_NOTIFICATIONS_UPDATED_EVENT));
+            audioRef.current?.play().catch(() => {});
+            if ('Notification' in window && Notification.permission === 'granted') {
+              try {
+                new Notification(title, { body: message, icon: '/favicon.ico' });
+              } catch {
+                /* ignore */
+              }
+            }
+            return;
+          }
           if (msg.type !== 'new_invoice' || !msg.invoice || typeof msg.invoice !== 'object') return;
           const inv = msg.invoice as NewInvoiceEventDetail['invoice'];
           const detail: NewInvoiceEventDetail = {

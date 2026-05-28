@@ -82,15 +82,31 @@ export const DEFAULT_RIDERS = [
   { id: 4, name: 'Pooja Kale', pos: [19.9850, 73.7750] as [number, number], status: 'Delivering to Apollo', motion: 'moving' as const, order: 'INV-2024-004' },
 ];
 
+export interface RouteSegmentLine {
+  positions: [number, number][];
+  color: string;
+  weight?: number;
+  opacity?: number;
+}
+
 interface MapPreviewProps {
   riders?: any[];
   route?: [number, number][];
+  /** Colored path segments (e.g. moving/slow/idle in reports). When set, overrides single `route` color. */
+  routeSegments?: RouteSegmentLine[];
   checkpoints?: { pos: [number, number]; label: string; time: string; status: 'completed' | 'active' }[];
   center?: [number, number];
   zoom?: number;
 }
 
-export default function MapPreview({ riders = DEFAULT_RIDERS, route = [], checkpoints = [], center = [19.9975, 73.7898], zoom = 13 }: MapPreviewProps) {
+export default function MapPreview({
+  riders = DEFAULT_RIDERS,
+  route = [],
+  routeSegments = [],
+  checkpoints = [],
+  center = [19.9975, 73.7898],
+  zoom = 13,
+}: MapPreviewProps) {
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-zinc-100 shadow-inner bg-zinc-50">
       <MapContainer
@@ -105,10 +121,22 @@ export default function MapPreview({ riders = DEFAULT_RIDERS, route = [], checkp
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* Render Route Polyline */}
-        {route.length > 0 && (
-          <Polyline positions={route} color="#10b981" weight={4} opacity={0.6} dashArray="8, 8" />
-        )}
+        {/* Render Route Polyline(s) */}
+        {routeSegments.length > 0
+          ? routeSegments.map((seg, idx) =>
+              seg.positions.length > 1 ? (
+                <Polyline
+                  key={`seg-${idx}`}
+                  positions={seg.positions}
+                  color={seg.color}
+                  weight={seg.weight ?? 5}
+                  opacity={seg.opacity ?? 0.85}
+                />
+              ) : null
+            )
+          : route.length > 0 && (
+              <Polyline positions={route} color="#10b981" weight={4} opacity={0.6} dashArray="8, 8" />
+            )}
 
         {/* Render Checkpoints */}
         {checkpoints.map((cp, idx) => (

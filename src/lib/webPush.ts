@@ -2,15 +2,20 @@ import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getMessaging, getToken, isSupported, onMessage, type Messaging } from 'firebase/messaging';
 
 function firebaseConfigFromEnv() {
-  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY as string | undefined;
-  if (!apiKey) return null;
+  const apiKey = (import.meta.env.VITE_FIREBASE_API_KEY as string | undefined)?.trim();
+  const authDomain = (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined)?.trim();
+  const projectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined)?.trim();
+  const storageBucket = (import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string | undefined)?.trim();
+  const messagingSenderId = (import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string | undefined)?.trim();
+  const appId = (import.meta.env.VITE_FIREBASE_APP_ID as string | undefined)?.trim();
+  if (!apiKey || !authDomain || !projectId || !storageBucket || !messagingSenderId || !appId) return null;
   return {
     apiKey,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID as string,
+    authDomain,
+    projectId,
+    storageBucket,
+    messagingSenderId,
+    appId,
     measurementId: (import.meta.env.VITE_FIREBASE_MEASUREMENT_ID as string) || undefined,
   };
 }
@@ -74,5 +79,5 @@ export async function getWebPushRegistrationToken(): Promise<string | null> {
 }
 
 export function isWebPushConfigured(): boolean {
-  return Boolean(import.meta.env.VITE_FIREBASE_API_KEY && import.meta.env.VITE_FIREBASE_VAPID_KEY);
+  return Boolean(firebaseConfigFromEnv() && import.meta.env.VITE_FIREBASE_VAPID_KEY);
 }
