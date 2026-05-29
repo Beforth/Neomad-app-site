@@ -14,6 +14,7 @@ import {
   deleteInvoiceThunk,
   cancelInvoiceThunk,
   restoreInvoiceToPendingThunk,
+  restoreDeletedInvoiceThunk,
   assignInvoiceThunk,
   confirmPaymentThunk,
 } from '../features/invoices/invoicesSlice';
@@ -41,6 +42,7 @@ export default function Invoices() {
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [invoiceTab, setInvoiceTab] = useState<'active' | 'deleted'>('active');
   const [boyFilter, setBoyFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
   const [sortBy, setSortBy] = useState('created_at');
@@ -58,7 +60,7 @@ export default function Invoices() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchDebounced, statusFilter, boyFilter, dateFilter, sortBy, sortOrder]);
+  }, [searchDebounced, statusFilter, boyFilter, dateFilter, sortBy, sortOrder, invoiceTab]);
 
   useEffect(() => {
     if (!token) return;
@@ -75,6 +77,7 @@ export default function Invoices() {
             ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
             ...(boyFilter !== 'all' ? { assigned_to: Number(boyFilter) } : {}),
             ...(dateFilter ? { date_from: dateFilter, date_to: dateFilter } : {}),
+            ...(invoiceTab === 'deleted' ? { deleted: true } : {}),
           },
         })
       );
@@ -82,7 +85,7 @@ export default function Invoices() {
     };
     window.addEventListener(NEW_INVOICE_EVENT, onNewInvoice);
     return () => window.removeEventListener(NEW_INVOICE_EVENT, onNewInvoice);
-  }, [token, dispatch, sortBy, sortOrder, pageSize, searchDebounced, statusFilter, boyFilter, dateFilter]);
+  }, [token, dispatch, sortBy, sortOrder, pageSize, searchDebounced, statusFilter, boyFilter, dateFilter, invoiceTab]);
 
   useEffect(() => {
     if (!token) {
@@ -102,6 +105,7 @@ export default function Invoices() {
           ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
           ...(boyFilter !== 'all' ? { assigned_to: Number(boyFilter) } : {}),
           ...(dateFilter ? { date_from: dateFilter, date_to: dateFilter } : {}),
+          ...(invoiceTab === 'deleted' ? { deleted: true } : {}),
         },
       })
     );
@@ -116,6 +120,7 @@ export default function Invoices() {
     sortOrder,
     page,
     pageSize,
+    invoiceTab,
   ]);
 
   useEffect(() => {
@@ -225,10 +230,21 @@ export default function Invoices() {
 
   const openDelete = useCallback(
     (inv: ApiInvoice) => {
-      if (window.confirm(`Are you sure you want to delete invoice ${inv.invoice_number}?\nThis action cannot be undone.`)) {
+      if (window.confirm(`Move invoice ${inv.invoice_number} to deleted invoices? You can recover it later.`)) {
         if (!token) return;
         dispatch(clearInvoicesError());
         dispatch(deleteInvoiceThunk({ token, id: inv.id })).catch(() => {});
+      }
+    },
+    [dispatch, token]
+  );
+
+  const openRecoverDeleted = useCallback(
+    (inv: ApiInvoice) => {
+      if (window.confirm(`Recover deleted invoice ${inv.invoice_number}?`)) {
+        if (!token) return;
+        dispatch(clearInvoicesError());
+        dispatch(restoreDeletedInvoiceThunk({ token, id: inv.id })).catch(() => {});
       }
     },
     [dispatch, token]
@@ -302,6 +318,7 @@ export default function Invoices() {
                     ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
                     ...(boyFilter !== 'all' ? { assigned_to: Number(boyFilter) } : {}),
                     ...(dateFilter ? { date_from: dateFilter, date_to: dateFilter } : {}),
+                    ...(invoiceTab === 'deleted' ? { deleted: true } : {}),
                   },
                 })
               );
@@ -337,6 +354,28 @@ export default function Invoices() {
       )}
 
       <div className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center">
+        <div className="flex rounded-lg bg-zinc-100 p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setInvoiceTab('active');
+              setPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold ${invoiceTab === 'active' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'}`}
+          >
+            Active invoices
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setInvoiceTab('deleted');
+              setPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold ${invoiceTab === 'deleted' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'}`}
+          >
+            Deleted invoices
+          </button>
+        </div>
         <div className="relative flex-1 min-w-[160px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
           <input
@@ -457,6 +496,7 @@ export default function Invoices() {
                       onRequestCancel={openVoid}
                       onRequestRestore={openRestore}
                       onRequestDelete={openDelete}
+                      onRequestRecoverDeleted={invoiceTab === 'deleted' ? openRecoverDeleted : undefined}
                     />
                   );
                 })

@@ -5,6 +5,7 @@ import {
   deleteInvoice,
   cancelInvoice,
   restoreInvoiceToPending,
+  restoreDeletedInvoice,
   assignInvoice,
   updateInvoice,
   normalizeFetchError,
@@ -81,6 +82,18 @@ export const restoreInvoiceToPendingThunk = createAsyncThunk<
     return await restoreInvoiceToPending(token, id);
   } catch (e) {
     return rejectWithValue(normalizeFetchError(e, 'Failed to restore invoice'));
+  }
+});
+
+export const restoreDeletedInvoiceThunk = createAsyncThunk<
+  ApiInvoice,
+  { token: string; id: number },
+  { rejectValue: string }
+>('invoices/restoreDeleted', async ({ token, id }, { rejectWithValue }) => {
+  try {
+    return await restoreDeletedInvoice(token, id);
+  } catch (e) {
+    return rejectWithValue(normalizeFetchError(e, 'Failed to recover invoice'));
   }
 });
 
@@ -170,6 +183,13 @@ const invoicesSlice = createSlice({
       })
       .addCase(restoreInvoiceToPendingThunk.rejected, (state, action) => {
         state.error = action.payload ?? 'Restore failed';
+      })
+      .addCase(restoreDeletedInvoiceThunk.fulfilled, (state, action) => {
+        state.items = state.items.filter((i) => i.id !== action.payload.id);
+        state.total = Math.max(0, state.total - 1);
+      })
+      .addCase(restoreDeletedInvoiceThunk.rejected, (state, action) => {
+        state.error = action.payload ?? 'Recover failed';
       })
       .addCase(assignInvoiceThunk.fulfilled, (state, action) => {
         replaceById(state, action.payload);

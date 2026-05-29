@@ -31,6 +31,8 @@ export default function Notifications() {
   const [toast, setToast] = useState('');
   const [filterTarget, setFilterTarget] = useState('all');
   const [notificationToDelete, setNotificationToDelete] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [sending, setSending] = useState(false);
 
   const load = () => setNotifications(appApi.getNotifications());
 
@@ -57,16 +59,23 @@ export default function Notifications() {
     });
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!title.trim() || !message.trim()) return;
-    appApi.saveNotification({ title, message, targets, priority, sentBy: user?.username });
-    setTitle('');
-    setMessage('');
-    setTargets(['all']);
-    setPriority('normal');
-    setShowCompose(false);
-    load();
-    showToast('Notification sent!');
+    setSending(true);
+    try {
+      const result = await appApi.sendNotification({ title, message, targets, priority, sentBy: user?.username });
+      setTitle('');
+      setMessage('');
+      setTargets(['all']);
+      setPriority('normal');
+      setShowCompose(false);
+      load();
+      showToast(`Notification sent to ${result.matched_users} users`);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to send notification');
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleDelete = (id: number) => {
@@ -74,6 +83,21 @@ export default function Notifications() {
     load();
     setNotificationToDelete(null);
     showToast('Notification deleted');
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.length === 0) return;
+    appApi.deleteNotifications(selectedIds);
+    setSelectedIds([]);
+    load();
+    showToast('Selected notifications deleted');
+  };
+
+  const handleMarkAllRead = () => {
+    if (!user?.id) return;
+    appApi.markAllNotifRead(user.id);
+    load();
+    showToast('Notifications marked as read');
   };
 
   const filtered = filterTarget === 'all'
@@ -188,9 +212,9 @@ export default function Notifications() {
                   className="flex-1 py-2.5 bg-zinc-100 text-zinc-700 rounded-xl font-bold text-sm hover:bg-zinc-200 transition-colors">
                   Cancel
                 </button>
-                <button onClick={handleSend} disabled={!title.trim() || !message.trim()}
+                <button onClick={handleSend} disabled={!title.trim() || !message.trim() || sending}
                   className="flex-1 py-2.5 bg-zinc-900 text-white rounded-xl font-bold text-sm hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <Send size={16} />Send Now
+                  <Send size={16} />{sending ? 'Sending...' : 'Send Now'}
                 </button>
               </div>
             </motion.div>
@@ -223,14 +247,26 @@ export default function Notifications() {
       </AnimatePresence>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 bg-zinc-100 p-1 rounded-xl w-fit flex-wrap">
-        {[{ id: 'all', label: 'All' }, { id: 'system', label: 'System', icon: Bot }, ...TARGET_OPTIONS.slice(1)].map(t => (
-          <button key={t.id} onClick={() => setFilterTarget(t.id)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${filterTarget === t.id ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
-            {t.icon && <t.icon size={12} />}
-            {t.label}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex gap-1 bg-zinc-100 p-1 rounded-xl w-fit flex-wrap">
+          {[{ id: 'all', label: 'All' }, { id: 'system', label: 'System', icon: Bot }, ...TARGET_OPTIONS.slice(1)].map(t => (
+            <button key={t.id} onClick={() => setFilterTarget(t.id)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${filterTarget === t.id ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
+              {t.icon && <t.icon size={12} />}
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={handleMarkAllRead}
+            className="px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs font-bold text-zinc-600 hover:bg-zinc-50">
+            Mark all read
           </button>
-        ))}
+          <button type="button" onClick={handleBulkDelete} disabled={selectedIds.length === 0}
+            className="px-3 py-1.5 rounded-lg bg-red-50 border border-red-100 text-xs font-bold text-red-600 hover:bg-red-100 disabled:opacity-50">
+            Delete selected
+          </button>
+        </div>
       </div>
 
       {/* Notifications List */}
@@ -250,6 +286,15 @@ export default function Notifications() {
             <div className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(n.id)}
+                    onChange={(e) => {
+                      setSelectedIds((prev) => e.target.checked ? [...prev, n.id] : prev.filter((id) => id !== n.id));
+                    }}
+                    className="mt-1.5"
+                    aria-label="Select notification"
+                  />
                   <div className="flex items-center gap-1.5 mt-1">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${priorityDot(n.priority)}`} />
                   </div>

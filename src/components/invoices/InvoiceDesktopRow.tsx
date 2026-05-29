@@ -33,6 +33,7 @@ export interface InvoiceDesktopRowProps {
   onRequestCancel: (inv: ApiInvoice) => void;
   onRequestRestore: (inv: ApiInvoice) => void;
   onRequestDelete: (inv: ApiInvoice) => void;
+  onRequestRecoverDeleted?: (inv: ApiInvoice) => void;
 }
 
 function InvoiceDesktopRowInner({
@@ -49,6 +50,7 @@ function InvoiceDesktopRowInner({
   onRequestCancel,
   onRequestRestore,
   onRequestDelete,
+  onRequestRecoverDeleted,
 }: InvoiceDesktopRowProps) {
   const stop = useCallback((e: React.MouseEvent) => e.stopPropagation(), []);
 
@@ -179,7 +181,18 @@ function InvoiceDesktopRowInner({
               </button>
             </InvoiceIconTooltip>
           )}
-          {(userRole === 'admin' || userRole === 'manager') && (
+          {invoice.deleted_at && onRequestRecoverDeleted ? (
+            <InvoiceIconTooltip label="Recover deleted invoice">
+              <button
+                type="button"
+                onClick={() => onRequestRecoverDeleted(invoice)}
+                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                aria-label="Recover deleted invoice"
+              >
+                <RotateCcw size={14} />
+              </button>
+            </InvoiceIconTooltip>
+          ) : (userRole === 'admin' || userRole === 'manager') && (
             <InvoiceIconTooltip label="Delete invoice">
               <button
                 type="button"
@@ -212,6 +225,7 @@ function propsEqual(prev: InvoiceDesktopRowProps, next: InvoiceDesktopRowProps) 
     prev.onRequestCancel === next.onRequestCancel &&
     prev.onRequestRestore === next.onRequestRestore &&
     prev.onRequestDelete === next.onRequestDelete
+    && prev.onRequestRecoverDeleted === next.onRequestRecoverDeleted
   );
 }
 

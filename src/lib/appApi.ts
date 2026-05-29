@@ -6,6 +6,7 @@ import {
   getUsers as getUsersApi,
   mapBackendRoleToFrontend,
   notifyIfUnauthorized,
+  sendManualNotification,
   updateInvoice,
   updateUser as updateUserApi,
 } from './api';
@@ -69,6 +70,8 @@ interface LocalNotification {
   isSystem?: boolean;
   created_at: string;
   readBy: number[];
+  notificationId?: string;
+  invoiceId?: number;
 }
 
 const NOTIFICATION_KEY = 'app_notifications';
@@ -344,6 +347,12 @@ export const appApi = {
   getNotifications: () => getNotificationsStore(),
   saveNotification: (n: any) => {
     const list = getNotificationsStore();
+    if (n.notificationId && list.some((x: any) => String(x.notificationId) === String(n.notificationId))) {
+      return;
+    }
+    if (n.invoiceId && list.some((x: any) => x.invoiceId === n.invoiceId && x.isSystem)) {
+      return;
+    }
     list.unshift({
       ...n,
       id: Date.now(),
@@ -361,6 +370,24 @@ export const appApi = {
   deleteNotification: (id: number) => {
     const list = getNotificationsStore().filter((n) => n.id !== id);
     setNotificationsStore(list);
+  },
+  deleteNotifications: (ids: number[]) => {
+    const remove = new Set(ids);
+    const list = getNotificationsStore().filter((n) => !remove.has(n.id));
+    setNotificationsStore(list);
+  },
+  markAllNotifRead: (userId: number) => {
+    const list = getNotificationsStore().map((n) => {
+      const readBy = Array.isArray(n.readBy) ? n.readBy : [];
+      return readBy.includes(userId) ? n : { ...n, readBy: [...readBy, userId] };
+    });
+    setNotificationsStore(list);
+  },
+  sendNotification: async (n: { title: string; message: string; targets: string[]; priority: string; sentBy?: string }) => {
+    const token = getTokenOrThrow();
+    const result = await sendManualNotification(token, n);
+    appApi.saveNotification(n);
+    return result;
   },
 
   setDeliveryPresence: async (onDuty: boolean) => {

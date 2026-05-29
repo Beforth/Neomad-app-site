@@ -457,14 +457,15 @@ export async function createUser(
 export async function updateUser(
   token: string,
   userId: number,
-  data: { full_name?: string | null; email?: string; phone?: string | null; role_code?: string },
+  data: { full_name?: string | null; email?: string; phone?: string | null; role_code?: string; is_active?: boolean },
 ): Promise<ApiUser> {
   const base = getBaseUrl();
-  const body: Record<string, string | null> = {};
+  const body: Record<string, string | boolean | null> = {};
   if (data.full_name !== undefined) body.full_name = data.full_name ?? '';
   if (data.email !== undefined) body.email = data.email;
   if (data.phone !== undefined) body.phone = data.phone ?? null;
   if (data.role_code !== undefined) body.role_code = data.role_code;
+  if (data.is_active !== undefined) body.is_active = data.is_active;
   const res = await fetch(`${base}/users/${userId}`, {
     method: 'PATCH',
     headers: {
@@ -674,6 +675,9 @@ export interface ApiInvoice {
   cash_confirmed?: boolean;
   cheque_confirmed?: boolean;
   assignee_name?: string | null;
+  deleted_at?: string | null;
+  deleted_by_user_id?: number | null;
+  deleted_by_name?: string | null;
 }
 
 export interface InvoiceListParams {
@@ -689,6 +693,7 @@ export interface InvoiceListParams {
   omit_completed?: boolean;
   completion_from?: string;
   completion_to?: string;
+  deleted?: boolean;
 }
 
 export interface InvoiceListResult {
@@ -717,6 +722,7 @@ export async function getInvoices(
   if (params?.omit_completed) sp.set('omit_completed', 'true');
   if (params?.completion_from) sp.set('completion_from', params.completion_from);
   if (params?.completion_to) sp.set('completion_to', params.completion_to);
+  if (params?.deleted) sp.set('deleted', 'true');
   const qs = sp.toString();
   const url = `${base}/invoices${qs ? `?${qs}` : ''}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -852,6 +858,42 @@ export async function deleteInvoice(token: string, invoiceId: number): Promise<v
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to delete invoice'));
   }
+}
+
+/** Recover a soft-deleted invoice. Admin or manager. */
+export async function restoreDeletedInvoice(token: string, invoiceId: number): Promise<ApiInvoice> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/invoices/${invoiceId}/restore-deleted`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to recover invoice'));
+  }
+  return res.json();
+}
+
+export async function sendManualNotification(
+  token: string,
+  data: { title: string; message: string; targets: string[]; priority: string },
+): Promise<{ ok: boolean; matched_users: number; pushed: number; queued: number }> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/notifications`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to send notification'));
+  }
+  return res.json();
 }
 
 export async function login(email: string, password: string): Promise<LoginResponse> {

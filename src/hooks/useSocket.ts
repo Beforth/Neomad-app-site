@@ -107,10 +107,17 @@ export function useTrackingSocket(enabled: boolean) {
   return { connected, subscribe };
 }
 
-function dispatchNewInvoiceAlert(detail: NewInvoiceEventDetail) {
+function dispatchNewInvoiceAlert(detail: NewInvoiceEventDetail): boolean {
   const inv = detail.invoice;
   const title = `New invoice — ${inv.invoice_number}`;
   const message = `${inv.hospital_name} — ₹${Number(inv.amount || 0).toLocaleString('en-IN')}`;
+  if (
+    detail.notification_id &&
+    appApi.getNotifications().some((n: any) => String(n.notificationId) === String(detail.notification_id))
+  ) {
+    window.dispatchEvent(new CustomEvent(NEW_INVOICE_EVENT, { detail }));
+    return false;
+  }
 
   appApi.saveNotification({
     title,
@@ -120,10 +127,12 @@ function dispatchNewInvoiceAlert(detail: NewInvoiceEventDetail) {
     sentBy: 'System',
     isSystem: true,
     notificationId: detail.notification_id,
+    invoiceId: inv.id,
   });
 
   window.dispatchEvent(new CustomEvent(NEW_INVOICE_EVENT, { detail }));
   window.dispatchEvent(new CustomEvent(APP_NOTIFICATIONS_UPDATED_EVENT));
+  return true;
 }
 
 /**
@@ -206,7 +215,8 @@ export function useStaffInvoiceAlerts(enabled: boolean) {
             notification_id:
               typeof msg.notification_id === 'string' ? msg.notification_id : undefined,
           };
-          dispatchNewInvoiceAlert(detail);
+          const shouldAlert = dispatchNewInvoiceAlert(detail);
+          if (!shouldAlert) return;
           audioRef.current?.play().catch(() => {});
           if ('Notification' in window && Notification.permission === 'granted') {
             try {

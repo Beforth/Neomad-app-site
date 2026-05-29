@@ -29,9 +29,20 @@ export function useWebPush() {
       const t = title || 'Neomed';
       const b = body || '';
       const notificationId = data?.notification_id;
+      let invoiceId: number | undefined;
+      if (data?.invoice_json) {
+        try {
+          const inv = JSON.parse(String(data.invoice_json));
+          if (typeof inv.id === 'number') invoiceId = inv.id;
+        } catch {
+          /* ignore */
+        }
+      }
 
       if (notificationId) {
-        const existing = appApi.getNotifications().some((n: any) => String(n.notificationId) === String(notificationId));
+        const existing = appApi.getNotifications().some((n: any) =>
+          String(n.notificationId) === String(notificationId) || (invoiceId && n.invoiceId === invoiceId)
+        );
         if (!existing) {
           appApi.saveNotification({
             title: t,
@@ -41,6 +52,7 @@ export function useWebPush() {
             sentBy: 'System',
             isSystem: true,
             notificationId,
+            invoiceId,
           });
         }
       } else {

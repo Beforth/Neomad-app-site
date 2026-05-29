@@ -194,7 +194,14 @@ export default function UserManagement() {
   };
 
   const handleToggleStatus = async (u: any) => {
-    showToast('Toggle status: API not implemented yet');
+    if (!token) return;
+    try {
+      await updateUser(token, u.id, { is_active: u.status !== 'active' });
+      fetchUsers();
+      showToast(u.status === 'active' ? 'User deactivated' : 'User activated');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to update status');
+    }
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
