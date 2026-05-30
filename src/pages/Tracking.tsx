@@ -5,16 +5,22 @@ import { Truck, Clock, RefreshCw, X, MapPin, Package, Users, ChevronRight, Batte
 import { motion, AnimatePresence } from 'motion/react';
 import MapPreview from '../components/MapPreview';
 import SearchableSelect from '../components/SearchableSelect';
+import CheckpointPathPanel from '../components/CheckpointPathPanel';
 import {
+  getCheckpointPath,
   getDeliveryDayPath,
   getDeliveryCheckpoints,
   getInvoices,
   getOnDutyDeliveries,
   normalizeFetchError,
   type ApiInvoice,
-  type OnDutyDeliveryRow,
   type DeliveryCheckpointRow,
+  type OnDutyDeliveryRow,
 } from '../lib/api';
+import {
+  checkpointsToMapMarkers,
+  segmentColorForCheckpoint,
+} from '../lib/checkpointPaths';
 import {
   DEFAULT_MAP_CENTER,
   displayRidersToMapPreviewMarkers,
@@ -177,7 +183,12 @@ export default function Tracking() {
   const [pathSource, setPathSource] = useState<string>('none');
   const [loadingPath, setLoadingPath] = useState(false);
   const [todayDeliveries, setTodayDeliveries] = useState<ApiInvoice[]>([]);
-  const [storeReturns, setStoreReturns] = useState<DeliveryCheckpointRow[]>([]);
+  const [dayCheckpoints, setDayCheckpoints] = useState<DeliveryCheckpointRow[]>([]);
+  const [selectedCheckpointId, setSelectedCheckpointId] = useState<number | null>(null);
+  const [pathViewMode, setPathViewMode] = useState<'day' | 'segment'>('day');
+  const [segmentRoute, setSegmentRoute] = useState<[number, number][]>([]);
+  const [segmentSmoothed, setSegmentSmoothed] = useState<boolean | undefined>();
+  const [loadingSegment, setLoadingSegment] = useState(false);
 
   const loadSnapshots = useCallback(async () => {
     if (!token || !canTrack) return;
@@ -276,37 +287,87 @@ export default function Tracking() {
   }, [token, canTrack, selected]);
 
   useEffect(() => {
-    if (!token || !canTrack) {
-      setStoreReturns([]);
+    if (!token || !canTrack || selected == null) {
+      setDayCheckpoints([]);
+      setSelectedCheckpointId(null);
+      setSegmentRoute([]);
       return;
     }
+    setSelectedCheckpointId(null);
+    setPathViewMode('day');
     let cancelled = false;
-    const day = pathDate;
     getDeliveryCheckpoints(token, {
-      checkpoint_type: 'invoice_returned_store',
-      user_id: selected ?? undefined,
-      date_from: day,
-      date_to: day,
+      user_id: selected,
+      date_from: pathDate,
+      date_to: pathDate,
     })
       .then((rows) => {
         if (cancelled) return;
-        setStoreReturns(rows || []);
+        setDayCheckpoints(rows || []);
       })
       .catch(() => {
         if (cancelled) return;
-        setStoreReturns([]);
+        setDayCheckpoints([]);
       });
     return () => {
       cancelled = true;
     };
   }, [token, canTrack, selected, pathDate]);
 
+  useEffect(() => {
+    if (!token || !canTrack || selectedCheckpointId == null || pathViewMode !== 'segment') {
+      setSegmentRoute([]);
+      setSegmentSmoothed(undefined);
+      return;
+    }
+    const row = dayCheckpoints.find((c) => c.id === selectedCheckpointId);
+    if (!row?.path_id) {
+      setSegmentRoute([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingSegment(true);
+    getCheckpointPath(token, selectedCheckpointId)
+      .then((seg) => {
+        if (cancelled) return;
+        const route: [number, number][] = (seg.points || [])
+          .filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number')
+          .map((p) => [p.lat, p.lng]);
+        setSegmentRoute(route);
+        setSegmentSmoothed(seg.is_smoothed);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSegmentRoute([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSegment(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, canTrack, selectedCheckpointId, pathViewMode, dayCheckpoints]);
+
+  const handleSelectCheckpoint = (id: number | null) => {
+    setSelectedCheckpointId(id);
+    if (id == null) {
+      setPathViewMode('day');
+      return;
+    }
+    const row = dayCheckpoints.find((c) => c.id === id);
+    if (row?.path_id) {
+      setPathViewMode('segment');
+    }
+  };
+
+  const selectedCheckpoint = dayCheckpoints.find((c) => c.id === selectedCheckpointId) ?? null;
+
   const allRiders = mergeOnDutySnapshotsWithLive(snapshots, liveLocations);
   const riders = selected ? allRiders.filter((r) => r.id === selected) : allRiders;
 
   const mapRiders = displayRidersToMapPreviewMarkers(allRiders);
 
-  const deliveryCheckpoints = todayDeliveries
+  const deliveryStopMarkers = todayDeliveries
     .filter(
       (inv) =>
         typeof inv.delivery_latitude === 'number' &&
@@ -322,9 +383,30 @@ export default function Tracking() {
       status: 'completed' as const,
     }));
 
+  const jobCheckpointMarkers = selected
+    ? checkpointsToMapMarkers(dayCheckpoints, selectedCheckpointId)
+    : [];
+
+  const mapCheckpoints = [...jobCheckpointMarkers, ...deliveryStopMarkers];
+
+  const segmentLines =
+    pathViewMode === 'segment' && segmentRoute.length > 1 && selectedCheckpoint
+      ? [
+          {
+            positions: segmentRoute,
+            color: segmentColorForCheckpoint(selectedCheckpoint.checkpoint_type),
+            weight: 5,
+            opacity: 0.9,
+          },
+        ]
+      : [];
+
+  const mapDayRoute = pathViewMode === 'day' ? selectedPath : [];
+
   let mapCenter = DEFAULT_MAP_CENTER;
-  if (selectedPath.length > 0) {
-    const last = selectedPath[selectedPath.length - 1];
+  const activeRoute = pathViewMode === 'segment' ? segmentRoute : selectedPath;
+  if (activeRoute.length > 0) {
+    const last = activeRoute[activeRoute.length - 1];
     mapCenter = [last[0], last[1]];
   }
   if (mapRiders.length > 0) {
@@ -444,10 +526,11 @@ export default function Tracking() {
         <div className="lg:col-span-3 bg-white rounded-3xl border border-zinc-100 shadow-inner overflow-hidden min-h-[300px] lg:min-h-0 relative">
           <MapPreview
             riders={mapRiders}
-            route={selectedPath}
-            checkpoints={selected ? deliveryCheckpoints : []}
+            route={mapDayRoute}
+            routeSegments={segmentLines}
+            checkpoints={selected ? mapCheckpoints : []}
             center={mapCenter}
-            zoom={selectedPath.length > 0 || mapRiders.length === 1 ? 15 : 13}
+            zoom={activeRoute.length > 0 || mapRiders.length === 1 ? 15 : 13}
           />
         </div>
 
@@ -475,31 +558,28 @@ export default function Tracking() {
           </div>
 
           {selected && (
-            <div className="p-4 border-t border-zinc-100 shrink-0 bg-zinc-50/50">
-              <div className="mb-3 text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center justify-between">
+            <div className="p-4 border-t border-zinc-100 shrink-0 bg-zinc-50/50 space-y-3">
+              <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center justify-between">
                 <span>
-                  {loadingPath ? 'Loading day path…' : `Path points: ${selectedPath.length}`}
+                  {loadingPath ? 'Loading day path…' : `Day path: ${selectedPath.length} pts`}
                 </span>
                 <span>source: {pathSource}</span>
               </div>
-              <div className="mb-3 text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center justify-between">
-                <span>Today's delivered stops</span>
-                <span>{deliveryCheckpoints.length}</span>
+              <CheckpointPathPanel
+                checkpoints={dayCheckpoints}
+                selectedCheckpointId={selectedCheckpointId}
+                onSelectCheckpoint={handleSelectCheckpoint}
+                loadingPath={loadingSegment}
+                segmentPointCount={segmentRoute.length}
+                segmentSmoothed={segmentSmoothed}
+                viewMode={pathViewMode}
+                onViewModeChange={setPathViewMode}
+                compact
+              />
+              <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center justify-between">
+                <span>Today&apos;s delivered stops</span>
+                <span>{deliveryStopMarkers.length}</span>
               </div>
-              <div className="mb-3 text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center justify-between">
-                <span>Returned to store</span>
-                <span>{storeReturns.length}</span>
-              </div>
-              {storeReturns.length > 0 && (
-                <div className="mb-3 max-h-28 overflow-auto rounded-lg border border-zinc-100 bg-white">
-                  {storeReturns.slice(0, 8).map((row) => (
-                    <div key={row.id} className="px-2 py-1.5 border-b border-zinc-50 text-[10px] text-zinc-600 flex items-center justify-between">
-                      <span>#{row.invoice_id ?? row.task_id ?? row.id}</span>
-                      <span>{new Date(row.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
               <button
                 type="button"
                 onClick={() => setSelected(null)}

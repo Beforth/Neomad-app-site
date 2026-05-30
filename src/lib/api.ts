@@ -402,6 +402,21 @@ export async function getDeliveryDayPath(
   return res.json();
 }
 
+export interface DeliveryPathSegmentResponse {
+  id: number;
+  user_id: number;
+  invoice_id?: number | null;
+  task_id?: number | null;
+  start_checkpoint_id?: number | null;
+  end_checkpoint_id?: number | null;
+  started_at: string;
+  ended_at: string;
+  point_count: number;
+  is_smoothed: boolean;
+  points: DeliveryPathPoint[];
+  source: string;
+}
+
 /** Checkpoint history uploaded by delivery app. */
 export async function getDeliveryCheckpoints(
   token: string,
@@ -421,6 +436,40 @@ export async function getDeliveryCheckpoints(
     notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load checkpoints'));
+  }
+  return res.json();
+}
+
+/** Path polyline attached to a checkpoint (invoice/task leg). */
+export async function getCheckpointPath(
+  token: string,
+  checkpointId: number,
+): Promise<DeliveryPathSegmentResponse> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/tracking/checkpoints/${checkpointId}/path`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load checkpoint path'));
+  }
+  return res.json();
+}
+
+/** Path segment by id. */
+export async function getDeliveryPathSegment(
+  token: string,
+  segmentId: number,
+): Promise<DeliveryPathSegmentResponse> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/tracking/path-segments/${segmentId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load path segment'));
   }
   return res.json();
 }

@@ -7,14 +7,22 @@ import {
 import { Calendar, Download, Clock, TrendingUp, Users, AlertCircle, CheckCircle2, Package, BarChart3, Filter, MapPin, PauseCircle } from 'lucide-react';
 import SearchableSelect from '../components/SearchableSelect';
 import MapPreview, { type RouteSegmentLine } from '../components/MapPreview';
+import CheckpointPathPanel from '../components/CheckpointPathPanel';
 import { motion } from 'motion/react';
 import { appApi } from '../lib/appApi';
 import { useAuth } from '../context/AuthContext';
 import {
+  getCheckpointPath,
+  getDeliveryCheckpoints,
   getDeliveryPathReport,
   normalizeFetchError,
+  type DeliveryCheckpointRow,
   type DeliveryPathReportResponse,
 } from '../lib/api';
+import {
+  checkpointsToMapMarkers,
+  segmentColorForCheckpoint,
+} from '../lib/checkpointPaths';
 import { DEFAULT_MAP_CENTER } from '../lib/liveFleetMap';
 
 const SEGMENT_COLORS: Record<string, string> = {
@@ -137,6 +145,12 @@ export default function Reports() {
   const [pathReport, setPathReport] = useState<DeliveryPathReportResponse | null>(null);
   const [pathReportLoading, setPathReportLoading] = useState(false);
   const [pathReportError, setPathReportError] = useState<string | null>(null);
+  const [tripCheckpoints, setTripCheckpoints] = useState<DeliveryCheckpointRow[]>([]);
+  const [selectedCheckpointId, setSelectedCheckpointId] = useState<number | null>(null);
+  const [pathViewMode, setPathViewMode] = useState<'day' | 'segment'>('day');
+  const [segmentRoute, setSegmentRoute] = useState<[number, number][]>([]);
+  const [segmentSmoothed, setSegmentSmoothed] = useState<boolean | undefined>();
+  const [loadingSegment, setLoadingSegment] = useState(false);
 
   useEffect(() => {
     Promise.all([appApi.getUsers(), appApi.getStats(), appApi.getInvoices()])
@@ -246,6 +260,72 @@ export default function Reports() {
     };
   }, [tab, token, canTrack, boyFilter, pathReportDate]);
 
+  useEffect(() => {
+    if (tab !== 'travel' || !token || !canTrack || boyFilter === 'All') {
+      setTripCheckpoints([]);
+      setSelectedCheckpointId(null);
+      setSegmentRoute([]);
+      return;
+    }
+    setSelectedCheckpointId(null);
+    setPathViewMode('day');
+    const userId = Number(boyFilter);
+    if (!Number.isFinite(userId)) return;
+    const date = pathReportDate || new Date().toISOString().slice(0, 10);
+    let cancelled = false;
+    getDeliveryCheckpoints(token, { user_id: userId, date_from: date, date_to: date })
+      .then((rows) => {
+        if (!cancelled) setTripCheckpoints(rows || []);
+      })
+      .catch(() => {
+        if (!cancelled) setTripCheckpoints([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, token, canTrack, boyFilter, pathReportDate]);
+
+  useEffect(() => {
+    if (tab !== 'travel' || !token || selectedCheckpointId == null || pathViewMode !== 'segment') {
+      setSegmentRoute([]);
+      setSegmentSmoothed(undefined);
+      return;
+    }
+    let cancelled = false;
+    setLoadingSegment(true);
+    getCheckpointPath(token, selectedCheckpointId)
+      .then((seg) => {
+        if (cancelled) return;
+        setSegmentRoute(
+          (seg.points || [])
+            .filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number')
+            .map((p) => [p.lat, p.lng] as [number, number]),
+        );
+        setSegmentSmoothed(seg.is_smoothed);
+      })
+      .catch(() => {
+        if (!cancelled) setSegmentRoute([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSegment(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, token, selectedCheckpointId, pathViewMode]);
+
+  const handleSelectCheckpoint = (id: number | null) => {
+    setSelectedCheckpointId(id);
+    if (id == null) {
+      setPathViewMode('day');
+      return;
+    }
+    const row = tripCheckpoints.find((c) => c.id === id);
+    if (row?.path_id) setPathViewMode('segment');
+  };
+
+  const selectedCheckpoint = tripCheckpoints.find((c) => c.id === selectedCheckpointId) ?? null;
+
   const routeSegments: RouteSegmentLine[] = useMemo(() => {
     if (!pathReport?.segments?.length) return [];
     return pathReport.segments
@@ -257,6 +337,28 @@ export default function Reports() {
         opacity: 0.85,
       }));
   }, [pathReport]);
+
+  const checkpointSegmentLines: RouteSegmentLine[] = useMemo(() => {
+    if (pathViewMode !== 'segment' || segmentRoute.length < 2 || !selectedCheckpoint) return [];
+    return [
+      {
+        positions: segmentRoute,
+        color: segmentColorForCheckpoint(selectedCheckpoint.checkpoint_type),
+        weight: 6,
+        opacity: 0.95,
+      },
+    ];
+  }, [pathViewMode, segmentRoute, selectedCheckpoint]);
+
+  const mapRouteSegments =
+    pathViewMode === 'segment' && checkpointSegmentLines.length > 0
+      ? checkpointSegmentLines
+      : routeSegments;
+
+  const checkpointMapMarkers = useMemo(() => {
+    if (boyFilter === 'All') return [];
+    return checkpointsToMapMarkers(tripCheckpoints, selectedCheckpointId);
+  }, [tripCheckpoints, selectedCheckpointId, boyFilter]);
 
   const idleMapMarkers = useMemo(() => {
     if (!pathReport?.segments) return [];
@@ -272,12 +374,25 @@ export default function Reports() {
   }, [pathReport]);
 
   const mapCenter: [number, number] = useMemo(() => {
+    const segPts = pathViewMode === 'segment' ? segmentRoute : [];
+    if (segPts.length > 0) {
+      const last = segPts[segPts.length - 1];
+      return [last[0], last[1]];
+    }
     const all = pathReport?.segments?.flatMap((s) => s.points) ?? [];
-    if (all.length === 0) return DEFAULT_MAP_CENTER;
-    const lat = all.reduce((a, p) => a + p.lat, 0) / all.length;
-    const lng = all.reduce((a, p) => a + p.lng, 0) / all.length;
-    return [lat, lng];
-  }, [pathReport]);
+    if (all.length > 0) {
+      const lat = all.reduce((a, p) => a + p.lat, 0) / all.length;
+      const lng = all.reduce((a, p) => a + p.lng, 0) / all.length;
+      return [lat, lng];
+    }
+    const cp = checkpointMapMarkers;
+    if (cp.length > 0) {
+      const lat = cp.reduce((a, m) => a + m.pos[0], 0) / cp.length;
+      const lng = cp.reduce((a, m) => a + m.pos[1], 0) / cp.length;
+      return [lat, lng];
+    }
+    return DEFAULT_MAP_CENTER;
+  }, [pathReport, pathViewMode, segmentRoute, checkpointMapMarkers]);
 
   return (
     <div className="space-y-6">
@@ -498,6 +613,38 @@ export default function Reports() {
             <div className="bg-red-50 border border-red-100 text-red-700 text-sm p-4 rounded-2xl">{pathReportError}</div>
           )}
 
+          {boyFilter !== 'All' && !pathReportLoading && !pathReport && (
+            <div className="bg-zinc-50 border border-zinc-100 text-zinc-600 text-sm p-4 rounded-2xl">
+              No full-day movement report for this date. Trip checkpoints below may still have per-leg paths.
+            </div>
+          )}
+
+          {boyFilter !== 'All' && !pathReportLoading && tripCheckpoints.length > 0 && !pathReport && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 bg-white rounded-3xl border border-zinc-100 shadow-inner overflow-hidden h-[420px]">
+                <MapPreview
+                  riders={[]}
+                  routeSegments={mapRouteSegments}
+                  checkpoints={checkpointMapMarkers}
+                  center={mapCenter}
+                  zoom={mapRouteSegments.length > 0 || checkpointMapMarkers.length > 0 ? 14 : 12}
+                />
+              </div>
+              <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-4">
+                <CheckpointPathPanel
+                  checkpoints={tripCheckpoints}
+                  selectedCheckpointId={selectedCheckpointId}
+                  onSelectCheckpoint={handleSelectCheckpoint}
+                  loadingPath={loadingSegment}
+                  segmentPointCount={segmentRoute.length}
+                  segmentSmoothed={segmentSmoothed}
+                  viewMode={pathViewMode}
+                  onViewModeChange={setPathViewMode}
+                />
+              </div>
+            </div>
+          )}
+
           {boyFilter !== 'All' && !pathReportLoading && pathReport && (
             <>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -544,14 +691,28 @@ export default function Reports() {
                 ))}
               </div>
 
-              <div className="bg-white rounded-3xl border border-zinc-100 shadow-inner overflow-hidden h-[420px]">
-                <MapPreview
-                  riders={[]}
-                  routeSegments={routeSegments}
-                  checkpoints={idleMapMarkers}
-                  center={mapCenter}
-                  zoom={routeSegments.length > 0 ? 14 : 12}
-                />
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2 bg-white rounded-3xl border border-zinc-100 shadow-inner overflow-hidden h-[420px]">
+                  <MapPreview
+                    riders={[]}
+                    routeSegments={mapRouteSegments}
+                    checkpoints={[...checkpointMapMarkers, ...(pathViewMode === 'day' ? idleMapMarkers : [])]}
+                    center={mapCenter}
+                    zoom={mapRouteSegments.length > 0 || checkpointMapMarkers.length > 0 ? 14 : 12}
+                  />
+                </div>
+                <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-4">
+                  <CheckpointPathPanel
+                    checkpoints={tripCheckpoints}
+                    selectedCheckpointId={selectedCheckpointId}
+                    onSelectCheckpoint={handleSelectCheckpoint}
+                    loadingPath={loadingSegment}
+                    segmentPointCount={segmentRoute.length}
+                    segmentSmoothed={segmentSmoothed}
+                    viewMode={pathViewMode}
+                    onViewModeChange={setPathViewMode}
+                  />
+                </div>
               </div>
 
               {pathReport.segments.length === 0 && (
