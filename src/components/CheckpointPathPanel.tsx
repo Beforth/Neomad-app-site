@@ -64,7 +64,9 @@ export default function CheckpointPathPanel({
             {loadingPath ? 'Loading leg…' : `${segmentPointCount} pts`}
           </span>
           {segmentSmoothed != null && (
-            <span className="text-zinc-400">{segmentSmoothed ? 'smoothed' : 'raw'}</span>
+            <span className={segmentSmoothed ? 'text-emerald-600' : 'text-amber-600'}>
+              {segmentSmoothed ? 'road-snapped' : 'raw GPS'}
+            </span>
           )}
         </div>
       )}
