@@ -260,13 +260,19 @@ type DeliverySocketLike = {
 export function useSocket(): {
   socket: DeliverySocketLike | null;
   connected: boolean;
+  reconnect: () => void;
 } {
   const { token, user } = useAuth();
   const [connected, setConnected] = useState(false);
+  const [reconnectKey, setReconnectKey] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const tokenRef = useRef<string | null>(null);
   tokenRef.current = token ?? null;
   const handlersRef = useRef<Map<string, Set<DeliverySocketHandler>>>(new Map());
+
+  const reconnect = useCallback(() => {
+    setReconnectKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     if (!token || user?.role !== 'delivery_boy') {
@@ -346,7 +352,7 @@ export function useSocket(): {
       wsRef.current = null;
       setConnected(false);
     };
-  }, [token, user?.role]);
+  }, [token, user?.role, reconnectKey]);
 
   const socket: DeliverySocketLike | null =
     token && user?.role === 'delivery_boy'
@@ -388,5 +394,5 @@ export function useSocket(): {
         }
       : null;
 
-  return { socket, connected };
+  return { socket, connected, reconnect };
 }

@@ -45,7 +45,7 @@ function completionFromISO(days: number | null | undefined): string | undefined 
 
 export default function DeliveryBoyApp() {
   const { user, logout, token } = useAuth();
-  const { socket } = useSocket();
+  const { socket, reconnect } = useSocket();
   const [isAvailable, setIsAvailable] = useState(false);
   const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed'>('available');
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -440,6 +440,7 @@ export default function DeliveryBoyApp() {
               try {
                 await appApi.setDeliveryPresence(next);
                 setIsAvailable(next);
+                if (next) reconnect();
               } catch {
                 // Presence update failed; keep current state unchanged.
               }
@@ -590,7 +591,7 @@ export default function DeliveryBoyApp() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto pb-[72px]">
+      <main className="flex-1 overflow-y-auto" style={{ paddingBottom: 'calc(8rem + env(safe-area-inset-bottom))' }}>
         <div className="p-3 space-y-3">
         <AnimatePresence mode="wait">
           {/* AVAILABLE INVOICES */}

@@ -55,12 +55,18 @@ export function mergeOnDutySnapshotsWithLive(
 ): LiveFleetDisplayRider[] {
   return rows.map((s) => {
     const u = live[s.user_id];
+    const hasLiveData = u !== undefined;
     const lat = u?.lat ?? s.lat;
     const lng = u?.lng ?? s.lng;
     const rawStatus = (u?.status ?? s.status) as string;
     const lastAt = u?.last_location_at ?? s.last_location_at;
     let disconnected = false;
-    if (lastAt) {
+    if (hasLiveData && u?.last_location_at == null) {
+      // Live WebSocket data without a server timestamp — the rider is actively
+      // sending updates, so treat them as online.  Don't let a stale REST
+      // snapshot timestamp falsely mark them as disconnected.
+      disconnected = false;
+    } else if (lastAt) {
       const d = new Date(lastAt);
       disconnected = !Number.isNaN(d.getTime()) && Date.now() - d.getTime() > 10 * 60 * 1000;
     }
