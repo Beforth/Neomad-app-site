@@ -59,9 +59,9 @@ export default function Sidebar() {
         className="fixed lg:static inset-y-0 left-0 z-40 bg-white border-r border-zinc-200 text-zinc-600 overflow-hidden flex flex-col shadow-sm lg:shadow-none lg:h-screen">
         <div className="p-5 mb-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">M</div>
+            <img src="/app_icon.png" alt="Neomed" className="w-8 h-8 rounded-lg shadow-sm" />
             <div>
-              <span className="text-zinc-900 font-bold text-base block leading-none">BeForth</span>
+              <span className="text-zinc-900 font-bold text-base block leading-none">Neomed</span>
               <span className="text-[9px] uppercase tracking-wider text-zinc-400 font-semibold">Management</span>
             </div>
           </div>
