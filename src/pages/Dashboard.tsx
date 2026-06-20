@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Clock, CheckCircle2, XCircle, Truck,
   ArrowUpRight, Users,
-  Wallet, MapPin
+  RotateCcw, MapPin
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
@@ -69,11 +69,11 @@ export default function Dashboard() {
     });
     appApi.getStats().then(setStats);
     appApi.getInvoices().then(invoices => {
-      const delivered = invoices
-        .filter((i: any) => i.status === 'delivered')
+      const recent = invoices
+        .filter((i: any) => i.status === 'completed' || i.status === 'return')
         .sort((a, b) => new Date(b.delivered_at || b.created_at).getTime() - new Date(a.delivered_at || a.created_at).getTime())
         .slice(0, 5);
-      setRecentDeliveries(delivered);
+      setRecentDeliveries(recent);
     });
   }, [user]);
 
@@ -85,9 +85,9 @@ export default function Dashboard() {
     { label: 'Total Boys', value: stats?.total_boys?.count || 0, icon: Users, color: 'blue', roles: ['admin', 'manager'], hideIfBoySelected: true },
     { label: 'Pending', value: stats?.pending?.count || 0, icon: Clock, color: 'amber', roles: ['admin', 'manager'] },
     { label: 'Assigned', value: stats?.assigned?.count || 0, icon: Truck, color: 'indigo', roles: ['admin', 'manager'] },
-    { label: 'Delivered', value: stats?.delivered?.count || 0, icon: CheckCircle2, color: 'emerald', roles: ['admin', 'manager'] },
+    { label: 'Completed', value: stats?.completed?.count || 0, icon: CheckCircle2, color: 'emerald', roles: ['admin', 'manager'] },
     { label: 'Cancelled', value: stats?.cancelled?.count || 0, icon: XCircle, color: 'red', roles: ['admin', 'manager'] },
-    { label: 'Total Collection', value: `₹${(stats?.total_collected?.count || 0).toLocaleString()}`, icon: Wallet, color: 'purple', roles: ['admin'] },
+    { label: 'Return', value: stats?.return?.count || 0, icon: RotateCcw, color: 'purple', roles: ['admin', 'manager'] },
   ];
 
   const cards = allCards.filter(c => 
@@ -174,7 +174,7 @@ export default function Dashboard() {
       <div className={`grid grid-cols-1 gap-6 ${canLiveMap ? 'lg:grid-cols-3' : ''}`}>
         <div className={`bg-white rounded-xl border border-zinc-100 shadow-sm p-4 ${canLiveMap ? 'lg:col-span-2' : ''}`}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-zinc-900">Recent Deliveries</h3>
+            <h3 className="text-sm font-bold text-zinc-900">Recent Activity</h3>
             <button className="text-emerald-600 text-[10px] font-bold uppercase tracking-wider hover:underline">View all</button>
           </div>
           <div className="space-y-2">
@@ -192,15 +192,17 @@ export default function Dashboard() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-bold text-zinc-900">₹{inv.amount.toLocaleString()}</p>
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">
-                      Delivered
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                        inv.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'
+                      }`}>
+                      {inv.status === 'completed' ? 'Completed' : 'Return'}
                     </span>
                   </div>
                 </div>
               ))
             ) : (
               <div className="p-8 text-center text-zinc-400 text-xs silver-gradient rounded-2xl">
-                No deliveries recorded yet.
+                No recent activity recorded yet.
               </div>
             )}
           </div>

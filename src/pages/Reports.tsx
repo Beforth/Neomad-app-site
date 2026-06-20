@@ -157,8 +157,9 @@ export default function Reports() {
       .then(([users, s, invoices]) => {
       const boys = users.filter((u: any) => u.role === 'delivery_boy');
       setDeliveryBoys(boys);
-      setGlobalStats(prev => ({ ...prev, totalBoys: boys.length }));
-      setGlobalStats(prev => ({ ...prev, totalDelivered: s.delivered.count }));
+      const totalCompleted = invoices.filter((i: any) => i.status === 'completed').length;
+      const totalReturn = invoices.filter((i: any) => i.status === 'return').length;
+      setGlobalStats(prev => ({ ...prev, totalBoys: boys.length, totalDelivered: totalCompleted }));
 
       const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const byDay = new Map<string, { deliveries: number; assigned: number; pending: number }>();
@@ -171,7 +172,7 @@ export default function Reports() {
         const day = weekdayNames[d.getDay()];
         const row = byDay.get(day);
         if (!row) return;
-        if (inv.status === 'delivered') row.deliveries += 1;
+        if (inv.status === 'completed') row.deliveries += 1;
         if (inv.status === 'assigned') row.assigned += 1;
         if (inv.status === 'pending') row.pending += 1;
       });
@@ -189,18 +190,22 @@ export default function Reports() {
       );
 
       const total = Math.max(1, invoices.length);
-      const delivered = invoices.filter((x: any) => x.status === 'delivered').length;
+      const completed = invoices.filter((x: any) => x.status === 'completed').length;
+      const returned = invoices.filter((x: any) => x.status === 'return').length;
       const pending = invoices.filter((x: any) => x.status === 'pending').length;
+      const assigned = invoices.filter((x: any) => x.status === 'assigned').length;
       const cancelled = invoices.filter((x: any) => x.status === 'cancelled').length;
       setPieData([
-        { name: 'Delivered', value: Math.round((delivered / total) * 100), color: '#10b981' },
+        { name: 'Completed', value: Math.round((completed / total) * 100), color: '#10b981' },
+        { name: 'Return', value: Math.round((returned / total) * 100), color: '#a855f7' },
+        { name: 'Assigned', value: Math.round((assigned / total) * 100), color: '#6366f1' },
         { name: 'Pending', value: Math.round((pending / total) * 100), color: '#f59e0b' },
         { name: 'Cancelled', value: Math.round((cancelled / total) * 100), color: '#ef4444' },
       ]);
 
       const byBoy = boys.map((boy: any) => {
         const mine = invoices.filter((i: any) => i.assigned_to === boy.id);
-        const completed = mine.filter((i: any) => i.status === 'delivered').length;
+        const completed = mine.filter((i: any) => i.status === 'completed').length;
         const inProgress = mine.filter((i: any) => i.status === 'assigned').length;
         const queued = mine.filter((i: any) => i.status === 'pending').length;
         return {
@@ -441,7 +446,9 @@ export default function Reports() {
                 className="min-w-[130px]"
                 options={[
                   { value: 'all', label: 'All Status' },
-                  { value: 'delivered', label: 'Delivered' },
+                  { value: 'completed', label: 'Completed' },
+                  { value: 'return', label: 'Return' },
+                  { value: 'assigned', label: 'Assigned' },
                   { value: 'pending', label: 'Pending' },
                   { value: 'cancelled', label: 'Cancelled' },
                 ]}
@@ -492,8 +499,8 @@ export default function Reports() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'Total Delivery Boys', value: globalStats.totalBoys.toString(), icon: Users, color: 'blue', delta: 'Active' },
-              { label: 'Orders Delivered', value: globalStats.totalDelivered.toString(), icon: CheckCircle2, color: 'emerald', delta: 'All time' },
-              { label: 'Boy Orders Delivered', value: boyFilter === 'All' ? '-' : boyStats.delivered.toString(), icon: TrendingUp, color: 'emerald', delta: boyFilter === 'All' ? 'Select a boy' : 'All time' },
+              { label: 'Completed', value: globalStats.totalDelivered.toString(), icon: CheckCircle2, color: 'emerald', delta: 'All time' },
+              { label: 'Boy Completed', value: boyFilter === 'All' ? '-' : boyStats.delivered.toString(), icon: TrendingUp, color: 'emerald', delta: boyFilter === 'All' ? 'Select a boy' : 'All time' },
             ].map(card => (
               <div key={card.label} className="bg-white p-4 rounded-xl border border-zinc-100 shadow-sm">
                 <div className="flex items-center gap-3 mb-2">
@@ -512,7 +519,7 @@ export default function Reports() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white p-4 md:p-6 rounded-2xl border border-zinc-100 shadow-sm">
               <h3 className="font-bold text-zinc-900 mb-6">
-                Delivery Volume vs Avg. Time
+                Completion Volume vs Avg. Time
               </h3>
               <ReportChartBox height={260}>
                 <BarChart data={deliveryData}>
@@ -520,7 +527,7 @@ export default function Reports() {
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} />
                   <Tooltip {...CHART_STYLE} />
-                  <Bar dataKey="deliveries" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} name="Deliveries" />
+                  <Bar dataKey="deliveries" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} name="Completed" />
                   <Bar dataKey="time" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} name="Avg Time (min)" />
                 </BarChart>
               </ReportChartBox>
@@ -542,7 +549,7 @@ export default function Reports() {
 
           {/* Delivery status pie */}
           <div className="bg-white p-6 rounded-2xl border border-zinc-100 shadow-sm">
-            <h3 className="font-bold text-zinc-900 mb-6">Delivery Status Distribution</h3>
+            <h3 className="font-bold text-zinc-900 mb-6">Order Status Distribution</h3>
             <div className="flex flex-col md:flex-row items-center gap-8">
               <ReportChartBox height={192} width={192}>
                 <PieChart>

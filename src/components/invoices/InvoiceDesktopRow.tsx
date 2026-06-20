@@ -18,6 +18,20 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700',
 };
 
+const TYPE_LABELS: Record<string, string> = {
+  challan: 'Challan',
+  price_difference: 'Price Diff',
+  sale_bill: 'Sale Bill',
+  sale_return_credit_note: 'Sale Return',
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  challan: 'bg-amber-50 text-amber-600',
+  price_difference: 'bg-blue-50 text-blue-600',
+  sale_bill: 'bg-emerald-50 text-emerald-600',
+  sale_return_credit_note: 'bg-purple-50 text-purple-600',
+};
+
 export interface InvoiceDesktopRowProps {
   invoice: ApiInvoice;
   assigneeLabel: string;
@@ -59,8 +73,13 @@ function InvoiceDesktopRowInner({
       className="hover:bg-zinc-50/50 transition-colors cursor-pointer border-b border-zinc-50"
       onClick={() => onOpenDetail(invoice)}
     >
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 whitespace-nowrap">
         <span className="text-xs font-bold text-zinc-900">{invoice.invoice_number}</span>
+        {invoice.invoice_type && (
+          <span className={`ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${TYPE_COLORS[invoice.invoice_type] || 'bg-zinc-50 text-zinc-500'}`}>
+            {TYPE_LABELS[invoice.invoice_type] || invoice.invoice_type}
+          </span>
+        )}
       </td>
       <td className="px-4 py-3">
         <p className="text-xs font-semibold text-zinc-900">{invoice.hospital_name}</p>
@@ -116,7 +135,7 @@ function InvoiceDesktopRowInner({
         <p className="text-xs text-amber-600">{waiting}</p>
       </td>
       <td className="px-4 py-3 text-[10px] font-medium text-zinc-400">
-        {new Date(invoice.created_at).toLocaleDateString()}
+        {new Date(invoice.created_at).toLocaleString()}
       </td>
       <td className="px-4 py-3 overflow-visible" onClick={stop}>
         <div className="flex items-center gap-1">

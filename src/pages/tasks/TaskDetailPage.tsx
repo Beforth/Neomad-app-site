@@ -204,7 +204,7 @@ export default function TaskDetailPage() {
                     <span className="text-[11px] text-zinc-400 font-bold flex items-center gap-1.5">
                       <Clock size={12} /> Created
                     </span>
-                    <span className="text-xs font-bold text-zinc-700">{new Date(task.created_at).toLocaleDateString()}</span>
+                    <span className="text-xs font-bold text-zinc-700">{new Date(task.created_at).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] text-zinc-400 font-bold flex items-center gap-1.5">

@@ -58,6 +58,9 @@ export interface Invoice {
   feedback_reason?: string;
   cash_confirmed?: boolean;
   cheque_confirmed?: boolean;
+  invoice_type?: string;
+  previous_amount?: number;
+  amount_updated_at?: string;
 }
 
 interface LocalNotification {
@@ -248,27 +251,15 @@ export const appApi = {
 
   getStats: async () => {
     const [invoices, users] = await Promise.all([getAllInvoices(), appApi.getUsers()]);
-    const delivered = invoices.filter((i: any) => i.status === 'delivered');
-    const cashPending = delivered.filter(
-      (i: any) =>
-        !i.cash_confirmed &&
-        !i.cheque_confirmed &&
-        ((i.cash_received || 0) > 0 || (i.cheque_received || 0) > 0)
-    );
-    const totalCollected = delivered.reduce(
-      (sum: number, inv: any) => sum + (inv.cash_received || 0) + (inv.cheque_received || 0),
-      0
-    );
     return {
       total_today: { count: invoices.length },
       pending: { count: invoices.filter((i: any) => i.status === 'pending').length },
       assigned: { count: invoices.filter((i: any) => i.status === 'assigned').length },
-      delivered: { count: delivered.length },
+      completed: { count: invoices.filter((i: any) => i.status === 'completed').length },
+      return: { count: invoices.filter((i: any) => i.status === 'return').length },
       cancelled: { count: invoices.filter((i: any) => i.status === 'cancelled').length },
-      cash_pending: { count: cashPending.length },
       total_boys: { count: users.filter((u: any) => u.role === 'delivery_boy').length },
       total_staff: { count: users.filter((u: any) => u.role === 'staff' || u.role === 'manager').length },
-      total_collected: { count: totalCollected },
     };
   },
 
@@ -329,7 +320,7 @@ export const appApi = {
 
   getDeliveryBoyStats: async (boyId: number) => {
     const invoices = await getAllInvoices();
-    const delivered = invoices.filter((i: any) => i.status === 'delivered' && i.assigned_to === boyId);
+    const delivered = invoices.filter((i: any) => (i.status === 'completed' || i.status === 'return') && i.assigned_to === boyId);
     return {
       total_delivered: delivered.length,
     };

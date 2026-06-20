@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { APP_NOTIFICATIONS_UPDATED_EVENT, appApi } from '../lib/appApi';
 import {
@@ -8,10 +8,10 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 const TARGET_OPTIONS = [
-  { id: 'all', label: 'Everyone', icon: Users, color: 'bg-purple-50 text-purple-700 border-purple-200' },
-  { id: 'admin', label: 'Admins', icon: Shield, color: 'bg-rose-50 text-rose-700 border-rose-200' },
-  { id: 'manager', label: 'Managers', icon: Users, color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { id: 'delivery_boy', label: 'Delivery Boys', icon: Truck, color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { id: 'all', label: 'Everyone', icon: Users, color: 'bg-purple-50 text-purple-700' },
+  { id: 'admin', label: 'Admins', icon: Shield, color: 'bg-rose-50 text-rose-700' },
+  { id: 'manager', label: 'Managers', icon: Users, color: 'bg-blue-50 text-blue-700' },
+  { id: 'delivery_boy', label: 'Delivery Boys', icon: Truck, color: 'bg-emerald-50 text-emerald-700' },
 ];
 
 const PRIORITY_OPTIONS = [
@@ -19,6 +19,8 @@ const PRIORITY_OPTIONS = [
   { id: 'important', label: 'Important', dot: 'bg-amber-500' },
   { id: 'urgent', label: 'Urgent', dot: 'bg-red-500' },
 ];
+
+const PAGE_SIZE = 20;
 
 export default function Notifications() {
   const { user } = useAuth();
@@ -33,6 +35,7 @@ export default function Notifications() {
   const [notificationToDelete, setNotificationToDelete] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [sending, setSending] = useState(false);
+  const [page, setPage] = useState(1);
 
   const load = () => setNotifications(appApi.getNotifications());
 
@@ -100,11 +103,30 @@ export default function Notifications() {
     showToast('Notifications marked as read');
   };
 
+  const filterTargetRef = useRef(filterTarget);
+  filterTargetRef.current = filterTarget;
+
   const filtered = filterTarget === 'all'
     ? notifications
     : filterTarget === 'system'
       ? notifications.filter(n => n.isSystem)
       : notifications.filter(n => n.targets.includes(filterTarget) || n.targets.includes('all'));
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  useEffect(() => { setPage(1); }, [filterTarget]);
+
+  const allSelectedOnPage = paginated.length > 0 && paginated.every((n: any) => selectedIds.includes(n.id));
+
+  const handleSelectAll = () => {
+    if (allSelectedOnPage) {
+      setSelectedIds((prev) => prev.filter((id) => !paginated.some((n: any) => n.id === id)));
+    } else {
+      setSelectedIds((prev) => [...new Set([...prev, ...paginated.map((n: any) => n.id)])]);
+    }
+  };
 
   const priorityDot = (p: string) => {
     if (p === 'urgent') return 'bg-red-500';
@@ -125,18 +147,18 @@ export default function Notifications() {
       </AnimatePresence>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Notifications</h1>
-          <p className="text-xs text-zinc-500 font-medium">Broadcast messages to your team</p>
+          <p className="text-xs text-zinc-500 font-medium truncate">Broadcast messages to your team</p>
         </div>
         <button
           type="button"
           onClick={() => setShowCompose(true)}
-          className="flex shrink-0 items-center gap-1 px-2 py-1 sm:gap-2 sm:px-3 sm:py-1.5 bg-emerald-500 text-white rounded-md sm:rounded-xl text-[10px] sm:text-xs font-bold hover:bg-emerald-600 transition-colors shadow-sm shadow-emerald-100 whitespace-nowrap"
+          className="flex shrink-0 items-center gap-2 px-3 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors shadow-sm shadow-emerald-100 whitespace-nowrap"
         >
-          <Plus className="size-3 sm:size-3.5 shrink-0" strokeWidth={2.5} />
-          Create Notification
+          <Plus className="size-3.5 shrink-0" strokeWidth={2.5} />
+          Create
         </button>
       </div>
 
@@ -247,11 +269,11 @@ export default function Notifications() {
       </AnimatePresence>
 
       {/* Filter tabs */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex gap-1 bg-zinc-100 p-1 rounded-xl w-fit flex-wrap">
           {[{ id: 'all', label: 'All' }, { id: 'system', label: 'System', icon: Bot }, ...TARGET_OPTIONS.slice(1)].map(t => (
             <button key={t.id} onClick={() => setFilterTarget(t.id)}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${filterTarget === t.id ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${filterTarget === t.id ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
               {t.icon && <t.icon size={12} />}
               {t.label}
             </button>
@@ -259,94 +281,136 @@ export default function Notifications() {
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={handleMarkAllRead}
-            className="px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs font-bold text-zinc-600 hover:bg-zinc-50">
+            className="px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs font-bold text-zinc-600 hover:bg-zinc-50 transition-colors">
             Mark all read
           </button>
           <button type="button" onClick={handleBulkDelete} disabled={selectedIds.length === 0}
-            className="px-3 py-1.5 rounded-lg bg-red-50 border border-red-100 text-xs font-bold text-red-600 hover:bg-red-100 disabled:opacity-50">
-            Delete selected
+            className="px-3 py-1.5 rounded-lg bg-red-50 border border-red-100 text-xs font-bold text-red-600 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            Delete ({selectedIds.length})
           </button>
         </div>
       </div>
 
-      {/* Notifications List */}
-      <div className="space-y-3">
-        {filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-zinc-100 p-12 text-center">
-            <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Bell size={28} className="text-zinc-300" />
-            </div>
-            <p className="font-bold text-zinc-400">No notifications yet</p>
-            <p className="text-xs text-zinc-400 mt-1">Click "Create Notification" to broadcast a message</p>
-          </div>
-        ) : filtered.map(n => (
-          <motion.div key={n.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className={`bg-white rounded-2xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow ${n.isSystem ? 'border-l-4 border-l-teal-400 border-zinc-100' : 'border-zinc-100'
-              }`}>
-            <div className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(n.id)}
-                    onChange={(e) => {
-                      setSelectedIds((prev) => e.target.checked ? [...prev, n.id] : prev.filter((id) => id !== n.id));
-                    }}
-                    className="mt-1.5"
-                    aria-label="Select notification"
-                  />
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${priorityDot(n.priority)}`} />
+      {/* Notifications Table */}
+      <div className="bg-white rounded-xl overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+              <th className="px-3 py-3 w-10">
+                <div className="relative">
+                  <input type="checkbox" checked={allSelectedOnPage} onChange={handleSelectAll}
+                    className="appearance-none w-3.5 h-3.5 rounded border-2 border-zinc-300 checked:border-emerald-500 checked:bg-emerald-500 transition-all cursor-pointer bg-white" />
+                  {allSelectedOnPage && (
+                    <CheckCircle2 size={9} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white pointer-events-none" strokeWidth={3} />
+                  )}
+                </div>
+              </th>
+              <th className="px-3 py-3">Notification</th>
+              <th className="px-3 py-3 hidden sm:table-cell">Target</th>
+              <th className="px-3 py-3 hidden md:table-cell">Sent by</th>
+              <th className="px-3 py-3 hidden md:table-cell">Date</th>
+              <th className="px-3 py-3 w-10" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-50">
+            {paginated.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-10 text-center">
+                  <div className="w-10 h-10 bg-zinc-50 rounded-xl flex items-center justify-center mx-auto mb-2">
+                    <Bell size={18} className="text-zinc-300" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                      <h4 className="font-bold text-zinc-900 text-sm leading-tight">{n.title}</h4>
-                      {n.isSystem && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-teal-50 text-teal-700 border border-teal-200 rounded-full text-[9px] font-bold shrink-0">
-                          <Bot size={9} />System
-                        </span>
-                      )}
+                  <p className="font-semibold text-zinc-400 text-sm">No notifications</p>
+                </td>
+              </tr>
+            ) : paginated.map((n: any) => (
+              <tr key={n.id}
+                className={`group transition-colors ${selectedIds.includes(n.id) ? 'bg-emerald-50' : 'hover:bg-zinc-50'}`}>
+                <td className="px-3 py-3">
+                  <div className="relative">
+                    <input type="checkbox" checked={selectedIds.includes(n.id)}
+                      onChange={(e) => setSelectedIds((prev) => e.target.checked ? [...prev, n.id] : prev.filter((id) => id !== n.id))}
+                      className="appearance-none w-3.5 h-3.5 rounded border-2 border-zinc-300 checked:border-emerald-500 checked:bg-emerald-500 transition-all cursor-pointer bg-white" />
+                    {selectedIds.includes(n.id) && (
+                      <CheckCircle2 size={9} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white pointer-events-none" strokeWidth={3} />
+                    )}
+                  </div>
+                </td>
+                <td className="px-3 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${priorityDot(n.priority)}`} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-zinc-900 text-sm truncate">{n.title}</span>
+                        {n.isSystem && (
+                          <span className="flex items-center gap-1 px-1 py-0.5 bg-teal-50 text-teal-600 rounded text-[9px] font-semibold shrink-0">
+                            <Bot size={8} />System
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-500 truncate max-w-[260px]">{n.message}</p>
                     </div>
-                    <p className="text-xs text-zinc-500 leading-relaxed">{n.message}</p>
                   </div>
-                </div>
-                <button onClick={() => setNotificationToDelete(n.id)}
-                  className="shrink-0 p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-
-              <div className="mt-3 pt-3 border-t border-zinc-50 flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {(n.targets || ['all']).map((t: string) => {
-                    const opt = TARGET_OPTIONS.find(o => o.id === t);
-                    if (!opt) return null;
-                    return (
-                      <span key={t} className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${opt.color}`}>
-                        <opt.icon size={9} />{opt.label}
+                </td>
+                <td className="px-3 py-3 hidden sm:table-cell">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {(n.targets || ['all']).map((t: string) => {
+                      const opt = TARGET_OPTIONS.find(o => o.id === t);
+                      if (!opt) return null;
+                      return (
+                        <span key={t} className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold ${opt.color}`}>
+                          <opt.icon size={8} />{opt.label}
+                        </span>
+                      );
+                    })}
+                    {n.priority !== 'normal' && (
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${n.priority === 'urgent' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
+                        {n.priority === 'urgent' ? 'Urgent' : 'Important'}
                       </span>
-                    );
-                  })}
-                  {n.priority !== 'normal' && (
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${n.priority === 'urgent' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}>
-                      {n.priority === 'urgent' ? 'Urgent' : 'Important'}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {n.sentBy && (
-                    <span className="text-[10px] text-zinc-400 font-medium">by {n.sentBy}</span>
-                  )}
-                  <div className="flex items-center gap-1 text-[10px] text-zinc-400">
-                    <Clock size={10} />{new Date(n.created_at).toLocaleString()}
+                    )}
                   </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        ))}
+                </td>
+                <td className="px-3 py-3 hidden md:table-cell">
+                  <span className="text-xs text-zinc-500">{n.sentBy || '—'}</span>
+                </td>
+                <td className="px-3 py-3 hidden md:table-cell whitespace-nowrap">
+                  <span className="text-xs text-zinc-400 flex items-center gap-1">
+                    <Clock size={10} />{new Date(n.created_at).toLocaleString()}
+                  </span>
+                </td>
+                <td className="px-3 py-3">
+                  <button onClick={() => setNotificationToDelete(n.id)}
+                    className="p-1 text-zinc-300 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all">
+                    <Trash2 size={13} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-xs text-zinc-400">Page {safePage} of {totalPages}</span>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-600 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+              Prev
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <button key={p} onClick={() => setPage(p)}
+                className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors ${p === safePage ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100'}`}>
+                {p}
+              </button>
+            ))}
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-600 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

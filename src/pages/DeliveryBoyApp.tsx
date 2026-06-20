@@ -979,7 +979,7 @@ export default function DeliveryBoyApp() {
                       <div className="text-right">
                         <p className="text-[13px] font-bold text-zinc-900">₹{Number(inv.amount).toLocaleString()}</p>
                         <p className="text-[9px] text-zinc-500">
-                          {inv.delivered_at ? new Date(inv.delivered_at).toLocaleDateString() : '—'}
+                          {inv.delivered_at ? new Date(inv.delivered_at).toLocaleString() : '—'}
                         </p>
                       </div>
                     </div>

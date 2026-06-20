@@ -723,6 +723,9 @@ export interface ApiInvoice {
   feedback_reason?: string | null;
   cash_confirmed?: boolean;
   cheque_confirmed?: boolean;
+  invoice_type?: string | null;
+  previous_amount?: number | null;
+  amount_updated_at?: string | null;
   assignee_name?: string | null;
   deleted_at?: string | null;
   deleted_by_user_id?: number | null;

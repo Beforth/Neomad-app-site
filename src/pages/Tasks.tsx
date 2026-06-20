@@ -253,7 +253,7 @@ export default function Tasks() {
                 <div className="flex items-center justify-between text-xs pt-3 border-t border-zinc-50">
                   <div className="flex items-center gap-1.5 text-zinc-400">
                     <Clock size={12} />
-                    <span>{new Date(task.created_at).toLocaleDateString()}</span>
+                    <span>{new Date(task.created_at).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button type="button" onClick={() => navigate(`/tasks/${task.id}`)} className="text-emerald-500 font-bold hover:underline">
@@ -310,7 +310,7 @@ export default function Tasks() {
                       assigneeName(availableAssignees, task.assigned_to ?? undefined)
                     )}
                   </td>
-                  <td className="px-4 py-3 text-[10px] text-zinc-400">{new Date(task.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-[10px] text-zinc-400">{new Date(task.created_at).toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <button

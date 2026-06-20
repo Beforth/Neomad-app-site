@@ -9,6 +9,20 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700',
 };
 
+const TYPE_LABELS: Record<string, string> = {
+  challan: 'Challan',
+  price_difference: 'Price Diff',
+  sale_bill: 'Sale Bill',
+  sale_return_credit_note: 'Sale Return',
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  challan: 'bg-amber-50 text-amber-600',
+  price_difference: 'bg-blue-50 text-blue-600',
+  sale_bill: 'bg-emerald-50 text-emerald-600',
+  sale_return_credit_note: 'bg-purple-50 text-purple-600',
+};
+
 export interface InvoiceMobileCardProps {
   invoice: ApiInvoice;
   assigneeLabel: string;
@@ -31,7 +45,14 @@ function InvoiceMobileCardInner({ invoice, assigneeLabel, onOpenDetail }: Invoic
     >
       <div className="flex justify-between items-start">
         <div>
-          <p className="text-xs font-bold text-zinc-400">{invoice.invoice_number}</p>
+          <p className="text-xs font-bold text-zinc-400">
+            {invoice.invoice_number}
+            {invoice.invoice_type && (
+              <span className={`ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${TYPE_COLORS[invoice.invoice_type] || 'bg-zinc-50 text-zinc-500'}`}>
+                {TYPE_LABELS[invoice.invoice_type] || invoice.invoice_type}
+              </span>
+            )}
+          </p>
           <p className="font-bold text-zinc-900">{invoice.hospital_name}</p>
           {assigneeLabel !== '—' && (
             <p className="text-xs text-zinc-500 flex items-center gap-1">
@@ -54,7 +75,7 @@ function InvoiceMobileCardInner({ invoice, assigneeLabel, onOpenDetail }: Invoic
       </div>
       <div className="flex justify-between items-end">
         <p className="text-sm font-bold text-zinc-900">₹{invoice.amount.toLocaleString()}</p>
-        <p className="text-[10px] text-zinc-500">{new Date(invoice.created_at).toLocaleDateString()}</p>
+        <p className="text-[10px] text-zinc-500">{new Date(invoice.created_at).toLocaleString()}</p>
       </div>
     </div>
   );

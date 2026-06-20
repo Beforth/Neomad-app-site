@@ -222,6 +222,18 @@ export default function InvoiceDetailPage() {
                 </span>
                 <span className="text-sm font-bold text-zinc-900">₹{invoice.amount.toLocaleString()}</span>
               </div>
+              {invoice.previous_amount != null && invoice.amount_updated_at && (
+                <div className="flex items-center justify-between gap-3 p-3.5 bg-amber-50/80 rounded-2xl border border-amber-100">
+                  <span className="text-[10px] font-bold text-amber-700 flex items-center gap-1.5">
+                    <Clock size={12} /> Amount updated
+                  </span>
+                  <span className="text-[10px] font-bold text-amber-800 text-right">
+                    ₹{invoice.previous_amount.toLocaleString()} → ₹{invoice.amount.toLocaleString()}
+                    <br />
+                    <span className="text-[9px] text-amber-600 font-medium">{new Date(invoice.amount_updated_at).toLocaleString()}</span>
+                  </span>
+                </div>
+              )}
 
               {fakeDuration(invoice) && (
                 <div className="grid grid-cols-3 gap-2">
@@ -301,7 +313,7 @@ export default function InvoiceDetailPage() {
                       <Clock size={12} /> Created
                     </span>
                     <span className="text-xs font-bold text-zinc-700">
-                      {new Date(invoice.created_at).toLocaleDateString()}
+                      {new Date(invoice.created_at).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">

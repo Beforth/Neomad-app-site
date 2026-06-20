@@ -42,6 +42,7 @@ export default function Invoices() {
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [invoiceTab, setInvoiceTab] = useState<'active' | 'deleted'>('active');
   const [boyFilter, setBoyFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
@@ -60,7 +61,7 @@ export default function Invoices() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchDebounced, statusFilter, boyFilter, dateFilter, sortBy, sortOrder, invoiceTab]);
+  }, [searchDebounced, statusFilter, typeFilter, boyFilter, dateFilter, sortBy, sortOrder, invoiceTab]);
 
   useEffect(() => {
     if (!token) return;
@@ -250,13 +251,14 @@ export default function Invoices() {
     [dispatch, token]
   );
 
-  const filtered = invoices;
+  const filtered = typeFilter === 'all' ? invoices : invoices.filter((i) => i.invoice_type === typeFilter);
   const handleExport = useCallback(() => {
     const rows = filtered;
     if (rows.length === 0) return;
     const escapeCsv = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const header = [
       'Invoice Number',
+      'Type',
       'Hospital Name',
       'Amount',
       'Status',
@@ -268,6 +270,7 @@ export default function Invoices() {
     ];
     const body = rows.map((inv) => [
       inv.invoice_number,
+      inv.invoice_type ?? '',
       inv.hospital_name,
       inv.amount,
       inv.status,
@@ -399,6 +402,18 @@ export default function Invoices() {
           className="min-w-[150px]"
         />
         <SearchableSelect
+          value={typeFilter}
+          onChange={setTypeFilter}
+          options={[
+            { value: 'all', label: 'All Types' },
+            { value: 'challan', label: 'Challan' },
+            { value: 'price_difference', label: 'Price Diff' },
+            { value: 'sale_bill', label: 'Sale Bill' },
+            { value: 'sale_return_credit_note', label: 'Sale Return' },
+          ]}
+          className="min-w-[150px]"
+        />
+        <SearchableSelect
           value={boyFilter}
           onChange={setBoyFilter}
           options={[
@@ -413,11 +428,12 @@ export default function Invoices() {
           onChange={(e) => setDateFilter(e.target.value)}
           className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none cursor-pointer"
         />
-        {(search || statusFilter !== 'all' || boyFilter !== 'all' || dateFilter) && (
+        {(search || statusFilter !== 'all' || typeFilter !== 'all' || boyFilter !== 'all' || dateFilter) && (
           <button
             onClick={() => {
               setSearch('');
               setStatusFilter('all');
+              setTypeFilter('all');
               setBoyFilter('all');
               setDateFilter('');
             }}
