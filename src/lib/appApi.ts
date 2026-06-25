@@ -41,7 +41,7 @@ export interface Invoice {
   invoice_number: string;
   hospital_name: string;
   amount: number;
-  status: 'pending' | 'assigned' | 'delivered' | 'cancelled';
+  status: 'pending' | 'assigned' | 'delivered' | 'cancelled' | 'completed' | 'return';
   created_at: string;
   assigned_to?: number;
   accepted_at?: string;
@@ -61,6 +61,7 @@ export interface Invoice {
   invoice_type?: string;
   previous_amount?: number;
   amount_updated_at?: string;
+  updated_at?: string;
 }
 
 interface LocalNotification {
@@ -251,8 +252,10 @@ export const appApi = {
 
   getStats: async () => {
     const [invoices, users] = await Promise.all([getAllInvoices(), appApi.getUsers()]);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     return {
-      total_today: { count: invoices.length },
+      total_today: { count: invoices.filter((i: any) => new Date(i.created_at) >= today).length },
       pending: { count: invoices.filter((i: any) => i.status === 'pending').length },
       assigned: { count: invoices.filter((i: any) => i.status === 'assigned').length },
       completed: { count: invoices.filter((i: any) => i.status === 'completed').length },
@@ -260,6 +263,46 @@ export const appApi = {
       cancelled: { count: invoices.filter((i: any) => i.status === 'cancelled').length },
       total_boys: { count: users.filter((u: any) => u.role === 'delivery_boy').length },
       total_staff: { count: users.filter((u: any) => u.role === 'staff' || u.role === 'manager').length },
+    };
+  },
+
+  getInvoiceMetrics: async () => {
+    const [invoices, users] = await Promise.all([getAllInvoices(), appApi.getUsers()]);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayInvoices = invoices.filter((i: any) => new Date(i.created_at) >= today);
+
+    const typeLabels: Record<string, string> = {
+      challan: 'Challan', price_difference: 'P.Diff',
+      sale_bill: 'Sale Bill', sale_return_credit_note: 'S.Return',
+    };
+    const typeCounts: Record<string, number> = {};
+    invoices.forEach((i: any) => {
+      const t = i.invoice_type || 'unknown';
+      typeCounts[t] = (typeCounts[t] || 0) + 1;
+    });
+
+    const boys = users.filter((u: any) => u.role === 'delivery_boy');
+    const perBoy: any[] = boys.map((b: any) => {
+      const assigned = invoices.filter((i: any) => i.assigned_to === b.id);
+      return {
+        id: b.id, name: b.username,
+        pending: assigned.filter((i: any) => i.status === 'pending').length,
+        assigned: assigned.filter((i: any) => i.status === 'assigned').length,
+        completed: assigned.filter((i: any) => i.status === 'completed').length,
+        return: assigned.filter((i: any) => i.status === 'return').length,
+        cancelled: assigned.filter((i: any) => i.status === 'cancelled').length,
+        total: assigned.length,
+      };
+    });
+
+    return {
+      totalCount: invoices.length,
+      todayCount: todayInvoices.length,
+      typeCounts: Object.entries(typeCounts)
+        .map(([type, count]) => ({ type, label: typeLabels[type] || type, count }))
+        .sort((a, b) => b.count - a.count),
+      perBoy,
     };
   },
 

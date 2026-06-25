@@ -24,7 +24,7 @@ import SearchableSelect from '../components/SearchableSelect';
 import { fakeDuration } from './invoices/invoiceShared';
 import type { ApiInvoice } from '../lib/api';
 import { INVOICES_PAGE_SUBTITLE, INVOICES_PAGE_TITLE } from '../components/invoices/InvoiceSectionFrame';
-import { NEW_INVOICE_EVENT } from '../lib/appApi';
+import { NEW_INVOICE_EVENT, appApi } from '../lib/appApi';
 
 export default function Invoices() {
   const { user, token } = useAuth();
@@ -53,6 +53,9 @@ export default function Invoices() {
   const [availableAssignees, setAvailableAssignees] = useState<{ id: number; name: string }[]>([]);
   const [assignModalInvId, setAssignModalInvId] = useState<number | null>(null);
   const [assignTarget, setAssignTarget] = useState('');
+  const [showMetrics, setShowMetrics] = useState(false);
+  const [invoiceMetrics, setInvoiceMetrics] = useState<any>(null);
+  const [metricsLoading, setMetricsLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300);
@@ -76,6 +79,7 @@ export default function Invoices() {
             page_size: pageSize,
             ...(searchDebounced.trim() ? { search: searchDebounced.trim() } : {}),
             ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+            ...(typeFilter !== 'all' ? { invoice_type: typeFilter } : {}),
             ...(boyFilter !== 'all' ? { assigned_to: Number(boyFilter) } : {}),
             ...(dateFilter ? { date_from: dateFilter, date_to: dateFilter } : {}),
             ...(invoiceTab === 'deleted' ? { deleted: true } : {}),
@@ -86,7 +90,7 @@ export default function Invoices() {
     };
     window.addEventListener(NEW_INVOICE_EVENT, onNewInvoice);
     return () => window.removeEventListener(NEW_INVOICE_EVENT, onNewInvoice);
-  }, [token, dispatch, sortBy, sortOrder, pageSize, searchDebounced, statusFilter, boyFilter, dateFilter, invoiceTab]);
+  }, [token, dispatch, sortBy, sortOrder, pageSize, searchDebounced, statusFilter, typeFilter, boyFilter, dateFilter, invoiceTab]);
 
   useEffect(() => {
     if (!token) {
@@ -104,6 +108,7 @@ export default function Invoices() {
           page_size: pageSize,
           ...(searchDebounced.trim() ? { search: searchDebounced.trim() } : {}),
           ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+          ...(typeFilter !== 'all' ? { invoice_type: typeFilter } : {}),
           ...(boyFilter !== 'all' ? { assigned_to: Number(boyFilter) } : {}),
           ...(dateFilter ? { date_from: dateFilter, date_to: dateFilter } : {}),
           ...(invoiceTab === 'deleted' ? { deleted: true } : {}),
@@ -115,6 +120,7 @@ export default function Invoices() {
     dispatch,
     searchDebounced,
     statusFilter,
+    typeFilter,
     boyFilter,
     dateFilter,
     sortBy,
@@ -428,6 +434,15 @@ export default function Invoices() {
           onChange={(e) => setDateFilter(e.target.value)}
           className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none cursor-pointer"
         />
+        <button onClick={() => {
+          if (!showMetrics && !invoiceMetrics) {
+            setMetricsLoading(true);
+            appApi.getInvoiceMetrics().then(m => { setInvoiceMetrics(m); setMetricsLoading(false); });
+          }
+          setShowMetrics(v => !v);
+        }} className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-bold text-zinc-600 hover:bg-zinc-100 transition-colors flex items-center gap-1.5">
+          📊 Metrics
+        </button>
         {(search || statusFilter !== 'all' || typeFilter !== 'all' || boyFilter !== 'all' || dateFilter) && (
           <button
             onClick={() => {
@@ -445,12 +460,83 @@ export default function Invoices() {
         )}
       </div>
 
+      {/* Invoice Metrics */}
+      {showMetrics && (
+        <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4">
+          {metricsLoading ? (
+            <p className="text-xs text-zinc-400">Loading metrics…</p>
+          ) : invoiceMetrics && (
+            <div className="space-y-4">
+              {/* Summary row */}
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase">Total</span>
+                  <span className="text-lg font-bold text-zinc-900">{invoiceMetrics.totalCount}</span>
+                </div>
+                <div className="w-px h-6 bg-zinc-200" />
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase">Today</span>
+                  <span className="text-lg font-bold text-emerald-600">{invoiceMetrics.todayCount}</span>
+                </div>
+              </div>
+
+              {/* Per-type */}
+              <div>
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">By Type</span>
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  {invoiceMetrics.typeCounts.map((t: any) => (
+                    <span key={t.type} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-zinc-50 text-xs font-medium text-zinc-700">
+                      {t.label}
+                      <span className="font-bold text-zinc-900">{t.count}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Per-boy */}
+              <div>
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Per Delivery Boy</span>
+                <div className="overflow-x-auto mt-1.5">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-[10px] font-bold text-zinc-400 uppercase border-b border-zinc-50">
+                        <th className="py-1.5 pr-3">Boy</th>
+                        <th className="py-1.5 pr-3">Total</th>
+                        <th className="py-1.5 pr-3 text-amber-600">Pending</th>
+                        <th className="py-1.5 pr-3 text-blue-600">Assigned</th>
+                        <th className="py-1.5 pr-3 text-emerald-600">Completed</th>
+                        <th className="py-1.5 pr-3 text-purple-600">Return</th>
+                        <th className="py-1.5 pr-3 text-red-600">Cancelled</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoiceMetrics.perBoy.map((b: any) => (
+                        <tr key={b.id} className="border-b border-zinc-50 hover:bg-zinc-50/50">
+                          <td className="py-1.5 pr-3 font-medium text-zinc-900">{b.name}</td>
+                          <td className="py-1.5 pr-3 font-bold text-zinc-900">{b.total}</td>
+                          <td className="py-1.5 pr-3 text-amber-600 font-medium">{b.pending}</td>
+                          <td className="py-1.5 pr-3 text-blue-600 font-medium">{b.assigned}</td>
+                          <td className="py-1.5 pr-3 text-emerald-600 font-medium">{b.completed}</td>
+                          <td className="py-1.5 pr-3 text-purple-600 font-medium">{b.return}</td>
+                          <td className="py-1.5 pr-3 text-red-600 font-medium">{b.cancelled}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-zinc-50/50 border-b border-zinc-100">
               <tr>
                 <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Invoice / ID</th>
+                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Type</th>
                 <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Task / Entity</th>
                 <th
                   className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600"
@@ -489,7 +575,7 @@ export default function Invoices() {
             <tbody className="divide-y divide-zinc-50">
               {listLoading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-xs text-zinc-400">
+                  <td colSpan={11} className="px-4 py-8 text-center text-xs text-zinc-400">
                     Loading invoices...
                   </td>
                 </tr>

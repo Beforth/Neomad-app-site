@@ -179,6 +179,16 @@ export interface StoreGeoSetting {
   updated_at?: string | null;
 }
 
+export interface WorkingLocation {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
+  created_at: string;
+  updated_at?: string | null;
+}
+
 export interface DeliveryPathPoint {
   lat: number;
   lng: number;
@@ -328,6 +338,76 @@ export async function deleteStoreGeoSetting(token: string, settingId: number): P
     notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to delete store geofence'));
+  }
+}
+
+// ── Working Location (staff geofence) ────────────────────────────────────
+
+/** List all working locations (all authenticated users). */
+export async function listWorkingLocations(token: string): Promise<WorkingLocation[]> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/working-locations`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    throw new Error('Failed to load working locations');
+  }
+  const data = await res.json();
+  if (Array.isArray(data)) return data as WorkingLocation[];
+  if (data && typeof data === 'object') return [data as WorkingLocation];
+  return [];
+}
+
+/** Create a working location (admin/manager). */
+export async function createWorkingLocation(
+  token: string,
+  data: { name: string; latitude: number; longitude: number; radius_meters: number },
+): Promise<WorkingLocation> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/working-locations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to create working location'));
+  }
+  return res.json() as Promise<WorkingLocation>;
+}
+
+/** Update a working location (admin/manager). */
+export async function updateWorkingLocation(
+  token: string, locationId: number,
+  data: { name: string; latitude: number; longitude: number; radius_meters: number },
+): Promise<WorkingLocation> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/working-locations/${locationId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to update working location'));
+  }
+  return res.json() as Promise<WorkingLocation>;
+}
+
+/** Delete a working location (admin/manager). */
+export async function deleteWorkingLocation(token: string, locationId: number): Promise<void> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/working-locations/${locationId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to delete working location'));
   }
 }
 
@@ -568,6 +648,8 @@ export interface ApiTask {
   updated_at?: string | null;
   assigned_to?: number | null;
   assignee_name?: string | null;
+  completed_at?: string | null;
+  photo_url?: string | null;
 }
 
 export interface TaskListParams {
@@ -680,6 +762,24 @@ export async function updateTask(
   return res.json();
 }
 
+/** Upload a completion photo for a task. */
+export async function uploadTaskPhoto(token: string, taskId: number, file: File): Promise<{ photo_url: string }> {
+  const base = getBaseUrl();
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${base}/tasks/${taskId}/photo`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to upload photo'));
+  }
+  return res.json();
+}
+
 /** Delete task. Admin or manager. */
 export async function deleteTask(token: string, taskId: number): Promise<void> {
   const base = getBaseUrl();
@@ -736,6 +836,7 @@ export interface InvoiceListParams {
   search?: string;
   status?: string;
   assigned_to?: number;
+  invoice_type?: string;
   date_from?: string;
   date_to?: string;
   sort_by?: string;
@@ -765,6 +866,7 @@ export async function getInvoices(
   if (params?.search) sp.set('search', params.search);
   if (params?.status) sp.set('status', params.status);
   if (params?.assigned_to != null) sp.set('assigned_to', String(params.assigned_to));
+  if (params?.invoice_type) sp.set('invoice_type', params.invoice_type);
   if (params?.date_from) sp.set('date_from', params.date_from);
   if (params?.date_to) sp.set('date_to', params.date_to);
   if (params?.sort_by) sp.set('sort_by', params.sort_by);
@@ -828,11 +930,14 @@ export async function createInvoice(
   return res.json();
 }
 
-/** Update invoice (assign, cancel, deliver, confirm cash/cheque). */
+/** Update invoice (assign, cancel, deliver, edit core fields, confirm cash/cheque). */
 export async function updateInvoice(
   token: string,
   invoiceId: number,
   data: {
+    invoice_number?: string;
+    hospital_name?: string;
+    amount?: number;
     status?: string;
     assigned_to?: number | null;
     cancel_reason?: string | null;
@@ -852,6 +957,9 @@ export async function updateInvoice(
 ): Promise<ApiInvoice> {
   const base = getBaseUrl();
   const body: Record<string, unknown> = {};
+  if (data.invoice_number !== undefined) body.invoice_number = data.invoice_number;
+  if (data.hospital_name !== undefined) body.hospital_name = data.hospital_name;
+  if (data.amount !== undefined) body.amount = data.amount;
   if (data.status !== undefined) body.status = data.status;
   if (data.assigned_to !== undefined) body.assigned_to = data.assigned_to;
   if (data.cancel_reason !== undefined) body.cancel_reason = data.cancel_reason;
@@ -923,6 +1031,86 @@ export async function restoreDeletedInvoice(token: string, invoiceId: number): P
     notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to recover invoice'));
+  }
+  return res.json();
+}
+
+export interface AuditLogEntry {
+  id: number;
+  invoice_id: number;
+  field_name: string;
+  old_value: string | null;
+  new_value: string | null;
+  changed_by_user_id: number | null;
+  changed_by_name: string | null;
+  created_at: string;
+}
+
+export interface AuditLogListResult {
+  items: AuditLogEntry[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface AuditLogListParams {
+  invoice_id?: number;
+  field_name?: string;
+  changed_by_user_id?: number;
+  date_from?: string;
+  date_to?: string;
+  search?: string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+  page?: number;
+  page_size?: number;
+}
+
+/** Get audit logs for a specific invoice. */
+export async function getInvoiceAuditLogs(
+  token: string,
+  invoiceId: number,
+  params?: { page?: number; page_size?: number }
+): Promise<AuditLogListResult> {
+  const base = getBaseUrl();
+  const sp = new URLSearchParams();
+  if (params?.page != null) sp.set('page', String(params.page));
+  if (params?.page_size != null) sp.set('page_size', String(params.page_size));
+  const qs = sp.toString();
+  const url = `${base}/invoices/${invoiceId}/audit-logs${qs ? `?${qs}` : ''}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load audit logs'));
+  }
+  return res.json();
+}
+
+/** Get all audit logs across invoices. Admin/manager only. */
+export async function getAllAuditLogs(
+  token: string,
+  params?: AuditLogListParams
+): Promise<AuditLogListResult> {
+  const base = getBaseUrl();
+  const sp = new URLSearchParams();
+  if (params?.invoice_id != null) sp.set('invoice_id', String(params.invoice_id));
+  if (params?.field_name) sp.set('field_name', params.field_name);
+  if (params?.changed_by_user_id != null) sp.set('changed_by_user_id', String(params.changed_by_user_id));
+  if (params?.date_from) sp.set('date_from', params.date_from);
+  if (params?.date_to) sp.set('date_to', params.date_to);
+  if (params?.search) sp.set('search', params.search);
+  if (params?.sort_by) sp.set('sort_by', params.sort_by);
+  if (params?.sort_order) sp.set('sort_order', params.sort_order);
+  if (params?.page != null) sp.set('page', String(params.page));
+  if (params?.page_size != null) sp.set('page_size', String(params.page_size));
+  const qs = sp.toString();
+  const url = `${base}/invoices/audit-logs${qs ? `?${qs}` : ''}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load audit logs'));
   }
   return res.json();
 }

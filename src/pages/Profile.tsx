@@ -4,10 +4,13 @@ import { useAuth } from '../context/AuthContext';
 import {
   changePassword,
   createStoreGeoSetting,
+  createWorkingLocation,
   deleteStoreGeoSetting,
+  deleteWorkingLocation,
   completeGmailOAuth,
   disconnectGmail,
   listStoreGeoSettings,
+  listWorkingLocations,
   getGmailAuthUrl,
   getGmailStatus,
   listGmailEmails,
@@ -15,8 +18,10 @@ import {
   syncRecentGmailEmails,
   toggleGmailEmailStar,
   updateStoreGeoSetting,
+  updateWorkingLocation,
   type GmailEmail,
   type StoreGeoSetting,
+  type WorkingLocation,
 } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -52,6 +57,14 @@ export default function Profile() {
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoSaving, setGeoSaving] = useState(false);
   const [geoMsg, setGeoMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const canManageWorkLoc = user?.role === 'admin' || user?.role === 'manager';
+  const [wlForm, setWlForm] = useState({ name: '', latitude: '', longitude: '', radius_meters: '100' });
+  const [wlList, setWlList] = useState<WorkingLocation[]>([]);
+  const [editingWlId, setEditingWlId] = useState<number | null>(null);
+  const [wlLoading, setWlLoading] = useState(false);
+  const [wlSaving, setWlSaving] = useState(false);
+  const [wlMsg, setWlMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadGmail = async () => {
     if (!token) return;
@@ -114,6 +127,25 @@ export default function Profile() {
     };
     loadStoreGeo();
   }, [token, canManageStoreGeo]);
+
+  useEffect(() => {
+    const loadWorkLocs = async () => {
+      if (!token || !canManageWorkLoc) return;
+      setWlLoading(true);
+      try {
+        const locs = await listWorkingLocations(token);
+        setWlList(locs);
+      } catch (err) {
+        setWlMsg({
+          type: 'error',
+          text: err instanceof Error ? err.message : 'Failed to load working locations',
+        });
+      } finally {
+        setWlLoading(false);
+      }
+    };
+    loadWorkLocs();
+  }, [token, canManageWorkLoc]);
 
   useEffect(() => {
     loadEmails();
@@ -342,6 +374,95 @@ export default function Profile() {
     }
   };
 
+  // ── Working Location handlers ─────────────────────────────────────────
+
+  const handleSaveWorkLoc = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    const name = wlForm.name.trim();
+    if (!name) {
+      setWlMsg({ type: 'error', text: 'Location name is required.' });
+      return;
+    }
+    const latitude = Number(wlForm.latitude);
+    const longitude = Number(wlForm.longitude);
+    const radiusMeters = Number(wlForm.radius_meters);
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+      setWlMsg({ type: 'error', text: 'Latitude must be between -90 and 90.' });
+      return;
+    }
+    if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      setWlMsg({ type: 'error', text: 'Longitude must be between -180 and 180.' });
+      return;
+    }
+    if (!Number.isFinite(radiusMeters) || radiusMeters <= 0 || radiusMeters > 10000) {
+      setWlMsg({ type: 'error', text: 'Radius must be between 1 and 10000 meters.' });
+      return;
+    }
+    setWlSaving(true);
+    setWlMsg(null);
+    try {
+      if (editingWlId) {
+        await updateWorkingLocation(token, editingWlId, { name, latitude, longitude, radius_meters: radiusMeters });
+      } else {
+        await createWorkingLocation(token, { name, latitude, longitude, radius_meters: radiusMeters });
+      }
+      const next = await listWorkingLocations(token);
+      setWlList(next);
+      setWlForm({ name: '', latitude: '', longitude: '', radius_meters: '100' });
+      setEditingWlId(null);
+      setWlMsg({ type: 'success', text: editingWlId ? 'Working location updated.' : 'Working location added.' });
+    } catch (err) {
+      setWlMsg({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to save working location',
+      });
+    } finally {
+      setWlSaving(false);
+    }
+  };
+
+  const startEditWl = (row: WorkingLocation) => {
+    setEditingWlId(row.id);
+    setWlForm({
+      name: row.name,
+      latitude: String(row.latitude),
+      longitude: String(row.longitude),
+      radius_meters: String(row.radius_meters),
+    });
+    setWlMsg(null);
+  };
+
+  const cancelEditWl = () => {
+    setEditingWlId(null);
+    setWlForm({ name: '', latitude: '', longitude: '', radius_meters: '100' });
+    setWlMsg(null);
+  };
+
+  const handleDeleteWl = async (id: number) => {
+    if (!token) return;
+    const ok = window.confirm('Delete this working location?');
+    if (!ok) return;
+    setWlSaving(true);
+    setWlMsg(null);
+    try {
+      await deleteWorkingLocation(token, id);
+      const next = await listWorkingLocations(token);
+      setWlList(next);
+      if (editingWlId === id) {
+        cancelEditWl();
+      }
+      setWlMsg({ type: 'success', text: 'Working location deleted.' });
+    } catch (err) {
+      setWlMsg({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to delete working location',
+      });
+    } finally {
+      setWlSaving(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div>
@@ -523,6 +644,110 @@ export default function Profile() {
                         type="button"
                         onClick={() => handleDeleteGeo(g.id)}
                         disabled={geoSaving}
+                        className="px-2 py-1 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {canManageWorkLoc && (
+            <div className="bg-white p-6 rounded-2xl border border-zinc-100 shadow-sm">
+              <h3 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
+                <MapPin size={20} className="text-emerald-500" />
+                Working Locations
+              </h3>
+              <p className="text-sm text-zinc-500 mb-4">
+                Staff users must be within the configured radius of a working location.
+              </p>
+              <form onSubmit={handleSaveWorkLoc} className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="Location name (e.g. Nashik Office)"
+                  value={wlForm.name}
+                  onChange={(e) => setWlForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                  disabled={wlLoading || wlSaving}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="Latitude"
+                    value={wlForm.latitude}
+                    onChange={(e) => setWlForm((prev) => ({ ...prev, latitude: e.target.value }))}
+                    className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={wlLoading || wlSaving}
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="Longitude"
+                    value={wlForm.longitude}
+                    onChange={(e) => setWlForm((prev) => ({ ...prev, longitude: e.target.value }))}
+                    className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={wlLoading || wlSaving}
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    max="10000"
+                    placeholder="Radius (meters)"
+                    value={wlForm.radius_meters}
+                    onChange={(e) => setWlForm((prev) => ({ ...prev, radius_meters: e.target.value }))}
+                    className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={wlLoading || wlSaving}
+                  />
+                </div>
+                {wlMsg && (
+                  <div className={`text-sm ${wlMsg.type === 'success' ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {wlMsg.text}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={wlLoading || wlSaving}
+                  className="px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60"
+                >
+                  {wlSaving ? 'Saving...' : editingWlId ? 'Update Location' : 'Add Location'}
+                </button>
+                {editingWlId && (
+                  <button
+                    type="button"
+                    onClick={cancelEditWl}
+                    disabled={wlLoading || wlSaving}
+                    className="ml-2 px-4 py-2 rounded-xl border border-zinc-300 text-zinc-700 text-sm font-semibold hover:bg-zinc-50 disabled:opacity-60"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </form>
+              <div className="mt-5 space-y-2">
+                <h4 className="text-sm font-semibold text-zinc-900">Configured Locations</h4>
+                {wlList.length === 0 ? (
+                  <p className="text-xs text-zinc-500">No working locations added yet.</p>
+                ) : wlList.map((w) => (
+                  <div key={w.id} className="rounded-xl border border-zinc-200 px-3 py-2 flex items-center justify-between gap-3">
+                    <div className="text-xs text-zinc-700">
+                      <span className="font-semibold">{w.name}</span> &mdash; Lat: {w.latitude}, Lng: {w.longitude}, Radius: {w.radius_meters}m
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => startEditWl(w)}
+                        disabled={wlSaving}
+                        className="px-2 py-1 rounded-lg border border-zinc-300 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteWl(w.id)}
+                        disabled={wlSaving}
                         className="px-2 py-1 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
                       >
                         Delete

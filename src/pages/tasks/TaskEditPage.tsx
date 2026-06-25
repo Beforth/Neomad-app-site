@@ -140,6 +140,7 @@ export default function TaskEditPage() {
                 { value: 'pending', label: 'Pending' },
                 { value: 'assigned', label: 'Assigned' },
                 { value: 'delivered', label: 'Delivered' },
+                { value: 'completed', label: 'Completed' },
                 { value: 'cancelled', label: 'Cancelled' },
               ]}
             />

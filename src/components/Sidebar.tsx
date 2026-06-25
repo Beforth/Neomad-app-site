@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, FileText, MapPin, BarChart3, Users,
-  UserCircle, LogOut, Menu, X, Bell, Package
+  UserCircle, LogOut, Menu, X, Bell, Package, History
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
@@ -41,6 +41,7 @@ export default function Sidebar() {
     { icon: FileText, label: 'Invoices', path: '/invoices', roles: ['admin', 'manager'] },
     { icon: MapPin, label: 'Live Tracking', path: '/tracking', roles: ['admin', 'manager'] },
     { icon: BarChart3, label: 'Reports', path: '/reports', roles: ['admin', 'manager'] },
+    { icon: History, label: 'Audit Logs', path: '/logs', roles: ['admin', 'manager'] },
     { icon: Users, label: 'User Management', path: '/users', roles: ['admin'] },
     { icon: Bell, label: 'Notifications', path: '/notifications', roles: ['admin'] },
     { icon: UserCircle, label: 'Profile', path: '/profile', roles: ['admin', 'manager'] },

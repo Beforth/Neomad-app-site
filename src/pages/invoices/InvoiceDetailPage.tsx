@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getUsers } from '../../lib/api';
+import { getUsers, updateInvoice, getInvoiceAuditLogs } from '../../lib/api';
+import type { AuditLogEntry } from '../../lib/api';
 import {
   MapPin, FileImage, IndianRupee, FileText, AlertCircle, Trash2, List,
-  Building, Hash, Banknote, Clock, UserPlus, XCircle, CheckCircle2, RotateCcw,
+  Building, Hash, Banknote, Clock, UserPlus, XCircle, CheckCircle2, RotateCcw, Pencil, Save, X, History,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -26,6 +27,19 @@ export default function InvoiceDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [pageNotice, setPageNotice] = useState('');
+
+  // ── Edit core fields ──
+  const [editing, setEditing] = useState(false);
+  const [editInvoiceNumber, setEditInvoiceNumber] = useState('');
+  const [editHospitalName, setEditHospitalName] = useState('');
+  const [editAmount, setEditAmount] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  // ── Audit logs ──
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
 
   useEffect(() => {
     if (!invoice) return;
@@ -75,6 +89,63 @@ export default function InvoiceDetailPage() {
       '—'
     );
   }, [invoice, deliveryUsers]);
+
+  const startEditing = useMemo(() => () => {
+    if (!invoice) return;
+    setEditInvoiceNumber(invoice.invoice_number);
+    setEditHospitalName(invoice.hospital_name);
+    setEditAmount(String(invoice.amount));
+    setEditError('');
+    setEditing(true);
+  }, [invoice]);
+
+  const cancelEditing = useCallback(() => {
+    setEditing(false);
+    setEditError('');
+  }, []);
+
+  const saveEditing = useCallback(async () => {
+    if (!token || !invoice) return;
+    setEditSaving(true);
+    setEditError('');
+    const patch: Record<string, unknown> = {};
+    if (editInvoiceNumber !== invoice.invoice_number) patch.invoice_number = editInvoiceNumber;
+    if (editHospitalName !== invoice.hospital_name) patch.hospital_name = editHospitalName;
+    if (Number(editAmount) !== invoice.amount) patch.amount = Number(editAmount);
+    if (Object.keys(patch).length === 0) {
+      setEditing(false);
+      setEditSaving(false);
+      return;
+    }
+    try {
+      await updateInvoice(token, invoice.id, patch as any);
+      setEditing(false);
+      window.location.reload();
+    } catch (e: any) {
+      setEditError(e.message || 'Failed to save changes');
+    } finally {
+      setEditSaving(false);
+    }
+  }, [token, invoice, editInvoiceNumber, editHospitalName, editAmount]);
+
+  const loadAuditLogs = useCallback(async () => {
+    if (!token || !invoice) return;
+    setAuditLogsLoading(true);
+    try {
+      const r = await getInvoiceAuditLogs(token, invoice.id, { page_size: 50 });
+      setAuditLogs(r.items);
+    } catch {
+      // ignore
+    } finally {
+      setAuditLogsLoading(false);
+    }
+  }, [token, invoice]);
+
+  useEffect(() => {
+    if (showAuditLogs && auditLogs.length === 0 && !auditLogsLoading) {
+      loadAuditLogs();
+    }
+  }, [showAuditLogs, auditLogs.length, auditLogsLoading, loadAuditLogs]);
 
   if (id == null) {
     return (
@@ -183,15 +254,57 @@ export default function InvoiceDetailPage() {
           {pageNotice}
         </div>
       ) : null}
+      {editError ? (
+        <div className="mb-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+          {editError}
+        </div>
+      ) : null}
       <div className={invoiceInnerCardClassName()}>
         <div className="px-6 py-4 border-b border-zinc-100 flex items-center gap-3 flex-wrap bg-zinc-50/40">
           <div className="w-10 h-10 bg-zinc-50 rounded-xl flex items-center justify-center border border-zinc-100 shrink-0">
             <FileText size={20} className="text-zinc-400" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Invoice record</p>
-            <p className="text-sm font-bold text-zinc-900 truncate">{invoice.invoice_number}</p>
+            {editing ? (
+              <input
+                type="text"
+                value={editInvoiceNumber}
+                onChange={(e) => setEditInvoiceNumber(e.target.value)}
+                className="text-sm font-bold text-zinc-900 bg-white border border-zinc-300 rounded-lg px-2 py-1 w-full max-w-xs outline-none focus:ring-2 focus:ring-zinc-900/10"
+              />
+            ) : (
+              <p className="text-sm font-bold text-zinc-900 truncate">{invoice.invoice_number}</p>
+            )}
           </div>
+          {isManager && !editing && (
+            <button
+              type="button"
+              onClick={startEditing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white text-[11px] font-bold text-zinc-600 hover:bg-zinc-50"
+            >
+              <Pencil size={14} /> Edit
+            </button>
+          )}
+          {editing && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={saveEditing}
+                disabled={editSaving}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 text-white text-[11px] font-bold hover:bg-emerald-600 disabled:opacity-50"
+              >
+                <Save size={14} /> {editSaving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={cancelEditing}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white text-[11px] font-bold text-zinc-600 hover:bg-zinc-50"
+              >
+                <X size={14} /> Cancel
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="p-6 space-y-6">
@@ -208,19 +321,39 @@ export default function InvoiceDetailPage() {
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <MapPin size={12} /> Delivery destination
+                  <Building size={12} /> Hospital / Entity
                 </label>
-                <div className="flex items-start gap-3 p-3.5 bg-zinc-50/50 rounded-2xl border border-zinc-100/50">
-                  <Building size={16} className="text-zinc-400 mt-0.5 shrink-0" />
-                  <span className="text-sm font-semibold text-zinc-700">{invoice.hospital_name}</span>
-                </div>
+                {editing ? (
+                  <input
+                    type="text"
+                    value={editHospitalName}
+                    onChange={(e) => setEditHospitalName(e.target.value)}
+                    className="w-full text-sm font-semibold text-zinc-700 bg-white border border-zinc-300 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-zinc-900/10"
+                  />
+                ) : (
+                  <div className="flex items-start gap-3 p-3.5 bg-zinc-50/50 rounded-2xl border border-zinc-100/50">
+                    <Building size={16} className="text-zinc-400 mt-0.5 shrink-0" />
+                    <span className="text-sm font-semibold text-zinc-700">{invoice.hospital_name}</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between gap-3 p-3.5 bg-zinc-50/50 rounded-2xl border border-zinc-100/50">
                 <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                   <IndianRupee size={14} className="text-zinc-400" /> Gross amount
                 </span>
-                <span className="text-sm font-bold text-zinc-900">₹{invoice.amount.toLocaleString()}</span>
+                {editing ? (
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                    className="text-sm font-bold text-zinc-900 bg-white border border-zinc-300 rounded-lg px-2 py-1 w-32 text-right outline-none focus:ring-2 focus:ring-zinc-900/10"
+                  />
+                ) : (
+                  <span className="text-sm font-bold text-zinc-900">₹{invoice.amount.toLocaleString()}</span>
+                )}
               </div>
               {invoice.previous_amount != null && invoice.amount_updated_at && (
                 <div className="flex items-center justify-between gap-3 p-3.5 bg-amber-50/80 rounded-2xl border border-amber-100">
@@ -401,6 +534,63 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── Audit log section ── */}
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={() => setShowAuditLogs((v) => !v)}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-600 hover:bg-zinc-50"
+        >
+          <History size={16} /> {showAuditLogs ? 'Hide' : 'Show'} change history
+        </button>
+        {showAuditLogs && (
+          <div className="mt-3 bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
+            {auditLogsLoading ? (
+              <div className="p-6 text-center text-xs text-zinc-400 animate-pulse">Loading changes…</div>
+            ) : auditLogs.length === 0 ? (
+              <div className="p-6 text-center text-xs text-zinc-400">No changes recorded yet.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-zinc-50/50 border-b border-zinc-100">
+                    <tr>
+                      <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Time</th>
+                      <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Field</th>
+                      <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Old Value</th>
+                      <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">New Value</th>
+                      <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">By</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-50">
+                    {auditLogs.map((entry) => (
+                      <tr key={entry.id} className="hover:bg-zinc-50/50">
+                        <td className="px-4 py-2.5 text-[11px] text-zinc-500 whitespace-nowrap">
+                          {new Date(entry.created_at).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-100 text-[10px] font-bold text-zinc-700 capitalize">
+                            {(entry.field_name || '').replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-[11px] text-zinc-500 max-w-[160px] truncate font-mono">
+                          {entry.old_value || <span className="text-zinc-300 italic">—</span>}
+                        </td>
+                        <td className="px-4 py-2.5 text-[11px] text-zinc-900 max-w-[160px] truncate font-mono font-semibold">
+                          {entry.new_value || <span className="text-zinc-300 italic">—</span>}
+                        </td>
+                        <td className="px-4 py-2.5 text-[11px] text-zinc-600 whitespace-nowrap">
+                          {entry.changed_by_name || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <AnimatePresence>

@@ -20,6 +20,7 @@ import UserManagement from './pages/UserManagement';
 import Reports from './pages/Reports';
 import Notifications from './pages/Notifications';
 import StaffApp from './pages/StaffApp';
+import AuditLogs from './pages/AuditLogs';
 import Tasks from './pages/Tasks';
 import TaskDetailPage from './pages/tasks/TaskDetailPage';
 import TaskCreatePage from './pages/tasks/TaskCreatePage';
@@ -124,6 +125,7 @@ function AppRoutes() {
             <Route path="/tracking" element={<Tracking />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/users" element={user.role === 'admin' ? <UserManagement /> : <Navigate to="/" />} />
+            <Route path="/logs" element={<AuditLogs />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="*" element={<Navigate to="/" />} />

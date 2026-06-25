@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ClipboardCheck,
@@ -9,6 +9,11 @@ import {
   Clock,
   Pencil,
   Trash2,
+  CheckCircle2,
+  Upload,
+  Camera,
+  Loader2,
+  FileImage,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import * as api from '../../lib/api';
@@ -23,7 +28,7 @@ import { useTaskLoader } from './useTaskLoader';
 import SearchableSelect from '../../components/SearchableSelect';
 
 export default function TaskDetailPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const navigate = useNavigate();
   const { taskId: taskIdParam } = useParams<{ taskId: string }>();
   const taskId = parseTaskRouteId(taskIdParam);
@@ -32,6 +37,13 @@ export default function TaskDetailPage() {
   const [assignees, setAssignees] = useState<AssigneeLike[]>([]);
   const [updatingAssignee, setUpdatingAssignee] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  // ── Complete / Photo ──
+  const [completing, setCompleting] = useState(false);
+  const [completeError, setCompleteError] = useState<string | null>(null);
+  const [completeSuccess, setCompleteSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -55,6 +67,41 @@ export default function TaskDetailPage() {
       setUpdatingAssignee(false);
     }
   };
+
+  const handleMarkComplete = async () => {
+    if (!token || !task) return;
+    setCompleting(true);
+    setCompleteError(null);
+    try {
+      await api.updateTask(token, task.id, { status: 'completed' });
+      setCompleteSuccess(true);
+      await reload();
+    } catch (e) {
+      setCompleteError(api.normalizeFetchError(e, 'Failed to mark complete'));
+    } finally {
+      setCompleting(false);
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !token || !task) return;
+    setUploading(true);
+    setCompleteError(null);
+    try {
+      await api.uploadTaskPhoto(token, task.id, file);
+      await reload();
+    } catch (e) {
+      setCompleteError(api.normalizeFetchError(e, 'Failed to upload photo'));
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';
+  const isAssignee = task?.assigned_to != null && task.assigned_to === user?.id;
+  const canComplete = task && (isAdminOrManager || isAssignee) && task.status !== 'completed' && task.status !== 'cancelled';
 
   if (taskId == null) {
     return (
@@ -92,7 +139,7 @@ export default function TaskDetailPage() {
     );
   }
 
-  const err = localError;
+  const err = localError || completeError;
 
   return (
     <TaskSectionFrame
@@ -105,6 +152,16 @@ export default function TaskDetailPage() {
       }
       right={
         <div className="flex flex-wrap gap-2">
+          {canComplete && !completeSuccess ? (
+            <button
+              type="button"
+              onClick={handleMarkComplete}
+              disabled={completing}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 disabled:opacity-50 shadow-sm shadow-emerald-100"
+            >
+              <CheckCircle2 size={16} /> {completing ? 'Completing…' : 'Mark Complete'}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => navigate(`/tasks/${task.id}/edit`)}
@@ -124,6 +181,11 @@ export default function TaskDetailPage() {
     >
       {err ? (
         <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm mb-4">{err}</div>
+      ) : null}
+      {completeSuccess ? (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl text-sm mb-4 flex items-center gap-2">
+          <CheckCircle2 size={16} /> Task marked as completed.
+        </div>
       ) : null}
 
       <div className={taskInnerCardClassName()}>
@@ -147,7 +209,7 @@ export default function TaskDetailPage() {
                   <List size={12} /> Task Description
                 </label>
                 <div className="text-sm text-zinc-600 bg-zinc-50/50 p-4 rounded-2xl border border-zinc-100/50 leading-relaxed font-medium min-h-[100px]">
-                  {task.description || 'No additional details project for this task.'}
+                  {task.description || 'No additional details for this task.'}
                 </div>
               </div>
 
@@ -160,6 +222,52 @@ export default function TaskDetailPage() {
                   <span className="text-sm font-semibold text-zinc-700">Nashik Partner Hub — MH</span>
                 </div>
               </div>
+
+              {/* ── Completion photo ── */}
+              {canComplete || task.status === 'completed' ? (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <Camera size={12} /> Completion Photo
+                  </label>
+                  {task.photo_url ? (
+                    <div className="rounded-2xl overflow-hidden border border-zinc-100 bg-zinc-100 max-h-48">
+                      <img
+                        src={task.photo_url}
+                        alt="Task completion photo"
+                        className="w-full h-full max-h-48 object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="bg-zinc-50/50 p-4 rounded-2xl border border-zinc-100/50 border-dashed">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="w-full flex flex-col items-center gap-2 text-zinc-400 hover:text-zinc-600 transition-colors disabled:opacity-50"
+                      >
+                        {uploading ? (
+                          <Loader2 size={24} className="animate-spin" />
+                        ) : (
+                          <Upload size={24} />
+                        )}
+                        <span className="text-xs font-bold">{uploading ? 'Uploading…' : 'Upload photo'}</span>
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handlePhotoUpload}
+                      />
+                    </div>
+                  )}
+                  {task.completed_at && (
+                    <p className="text-[10px] text-emerald-600 font-medium">
+                      Completed: {new Date(task.completed_at).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-5">
@@ -187,7 +295,7 @@ export default function TaskDetailPage() {
                       <SearchableSelect
                         value={task.assigned_to != null ? String(task.assigned_to) : ''}
                         onChange={(v) => void handleAssigneeChange(v)}
-                        disabled={updatingAssignee}
+                        disabled={updatingAssignee || task.status === 'completed'}
                         className="w-full"
                         options={[
                           { value: '', label: 'Unassigned' },
@@ -206,6 +314,14 @@ export default function TaskDetailPage() {
                     </span>
                     <span className="text-xs font-bold text-zinc-700">{new Date(task.created_at).toLocaleString()}</span>
                   </div>
+                  {task.completed_at ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-emerald-600 font-bold flex items-center gap-1.5">
+                        <CheckCircle2 size={12} /> Completed
+                      </span>
+                      <span className="text-xs font-bold text-emerald-700">{new Date(task.completed_at).toLocaleString()}</span>
+                    </div>
+                  ) : null}
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] text-zinc-400 font-bold flex items-center gap-1.5">
                       <Hash size={12} /> Reference

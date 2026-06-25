@@ -23,6 +23,9 @@ const TYPE_COLORS: Record<string, string> = {
   sale_return_credit_note: 'bg-purple-50 text-purple-600',
 };
 
+const typeLabel = (t: string | null | undefined) => TYPE_LABELS[t ?? ''] || t || 'Sale Bill';
+const typeColor = (t: string | null | undefined) => TYPE_COLORS[t ?? ''] || (t ? 'bg-zinc-50 text-zinc-500' : 'bg-emerald-50 text-emerald-600');
+
 export interface InvoiceMobileCardProps {
   invoice: ApiInvoice;
   assigneeLabel: string;
@@ -45,15 +48,17 @@ function InvoiceMobileCardInner({ invoice, assigneeLabel, onOpenDetail }: Invoic
     >
       <div className="flex justify-between items-start">
         <div>
-          <p className="text-xs font-bold text-zinc-400">
-            {invoice.invoice_number}
-            {invoice.invoice_type && (
-              <span className={`ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${TYPE_COLORS[invoice.invoice_type] || 'bg-zinc-50 text-zinc-500'}`}>
-                {TYPE_LABELS[invoice.invoice_type] || invoice.invoice_type}
-              </span>
-            )}
-          </p>
+          <p className="text-xs font-bold text-zinc-400">{invoice.invoice_number}</p>
           <p className="font-bold text-zinc-900">{invoice.hospital_name}</p>
+          <div className="mt-1">
+            {invoice.invoice_type ? (
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${typeColor(invoice.invoice_type)}`}>
+                {typeLabel(invoice.invoice_type)}
+              </span>
+            ) : (
+              <span className="text-[9px] text-zinc-300">—</span>
+            )}
+          </div>
           {assigneeLabel !== '—' && (
             <p className="text-xs text-zinc-500 flex items-center gap-1">
               <Users size={12} /> {assigneeLabel}
