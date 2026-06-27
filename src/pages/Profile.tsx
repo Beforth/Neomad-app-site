@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   changePassword,
@@ -26,16 +26,18 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ShieldCheck, LogOut, Mail, Lock, RefreshCw,
-  CheckCircle2, XCircle, AlertTriangle, Clock, Search, Star, MapPin
+  CheckCircle2, XCircle, AlertTriangle, Clock, Search, Star, MapPin, ChevronLeft
 } from 'lucide-react';
 
 export default function Profile() {
   const gmailCodeVerifierKey = 'gmail_oauth_code_verifier';
 
+  const navigate = useNavigate();
   const { user, token, logout } = useAuth();
   const [gmailConnected, setGmailConnected] = useState(false);
   const [gmailEmail, setGmailEmail] = useState<string | null>(null);
   const [gmailLastSyncAt, setGmailLastSyncAt] = useState<string | null>(null);
+  const [gmailError, setGmailError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [gmailLoading, setGmailLoading] = useState(false);
   const [emails, setEmails] = useState<GmailEmail[]>([]);
@@ -74,6 +76,7 @@ export default function Profile() {
       setGmailConnected(status.connected);
       setGmailEmail(status.account?.email ?? null);
       setGmailLastSyncAt(status.account?.last_sync_at ?? null);
+      setGmailError(status.account?.error_message ?? null);
     } catch (err) {
       setSyncMessage(err instanceof Error ? err.message : 'Failed to load Gmail status');
       setSyncResult('error');
@@ -202,6 +205,7 @@ export default function Profile() {
       setGmailConnected(false);
       setGmailEmail(null);
       setGmailLastSyncAt(null);
+      setGmailError(null);
       setEmails([]);
       setSyncResult('success');
       setSyncMessage('Gmail disconnected.');
@@ -463,63 +467,119 @@ export default function Profile() {
     }
   };
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-900">Profile</h1>
-        <p className="text-zinc-500">Manage your account and settings</p>
-      </div>
+  const sectionTabs = [
+    { id: 'account', label: 'Account', icon: ShieldCheck },
+    ...(canManageStoreGeo ? [{ id: 'geofence', label: 'Geofence', icon: MapPin }] : []),
+    ...(canManageWorkLoc ? [{ id: 'locations', label: 'Locations', icon: MapPin }] : []),
+    { id: 'gmail', label: 'Gmail', icon: Mail },
+  ] as const;
+  type SectionId = (typeof sectionTabs)[number]['id'];
+  const [activeSection, setActiveSection] = useState<SectionId>('account');
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Left column */}
-        <div className="md:col-span-1 space-y-4">
-          <div className="bg-white p-6 rounded-2xl border border-zinc-100 shadow-sm text-center">
-            <div className="w-24 h-24 bg-emerald-500 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl text-white font-bold">
+  return (
+    <div className="min-h-full bg-zinc-50">
+      {/* Profile hero — negative margins to punch through parent padding */}
+      <div className="-mx-4 md:-mx-8 lg:-mx-10 bg-gradient-to-br from-emerald-600 to-emerald-800 pt-10 pb-20">
+        <div className="max-w-4xl mx-auto px-4">
+          {(user?.role === 'delivery_boy' || user?.role === 'staff') && (
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="mb-4 p-1.5 text-white/80 hover:text-white rounded-lg transition-colors"
+              aria-label="Go back"
+            >
+              <ChevronLeft size={22} />
+            </button>
+          )}
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl md:text-3xl text-white font-bold ring-4 ring-white/30 shrink-0">
               {user?.username[0].toUpperCase()}
             </div>
-            <h3 className="text-lg font-bold text-zinc-900">{user?.username}</h3>
-            <p className="text-sm text-zinc-500 capitalize">{user?.role?.replace('_', ' ')}</p>
-            <div className="mt-6 pt-6 border-t border-zinc-100">
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-2xl font-bold text-white truncate">{user?.username}</h1>
+              <p className="text-sm text-emerald-100 capitalize">{user?.role?.replace('_', ' ')}</p>
+            </div>
+            <div className="ml-auto">
               <button
                 onClick={logout}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-white/15 hover:bg-white/25 text-white rounded-xl transition-colors text-sm font-semibold backdrop-blur-sm"
               >
-                <LogOut size={18} />
-                Logout
+                <LogOut size={16} />
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Right column */}
-        <div className="md:col-span-2 space-y-6">
-          {/* Account Details */}
-          <div className="bg-white p-6 rounded-2xl border border-zinc-100 shadow-sm">
-            <h3 className="font-bold text-zinc-900 mb-6 flex items-center gap-2">
-              <ShieldCheck size={20} className="text-emerald-500" />
-              Account Details
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-500 mb-1">Username</label>
-                <p className="text-zinc-900 font-medium">{user?.username}</p>
+      {/* Section tabs */}
+      <div className="max-w-4xl mx-auto px-4 -mt-10 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-zinc-100 p-1 flex gap-1 overflow-x-auto">
+          {sectionTabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveSection(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+                  activeSection === tab.id
+                    ? 'bg-emerald-500 text-white shadow-sm'
+                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                }`}
+              >
+                <Icon size={16} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Content area */}
+      <div className="max-w-4xl mx-auto px-4 pb-10">
+        {activeSection === 'account' && (
+          <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden">
+            <div className="px-6 py-5 border-b border-zinc-100">
+              <h2 className="text-lg font-bold text-zinc-900">Account Details</h2>
+              <p className="text-sm text-zinc-500 mt-0.5">Your personal information and security settings</p>
+            </div>
+            <div className="px-6 py-5 space-y-5">
+              <div className="flex items-center justify-between py-3 border-b border-zinc-50">
+                <div>
+                  <p className="text-sm font-medium text-zinc-500">Username</p>
+                  <p className="text-base font-semibold text-zinc-900 mt-0.5">{user?.username}</p>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-xs shrink-0">
+                  {user?.username[0].toUpperCase()}
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-500 mb-1">Email Address</label>
-                <p className="text-zinc-900 font-medium">{user?.email}</p>
+              <div className="flex items-center justify-between py-3 border-b border-zinc-50">
+                <div>
+                  <p className="text-sm font-medium text-zinc-500">Email</p>
+                  <p className="text-base font-semibold text-zinc-900 mt-0.5 break-all">{user?.email}</p>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs shrink-0">
+                  @
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-500 mb-1">Role</label>
-                <p className="text-zinc-900 font-medium capitalize">{user?.role?.replace('_', ' ')}</p>
+              <div className="flex items-center justify-between py-3">
+                <div>
+                  <p className="text-sm font-medium text-zinc-500">Role</p>
+                  <p className="text-base font-semibold text-zinc-900 mt-0.5 capitalize">{user?.role?.replace('_', ' ')}</p>
+                </div>
+                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold capitalize">
+                  {user?.role?.replace('_', ' ')}
+                </span>
               </div>
 
               {/* Change Password */}
-              <div className="pt-2">
+              <div className="pt-4 border-t border-zinc-100">
                 <button
                   onClick={() => setShowChangePassword(!showChangePassword)}
-                  className="flex items-center gap-2 text-emerald-600 text-sm font-semibold hover:text-emerald-700"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-zinc-900 text-white rounded-xl text-sm font-semibold hover:bg-zinc-800 transition-colors"
                 >
-                  <Lock size={14} />
+                  <Lock size={15} />
                   {showChangePassword ? 'Cancel' : 'Change Password'}
                 </button>
                 <AnimatePresence>
@@ -529,7 +589,7 @@ export default function Profile() {
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
                       onSubmit={handleChangePassword}
-                      className="mt-4 space-y-3 overflow-hidden"
+                      className="mt-5 space-y-3 overflow-hidden"
                     >
                       {['current', 'next', 'confirm'].map((field, i) => (
                         <input
@@ -538,17 +598,17 @@ export default function Profile() {
                           placeholder={['Current password', 'New password', 'Confirm new password'][i]}
                           value={pwForm[field as keyof typeof pwForm]}
                           onChange={(e) => setPwForm({ ...pwForm, [field]: e.target.value })}
-                          className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                          className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
                           required
                         />
                       ))}
                       {pwMsg && (
-                        <p className={`text-xs font-medium ${pwMsg.includes('success') ? 'text-emerald-600' : 'text-red-600'}`}>{pwMsg}</p>
+                        <p className={`text-sm font-medium ${pwMsg.includes('success') ? 'text-emerald-600' : 'text-red-600'}`}>{pwMsg}</p>
                       )}
                       <button
                         type="submit"
                         disabled={pwLoading}
-                        className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-colors disabled:opacity-60"
+                        className="px-6 py-2.5 bg-emerald-500 text-white rounded-lg text-sm font-bold hover:bg-emerald-600 transition-colors disabled:opacity-60"
                       >
                         {pwLoading ? 'Updating...' : 'Update Password'}
                       </button>
@@ -558,214 +618,157 @@ export default function Profile() {
               </div>
             </div>
           </div>
+        )}
 
-          {canManageStoreGeo && (
-            <div className="bg-white p-6 rounded-2xl border border-zinc-100 shadow-sm">
-              <h3 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
-                <MapPin size={20} className="text-emerald-500" />
-                Store Geofence
-              </h3>
-              <p className="text-sm text-zinc-500 mb-4">
+        {activeSection === 'geofence' && (
+          <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden">
+            <div className="px-6 py-5 border-b border-zinc-100">
+              <h2 className="text-lg font-bold text-zinc-900">Store Geofence</h2>
+              <p className="text-sm text-zinc-500 mt-0.5">
                 Delivery users can accept invoices only within any configured store radius.
               </p>
+            </div>
+            <div className="px-6 py-5">
               <form onSubmit={handleSaveStoreGeo} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <input
-                    type="number"
-                    step="any"
-                    placeholder="Latitude"
+                    type="number" step="any" placeholder="Latitude"
                     value={geoForm.latitude}
                     onChange={(e) => setGeoForm((prev) => ({ ...prev, latitude: e.target.value }))}
-                    className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
                     disabled={geoLoading || geoSaving}
                   />
                   <input
-                    type="number"
-                    step="any"
-                    placeholder="Longitude"
+                    type="number" step="any" placeholder="Longitude"
                     value={geoForm.longitude}
                     onChange={(e) => setGeoForm((prev) => ({ ...prev, longitude: e.target.value }))}
-                    className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
                     disabled={geoLoading || geoSaving}
                   />
                   <input
-                    type="number"
-                    min="1"
-                    max="10000"
-                    placeholder="Radius (meters)"
+                    type="number" min="1" max="10000" placeholder="Radius (meters)"
                     value={geoForm.radius_meters}
                     onChange={(e) => setGeoForm((prev) => ({ ...prev, radius_meters: e.target.value }))}
-                    className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
                     disabled={geoLoading || geoSaving}
                   />
                 </div>
                 {geoMsg && (
-                  <div className={`text-sm ${geoMsg.type === 'success' ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {geoMsg.text}
-                  </div>
+                  <div className={`text-sm font-medium ${geoMsg.type === 'success' ? 'text-emerald-600' : 'text-red-600'}`}>{geoMsg.text}</div>
                 )}
-                <button
-                  type="submit"
-                  disabled={geoLoading || geoSaving}
-                  className="px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60"
-                >
-                  {geoSaving ? 'Saving...' : editingGeoId ? 'Update Geofence' : 'Add Geofence'}
-                </button>
-                {editingGeoId && (
-                  <button
-                    type="button"
-                    onClick={cancelEditGeo}
-                    disabled={geoLoading || geoSaving}
-                    className="ml-2 px-4 py-2 rounded-xl border border-zinc-300 text-zinc-700 text-sm font-semibold hover:bg-zinc-50 disabled:opacity-60"
-                  >
-                    Cancel Edit
+                <div className="flex gap-2">
+                  <button type="submit" disabled={geoLoading || geoSaving}
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60">
+                    {geoSaving ? 'Saving...' : editingGeoId ? 'Update Geofence' : 'Add Geofence'}
                   </button>
-                )}
+                  {editingGeoId && (
+                    <button type="button" onClick={cancelEditGeo} disabled={geoLoading || geoSaving}
+                      className="px-4 py-2.5 rounded-lg border border-zinc-300 text-zinc-700 text-sm font-semibold hover:bg-zinc-50 disabled:opacity-60">
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </form>
-              <div className="mt-5 space-y-2">
+              <div className="mt-6 space-y-2">
                 <h4 className="text-sm font-semibold text-zinc-900">Configured Geofences</h4>
                 {geoList.length === 0 ? (
-                  <p className="text-xs text-zinc-500">No geofences added yet.</p>
+                  <p className="text-sm text-zinc-500">No geofences added yet.</p>
                 ) : geoList.map((g) => (
-                  <div key={g.id} className="rounded-xl border border-zinc-200 px-3 py-2 flex items-center justify-between gap-3">
-                    <div className="text-xs text-zinc-700">
+                  <div key={g.id} className="rounded-lg border border-zinc-200 px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="text-sm text-zinc-700">
                       <span className="font-semibold">Lat:</span> {g.latitude}, <span className="font-semibold">Lng:</span> {g.longitude}, <span className="font-semibold">Radius:</span> {g.radius_meters}m
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => startEditGeo(g)}
-                        disabled={geoSaving}
-                        className="px-2 py-1 rounded-lg border border-zinc-300 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteGeo(g.id)}
-                        disabled={geoSaving}
-                        className="px-2 py-1 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
-                      >
-                        Delete
-                      </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button type="button" onClick={() => startEditGeo(g)} disabled={geoSaving}
+                        className="px-3 py-1.5 rounded-lg border border-zinc-300 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60">Edit</button>
+                      <button type="button" onClick={() => handleDeleteGeo(g.id)} disabled={geoSaving}
+                        className="px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60">Delete</button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {canManageWorkLoc && (
-            <div className="bg-white p-6 rounded-2xl border border-zinc-100 shadow-sm">
-              <h3 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
-                <MapPin size={20} className="text-emerald-500" />
-                Working Locations
-              </h3>
-              <p className="text-sm text-zinc-500 mb-4">
+        {activeSection === 'locations' && (
+          <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden">
+            <div className="px-6 py-5 border-b border-zinc-100">
+              <h2 className="text-lg font-bold text-zinc-900">Working Locations</h2>
+              <p className="text-sm text-zinc-500 mt-0.5">
                 Staff users must be within the configured radius of a working location.
               </p>
+            </div>
+            <div className="px-6 py-5">
               <form onSubmit={handleSaveWorkLoc} className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="Location name (e.g. Nashik Office)"
+                <input type="text" placeholder="Location name (e.g. Nashik Office)"
                   value={wlForm.name}
                   onChange={(e) => setWlForm((prev) => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
-                  disabled={wlLoading || wlSaving}
-                />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <input
-                    type="number"
-                    step="any"
-                    placeholder="Latitude"
+                  className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                  disabled={wlLoading || wlSaving} />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input type="number" step="any" placeholder="Latitude"
                     value={wlForm.latitude}
                     onChange={(e) => setWlForm((prev) => ({ ...prev, latitude: e.target.value }))}
-                    className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
-                    disabled={wlLoading || wlSaving}
-                  />
-                  <input
-                    type="number"
-                    step="any"
-                    placeholder="Longitude"
+                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={wlLoading || wlSaving} />
+                  <input type="number" step="any" placeholder="Longitude"
                     value={wlForm.longitude}
                     onChange={(e) => setWlForm((prev) => ({ ...prev, longitude: e.target.value }))}
-                    className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
-                    disabled={wlLoading || wlSaving}
-                  />
-                  <input
-                    type="number"
-                    min="1"
-                    max="10000"
-                    placeholder="Radius (meters)"
+                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={wlLoading || wlSaving} />
+                  <input type="number" min="1" max="10000" placeholder="Radius (meters)"
                     value={wlForm.radius_meters}
                     onChange={(e) => setWlForm((prev) => ({ ...prev, radius_meters: e.target.value }))}
-                    className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
-                    disabled={wlLoading || wlSaving}
-                  />
+                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={wlLoading || wlSaving} />
                 </div>
                 {wlMsg && (
-                  <div className={`text-sm ${wlMsg.type === 'success' ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {wlMsg.text}
-                  </div>
+                  <div className={`text-sm font-medium ${wlMsg.type === 'success' ? 'text-emerald-600' : 'text-red-600'}`}>{wlMsg.text}</div>
                 )}
-                <button
-                  type="submit"
-                  disabled={wlLoading || wlSaving}
-                  className="px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60"
-                >
-                  {wlSaving ? 'Saving...' : editingWlId ? 'Update Location' : 'Add Location'}
-                </button>
-                {editingWlId && (
-                  <button
-                    type="button"
-                    onClick={cancelEditWl}
-                    disabled={wlLoading || wlSaving}
-                    className="ml-2 px-4 py-2 rounded-xl border border-zinc-300 text-zinc-700 text-sm font-semibold hover:bg-zinc-50 disabled:opacity-60"
-                  >
-                    Cancel Edit
+                <div className="flex gap-2">
+                  <button type="submit" disabled={wlLoading || wlSaving}
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60">
+                    {wlSaving ? 'Saving...' : editingWlId ? 'Update Location' : 'Add Location'}
                   </button>
-                )}
+                  {editingWlId && (
+                    <button type="button" onClick={cancelEditWl} disabled={wlLoading || wlSaving}
+                      className="px-4 py-2.5 rounded-lg border border-zinc-300 text-zinc-700 text-sm font-semibold hover:bg-zinc-50 disabled:opacity-60">
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </form>
-              <div className="mt-5 space-y-2">
+              <div className="mt-6 space-y-2">
                 <h4 className="text-sm font-semibold text-zinc-900">Configured Locations</h4>
                 {wlList.length === 0 ? (
-                  <p className="text-xs text-zinc-500">No working locations added yet.</p>
+                  <p className="text-sm text-zinc-500">No working locations added yet.</p>
                 ) : wlList.map((w) => (
-                  <div key={w.id} className="rounded-xl border border-zinc-200 px-3 py-2 flex items-center justify-between gap-3">
-                    <div className="text-xs text-zinc-700">
+                  <div key={w.id} className="rounded-lg border border-zinc-200 px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="text-sm text-zinc-700">
                       <span className="font-semibold">{w.name}</span> &mdash; Lat: {w.latitude}, Lng: {w.longitude}, Radius: {w.radius_meters}m
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => startEditWl(w)}
-                        disabled={wlSaving}
-                        className="px-2 py-1 rounded-lg border border-zinc-300 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteWl(w.id)}
-                        disabled={wlSaving}
-                        className="px-2 py-1 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
-                      >
-                        Delete
-                      </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button type="button" onClick={() => startEditWl(w)} disabled={wlSaving}
+                        className="px-3 py-1.5 rounded-lg border border-zinc-300 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60">Edit</button>
+                      <button type="button" onClick={() => handleDeleteWl(w.id)} disabled={wlSaving}
+                        className="px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60">Delete</button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Gmail Connect + Emails */}
-          <div className="bg-white p-6 rounded-2xl border border-zinc-100 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-zinc-900 flex items-center gap-2">
-                  <Mail size={20} className="text-red-500" />
-                  Gmail Emails
-                </h3>
+        {activeSection === 'gmail' && (
+          <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden">
+            <div className="px-6 py-5 border-b border-zinc-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-zinc-900">Gmail Emails</h2>
+                  <p className="text-sm text-zinc-500 mt-0.5">Import invoices from your Gmail inbox</p>
+                </div>
                 <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
                   gmailConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-500'
                 }`}>
@@ -773,15 +776,15 @@ export default function Profile() {
                   {gmailConnected ? 'Connected' : 'Not Connected'}
                 </span>
               </div>
-
-              {/* Sync result banner */}
+            </div>
+            <div className="px-6 py-5">
               <AnimatePresence>
                 {syncResult && (
                   <motion.div
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    className={`mb-4 rounded-xl p-3 flex items-center gap-3 text-sm font-medium ${
+                    className={`mb-4 rounded-lg p-3 flex items-center gap-3 text-sm font-medium ${
                       syncResult === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
                     }`}
                   >
@@ -790,20 +793,16 @@ export default function Profile() {
                   </motion.div>
                 )}
               </AnimatePresence>
-
               <div className="space-y-4">
-                <p className="text-xs text-zinc-500 leading-relaxed">
+                <p className="text-sm text-zinc-500 leading-relaxed">
                   Invoices are created from <strong className="text-zinc-700">inbox emails with PDF attachments</strong> (text must be readable in the PDF).
-                  Connect Gmail as an <strong className="text-zinc-700">admin or manager</strong> user, then use Sync — new invoices appear under Invoices.
+                  Connect Gmail as an <strong className="text-zinc-700">admin or manager</strong> user, then use Sync.
                 </p>
                 {gmailConnected ? (
                   <>
-                    {/* Connected info */}
-                    <div className="bg-zinc-50 rounded-xl p-4 space-y-3">
+                    <div className="bg-zinc-50 rounded-lg p-4 space-y-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-red-100 rounded-full flex items-center justify-center text-red-600 font-bold text-sm">
-                          G
-                        </div>
+                        <div className="w-9 h-9 bg-red-100 rounded-full flex items-center justify-center text-red-600 font-bold text-sm">G</div>
                         <div>
                           <p className="text-sm font-bold text-zinc-900">{gmailEmail}</p>
                           <p className="text-xs text-zinc-500">Connected Gmail account</p>
@@ -815,60 +814,44 @@ export default function Profile() {
                           <span>Last synced: {new Date(gmailLastSyncAt).toLocaleString()}</span>
                         </div>
                       )}
+                      {gmailError && (
+                        <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+                          <AlertTriangle size={14} />
+                          <span>{gmailError}</span>
+                        </div>
+                      )}
                     </div>
-
-                    {/* Actions */}
                     <div className="flex gap-3">
-                      <button
-                        onClick={handleFetch}
-                        disabled={syncing}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-colors disabled:opacity-60"
-                      >
+                      <button onClick={handleFetch} disabled={syncing}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-500 text-white rounded-lg font-bold text-sm hover:bg-emerald-600 transition-colors disabled:opacity-60">
                         <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
                         {syncing ? 'Fetching...' : 'Sync Recent Emails'}
                       </button>
-                      <button
-                        onClick={handleDisconnect}
-                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors"
-                      >
+                      <button onClick={handleDisconnect}
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-lg font-bold text-sm hover:bg-red-100 transition-colors">
                         <XCircle size={15} />
                         Disconnect
                       </button>
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div className="md:col-span-2 relative">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex-1 relative">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                        <input
-                          type="text"
-                          value={emailQuery}
-                          onChange={(e) => setEmailQuery(e.target.value)}
+                        <input type="text" value={emailQuery} onChange={(e) => setEmailQuery(e.target.value)}
                           placeholder="Search subject/sender/snippet..."
-                          className="w-full pl-9 pr-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
-                        />
+                          className="w-full pl-9 pr-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
                       </div>
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setShowUnreadOnly((v) => !v)}
-                          className={`px-3 py-2 rounded-xl text-xs font-bold border ${showUnreadOnly ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-zinc-500 border-zinc-200'}`}
-                        >
-                          Unread
-                        </button>
-                        <button
-                          onClick={() => setShowStarredOnly((v) => !v)}
-                          className={`px-3 py-2 rounded-xl text-xs font-bold border ${showStarredOnly ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white text-zinc-500 border-zinc-200'}`}
-                        >
-                          Starred
-                        </button>
+                        <button onClick={() => setShowUnreadOnly((v) => !v)}
+                          className={`px-3 py-2 rounded-lg text-xs font-bold border ${showUnreadOnly ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-zinc-500 border-zinc-200'}`}>Unread</button>
+                        <button onClick={() => setShowStarredOnly((v) => !v)}
+                          className={`px-3 py-2 rounded-lg text-xs font-bold border ${showStarredOnly ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white text-zinc-500 border-zinc-200'}`}>Starred</button>
                       </div>
                     </div>
-
                     <div className="text-xs text-zinc-500 flex items-center justify-between">
                       <span>{emails.length} emails</span>
                       <span>{unreadCount} unread</span>
                     </div>
-
-                    <div className="max-h-80 overflow-y-auto border border-zinc-100 rounded-xl divide-y divide-zinc-100">
+                    <div className="max-h-80 overflow-y-auto border border-zinc-100 rounded-lg divide-y divide-zinc-100">
                       {emailsLoading ? (
                         <div className="p-4 text-sm text-zinc-500">Loading emails...</div>
                       ) : emails.length === 0 ? (
@@ -884,20 +867,11 @@ export default function Profile() {
                                 <p className="text-xs text-zinc-500 truncate">{email.sender}</p>
                                 <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{email.snippet}</p>
                                 {email.import_status ? (
-                                  <p
-                                    className={`text-[10px] mt-1 font-semibold ${
-                                      email.import_status === 'imported'
-                                        ? 'text-emerald-600'
-                                        : email.import_status === 'error'
-                                          ? 'text-red-600'
-                                          : 'text-amber-600'
-                                    }`}
-                                    title={email.import_error || undefined}
-                                  >
+                                  <p className={`text-[10px] mt-1 font-semibold ${
+                                    email.import_status === 'imported' ? 'text-emerald-600' : email.import_status === 'error' ? 'text-red-600' : 'text-amber-600'
+                                  }`} title={email.import_error || undefined}>
                                     Invoice: {email.import_status.replace(/_/g, ' ')}
-                                    {email.imported_invoice_id
-                                      ? ` (#${email.imported_invoice_id})`
-                                      : ''}
+                                    {email.imported_invoice_id ? ` (#${email.imported_invoice_id})` : ''}
                                     {email.import_error ? ` — ${email.import_error}` : ''}
                                   </p>
                                 ) : (
@@ -905,16 +879,12 @@ export default function Profile() {
                                 )}
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
-                                <button
-                                  onClick={() => toggleRead(email)}
-                                  className="px-2 py-1 text-[10px] rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100"
-                                >
+                                <button onClick={() => toggleRead(email)}
+                                  className="px-2 py-1 text-[10px] rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100">
                                   {email.is_read ? 'Mark unread' : 'Mark read'}
                                 </button>
-                                <button
-                                  onClick={() => toggleStar(email)}
-                                  className={`p-1.5 rounded-lg border ${email.is_starred ? 'bg-amber-50 border-amber-200 text-amber-600' : 'border-zinc-200 text-zinc-400 hover:bg-zinc-100'}`}
-                                >
+                                <button onClick={() => toggleStar(email)}
+                                  className={`p-1.5 rounded-lg border ${email.is_starred ? 'bg-amber-50 border-amber-200 text-amber-600' : 'border-zinc-200 text-zinc-400 hover:bg-zinc-100'}`}>
                                   <Star size={13} />
                                 </button>
                               </div>
@@ -930,11 +900,8 @@ export default function Profile() {
                     <p className="text-sm text-zinc-500 leading-relaxed">
                       Connect your Gmail account, scrape recent emails, and view them directly in this Profile section.
                     </p>
-                    <button
-                      onClick={handleConnect}
-                      disabled={oauthHandling || gmailLoading}
-                      className="w-full flex items-center justify-center gap-3 py-3 border-2 border-zinc-200 rounded-xl font-bold text-sm text-zinc-900 hover:border-zinc-400 hover:bg-zinc-50 transition-all"
-                    >
+                    <button onClick={handleConnect} disabled={oauthHandling || gmailLoading}
+                      className="w-full flex items-center justify-center gap-3 py-3 border-2 border-zinc-200 rounded-lg font-bold text-sm text-zinc-900 hover:border-zinc-400 hover:bg-zinc-50 transition-all">
                       <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-white text-[10px] font-black">G</div>
                       {oauthHandling ? 'Completing OAuth...' : 'Connect with Google'}
                     </button>
@@ -942,16 +909,14 @@ export default function Profile() {
                 )}
               </div>
             </div>
-        </div>
+          </div>
+        )}
 
-        <p className="text-center pt-6 pb-2">
-          <Link
-            to="/privacy-policy"
-            className="text-xs font-semibold text-zinc-400 hover:text-emerald-600 transition-colors"
-          >
+        <div className="mt-6 text-center">
+          <Link to="/privacy-policy" className="text-xs font-semibold text-zinc-400 hover:text-emerald-600 transition-colors">
             Privacy Policy
           </Link>
-        </p>
+        </div>
       </div>
     </div>
   );

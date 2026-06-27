@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { updateWebPushToken } from '../lib/api';
-import { APP_NOTIFICATIONS_UPDATED_EVENT, NEW_INVOICE_EVENT, appApi } from '../lib/appApi';
+import { APP_NOTIFICATIONS_UPDATED_EVENT, NEW_INVOICE_EVENT, type NewInvoiceEventDetail, appApi } from '../lib/appApi';
 import {
   getWebPushRegistrationToken,
   isWebPushConfigured,
@@ -78,6 +78,15 @@ export function useWebPush() {
       if (data?.type === 'new_invoice' && data?.invoice_json) {
         try {
           const inv = JSON.parse(String(data.invoice_json));
+
+          const alreadyHandled =
+            (notificationId &&
+              appApi.getNotifications().some((n: any) => String(n.notificationId) === String(notificationId))) ||
+            appApi.getNotifications().some((n: any) => n.invoiceId === inv.id);
+          if (alreadyHandled) {
+            return;
+          }
+
           window.dispatchEvent(
             new CustomEvent(NEW_INVOICE_EVENT, {
               detail: { invoice: inv, notification_id: notificationId },

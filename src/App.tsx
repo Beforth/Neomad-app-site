@@ -1,8 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
 import NotificationBell from './components/NotificationBell';
-import { LogOut } from 'lucide-react';
+import { ChevronLeft, LogOut } from 'lucide-react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Invoices from './pages/Invoices';
@@ -15,6 +15,7 @@ import InvoiceRestorePage from './pages/invoices/InvoiceRestorePage';
 import InvoiceSignedPreviewPage from './pages/invoices/InvoiceSignedPreviewPage';
 import Tracking from './pages/Tracking';
 import Profile from './pages/Profile';
+import Settings from './pages/Settings';
 import DeliveryBoyApp from './pages/DeliveryBoyApp';
 import UserManagement from './pages/UserManagement';
 import Reports from './pages/Reports';
@@ -39,11 +40,13 @@ const PAGE_TITLES: Record<string, string> = {
   '/tracking': 'Live Tracking',
   '/reports': 'Reports',
   '/users': 'User Management',
+  '/settings': 'Settings',
   '/notifications': 'Notifications',
   '/profile': 'Profile',
 };
 
 function TopBar() {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const location = useLocation();
   let title = PAGE_TITLES[location.pathname] || 'Dashboard';
@@ -55,9 +58,20 @@ function TopBar() {
   if (p === '/tasks' || p.startsWith('/tasks/')) {
     title = 'Tasks';
   }
+  const showBack = p !== '/';
   return (
     <header className="h-16 bg-white border-b border-zinc-100 px-5 flex items-center justify-between sticky top-0 z-30 shadow-sm grow-0 shrink-0">
       <div className="flex items-center gap-3">
+        {showBack && (
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+            aria-label="Go back"
+          >
+            <ChevronLeft size={20} />
+          </button>
+        )}
         <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-4 ring-emerald-50">
           M
         </div>
@@ -127,8 +141,9 @@ function AppRoutes() {
             <Route path="/users" element={user.role === 'admin' ? <UserManagement /> : <Navigate to="/" />} />
             <Route path="/logs" element={<AuditLogs />} />
             <Route path="/reports" element={<Reports />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="*" element={<Navigate to="/" />} />
+    <Route path="/settings" element={<Settings />} />
+    <Route path="/notifications" element={<Notifications />} />
+    <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
         <div className="lg:hidden">

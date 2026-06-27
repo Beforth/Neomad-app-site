@@ -49,6 +49,21 @@ if (firebaseConfigured) {
     });
   });
 }
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch { /* ignore */ }
+  const title = data.title || 'Neomed';
+  const bodyText = data.body || '';
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: bodyText,
+      icon: '/favicon.ico',
+      data: { url: '/invoices' },
+    })
+  );
+});
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = event.notification.data && event.notification.data.url;

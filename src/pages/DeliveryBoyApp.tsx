@@ -508,7 +508,10 @@ export default function DeliveryBoyApp() {
       <AnimatePresence>
         {showShiftModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-zinc-900/50 flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4 relative">
+              <button type="button" onClick={() => setShowShiftModal(false)} className="absolute top-3 right-3 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" aria-label="Close">
+                <X size={18} />
+              </button>
               <div className="text-center">
                 <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="text-emerald-500" size={32} />
@@ -535,7 +538,10 @@ export default function DeliveryBoyApp() {
       <AnimatePresence>
         {showCancelModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-zinc-900/50 flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4 relative">
+              <button type="button" onClick={() => setShowCancelModal(false)} className="absolute top-3 right-3 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" aria-label="Close">
+                <X size={18} />
+              </button>
               <h3 className="text-xl font-bold text-zinc-900">Release order?</h3>
               <p className="text-sm text-zinc-500">
                 This returns the invoice to Available so another delivery person can accept it. Please provide a reason.
@@ -557,7 +563,10 @@ export default function DeliveryBoyApp() {
       <AnimatePresence>
         {showFeedbackModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-zinc-900/50 flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4 relative">
+              <button type="button" onClick={() => { setShowFeedbackModal(false); setFeedback(null); setFeedbackReason(''); }} className="absolute top-3 right-3 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" aria-label="Close">
+                <X size={18} />
+              </button>
               <h3 className="text-xl font-bold text-zinc-900 text-center">Delivery Feedback</h3>
               <p className="text-sm text-zinc-500 text-center">How was this delivery experience?</p>
 

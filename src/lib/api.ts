@@ -780,6 +780,24 @@ export async function uploadTaskPhoto(token: string, taskId: number, file: File)
   return res.json();
 }
 
+/** Upload signed copy image for an invoice. Admin/manager or delivery assignee. */
+export async function uploadSignedCopy(token: string, invoiceId: number, file: File): Promise<{ signed_copy_url: string }> {
+  const base = getBaseUrl();
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${base}/invoices/${invoiceId}/signed-copy`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to upload signed copy'));
+  }
+  return res.json();
+}
+
 /** Delete task. Admin or manager. */
 export async function deleteTask(token: string, taskId: number): Promise<void> {
   const base = getBaseUrl();
@@ -1200,6 +1218,7 @@ export interface GmailAccountStatus {
   is_active: boolean;
   connected_at: string;
   last_sync_at: string | null;
+  error_message?: string | null;
 }
 
 export interface GmailStatusResponse {
@@ -1376,6 +1395,85 @@ export async function toggleGmailEmailStar(token: string, emailId: number): Prom
     throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to toggle email star'));
   }
   return res.json();
+}
+
+// ── Provider API Keys ─────────────────────────────────────────────────────
+
+export interface ProviderApiKeyItem {
+  id: number;
+  provider: 'groq' | 'gemini';
+  label: string | null;
+  key_preview: string;
+  is_active: boolean;
+  failure_count: number;
+  last_failure_at: string | null;
+  created_at: string;
+}
+
+export interface ProviderApiKeyListResponse {
+  items: ProviderApiKeyItem[];
+}
+
+/** List all API keys (key values never returned). */
+export async function listApiKeys(token: string): Promise<ProviderApiKeyListResponse> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/api-keys`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to list API keys'));
+  }
+  return res.json();
+}
+
+/** Store a new encrypted API key. */
+export async function createApiKey(
+  token: string,
+  data: { provider: string; label?: string; key: string }
+): Promise<ProviderApiKeyItem> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/api-keys`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to create API key'));
+  }
+  return res.json();
+}
+
+/** Toggle an API key active/inactive. */
+export async function toggleApiKey(token: string, keyId: number): Promise<ProviderApiKeyItem> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/api-keys/${keyId}/toggle`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to toggle API key'));
+  }
+  return res.json();
+}
+
+/** Delete an API key. */
+export async function deleteApiKey(token: string, keyId: number): Promise<void> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/api-keys/${keyId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to delete API key'));
+  }
 }
 
 export { getBaseUrl };

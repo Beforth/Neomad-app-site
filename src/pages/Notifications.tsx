@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { APP_NOTIFICATIONS_UPDATED_EVENT, appApi } from '../lib/appApi';
 import {
   Bell, Plus, Send, Trash2, Users, Shield, Truck,
-  CheckCircle2, Clock, X, Bot
+  CheckCircle2, Clock, X, Bot, ChevronLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -23,6 +24,7 @@ const PRIORITY_OPTIONS = [
 const PAGE_SIZE = 20;
 
 export default function Notifications() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showCompose, setShowCompose] = useState(false);
@@ -148,9 +150,21 @@ export default function Notifications() {
 
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Notifications</h1>
-          <p className="text-xs text-zinc-500 font-medium truncate">Broadcast messages to your team</p>
+        <div className="flex items-center gap-3 min-w-0">
+          {(user?.role === 'delivery_boy' || user?.role === 'staff') && (
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors shrink-0"
+              aria-label="Go back"
+            >
+              <ChevronLeft size={20} />
+            </button>
+          )}
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Notifications</h1>
+            <p className="text-xs text-zinc-500 font-medium truncate">Broadcast messages to your team</p>
+          </div>
         </div>
         <button
           type="button"
@@ -250,7 +264,10 @@ export default function Notifications() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm">
             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 border border-zinc-100">
+              className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 border border-zinc-100 relative">
+              <button type="button" onClick={() => setNotificationToDelete(null)} className="absolute top-3 right-3 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" aria-label="Close">
+                <X size={18} />
+              </button>
               <p className="font-bold text-zinc-900">Are you sure?</p>
               <p className="text-sm text-zinc-500 mt-1">This notification will be deleted permanently.</p>
               <div className="flex gap-3 mt-5">

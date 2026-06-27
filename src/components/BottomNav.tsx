@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, UserCircle, FileText, Users } from 'lucide-react';
+import { LayoutDashboard, Package, UserCircle, FileText, Users, Settings as SettingsIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { isNavItemActive } from '../lib/navActive';
 
@@ -15,6 +15,7 @@ export default function BottomNav() {
         { label: 'Tasks', icon: Package, path: '/tasks', roles: ['admin', 'manager'] },
         { label: 'Invoices', icon: FileText, path: '/invoices', roles: ['admin', 'manager', 'delivery_boy', 'staff'] },
         { label: 'Users', icon: Users, path: '/users', roles: ['admin'] },
+        { label: 'Settings', icon: SettingsIcon, path: '/settings', roles: ['admin'] },
         { label: 'Profile', icon: UserCircle, path: '/profile', roles: ['admin', 'manager', 'delivery_boy', 'staff'] },
     ];
 

@@ -114,11 +114,17 @@ export default function MapPreview({
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
+        minZoom={3}
+        maxZoom={19}
+        zoomSnap={0.25}
+        zoomDelta={0.5}
       >
         <ResizeHandler center={center} zoom={zoom} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
+          maxNativeZoom={19}
         />
 
         {/* Render Route Polyline(s) */}

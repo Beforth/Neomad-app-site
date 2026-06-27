@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Search, XCircle, ChevronLeft, ChevronRight,
-  Download, RefreshCw, AlertCircle,
+  Download, RefreshCw, AlertCircle, Plus, CheckCircle2,
 } from 'lucide-react';
-import { getUsers } from '../lib/api';
+import { getUsers, createInvoice, updateInvoice, uploadSignedCopy } from '../lib/api';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   fetchInvoicesList,
@@ -46,7 +46,7 @@ export default function Invoices() {
   const [invoiceTab, setInvoiceTab] = useState<'active' | 'deleted'>('active');
   const [boyFilter, setBoyFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
-  const [sortBy, setSortBy] = useState('created_at');
+  const [sortBy, setSortBy] = useState('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
@@ -56,6 +56,16 @@ export default function Invoices() {
   const [showMetrics, setShowMetrics] = useState(false);
   const [invoiceMetrics, setInvoiceMetrics] = useState<any>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({ invoice_number: '', hospital_name: '', amount: '', description: '', assigned_to: '' });
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState('');
+
+  const [completeTarget, setCompleteTarget] = useState<ApiInvoice | null>(null);
+  const [completeFile, setCompleteFile] = useState<File | null>(null);
+  const [completeUploadedUrl, setCompleteUploadedUrl] = useState('');
+  const [completeBusy, setCompleteBusy] = useState(false);
+  const [completeError, setCompleteError] = useState('');
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300);
@@ -257,6 +267,16 @@ export default function Invoices() {
     [dispatch, token]
   );
 
+  const openMarkComplete = useCallback(
+    (inv: ApiInvoice) => {
+      setCompleteTarget(inv);
+      setCompleteFile(null);
+      setCompleteUploadedUrl('');
+      setCompleteError('');
+    },
+    []
+  );
+
   const filtered = typeFilter === 'all' ? invoices : invoices.filter((i) => i.invoice_type === typeFilter);
   const handleExport = useCallback(() => {
     const rows = filtered;
@@ -345,6 +365,15 @@ export default function Invoices() {
           >
             <Download size={14} />Export
           </button>
+          {(user?.role === 'admin' || user?.role === 'manager') && (
+            <button
+              type="button"
+              onClick={() => { setShowCreateModal(true); setCreateError(''); }}
+              className="bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors flex items-center gap-2 shadow-sm"
+            >
+              <Plus size={14} /> Create Invoice
+            </button>
+          )}
         </div>
       </header>
       {listError && (
@@ -599,6 +628,7 @@ export default function Invoices() {
                       onRequestRestore={openRestore}
                       onRequestDelete={openDelete}
                       onRequestRecoverDeleted={invoiceTab === 'deleted' ? openRecoverDeleted : undefined}
+                      onMarkComplete={openMarkComplete}
                     />
                   );
                 })
@@ -696,6 +726,169 @@ export default function Invoices() {
                   className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 disabled:opacity-50"
                 >
                   Assign
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-zinc-100 flex justify-between items-center bg-zinc-50 relative">
+              <h3 className="font-bold text-zinc-900">Create Invoice</h3>
+              <button onClick={() => setShowCreateModal(false)} className="text-zinc-400 hover:text-zinc-600 absolute right-4">
+                <XCircle size={18} />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {createError && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{createError}</p>}
+              <input
+                type="text" placeholder="Invoice number *" value={createForm.invoice_number}
+                onChange={(e) => setCreateForm({ ...createForm, invoice_number: e.target.value })}
+                className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5"
+              />
+              <input
+                type="text" placeholder="Hospital / Entity *" value={createForm.hospital_name}
+                onChange={(e) => setCreateForm({ ...createForm, hospital_name: e.target.value })}
+                className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5"
+              />
+              <input
+                type="number" step="0.01" min="0" placeholder="Amount" value={createForm.amount}
+                onChange={(e) => setCreateForm({ ...createForm, amount: e.target.value })}
+                className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5"
+              />
+              <input
+                type="text" placeholder="Description (optional)" value={createForm.description}
+                onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+                className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5"
+              />
+              <SearchableSelect
+                value={createForm.assigned_to}
+                onChange={(v) => setCreateForm({ ...createForm, assigned_to: v })}
+                options={[
+                  { value: '', label: 'No assignment (pending)' },
+                  ...availableAssignees.map((b) => ({ value: String(b.id), label: b.name })),
+                ]}
+                className="w-full"
+              />
+              <div className="flex gap-2 justify-end pt-2">
+                <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-600 hover:bg-zinc-50">
+                  Cancel
+                </button>
+                <button
+                  disabled={createBusy || !createForm.invoice_number.trim() || !createForm.hospital_name.trim()}
+                  onClick={async () => {
+                    if (!token) return;
+                    setCreateBusy(true);
+                    setCreateError('');
+                    try {
+                      await createInvoice(token, {
+                        invoice_number: createForm.invoice_number.trim(),
+                        hospital_name: createForm.hospital_name.trim(),
+                        amount: createForm.amount ? Number(createForm.amount) : 0,
+                        description: createForm.description.trim() || undefined,
+                        assigned_to: createForm.assigned_to ? Number(createForm.assigned_to) : undefined,
+                      });
+                      setShowCreateModal(false);
+                      setCreateForm({ invoice_number: '', hospital_name: '', amount: '', description: '', assigned_to: '' });
+                      dispatch(fetchInvoicesList({
+                        token,
+                        params: {
+                          sort_by: sortBy, sort_order: sortOrder, page, page_size: pageSize,
+                          ...(searchDebounced.trim() ? { search: searchDebounced.trim() } : {}),
+                          ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+                          ...(typeFilter !== 'all' ? { invoice_type: typeFilter } : {}),
+                          ...(boyFilter !== 'all' ? { assigned_to: Number(boyFilter) } : {}),
+                          ...(dateFilter ? { date_from: dateFilter, date_to: dateFilter } : {}),
+                          ...(invoiceTab === 'deleted' ? { deleted: true } : {}),
+                        },
+                      }));
+                    } catch (e: any) {
+                      setCreateError(e.message || 'Failed to create invoice');
+                    } finally {
+                      setCreateBusy(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 disabled:opacity-50"
+                >
+                  {createBusy ? 'Creating…' : 'Create'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {completeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-zinc-100 flex justify-between items-center bg-zinc-50 relative">
+              <h3 className="font-bold text-zinc-900">Mark Complete</h3>
+              <button onClick={() => setCompleteTarget(null)} className="text-zinc-400 hover:text-zinc-600 absolute right-4">
+                <XCircle size={18} />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {completeError && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{completeError}</p>}
+              <p className="text-xs text-zinc-600">
+                Invoice: <span className="font-bold text-zinc-900">{completeTarget.invoice_number}</span>
+              </p>
+
+              {!completeUploadedUrl ? (
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 mb-1">Upload signed copy *</label>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setCompleteFile(e.target.files?.[0] ?? null)}
+                    className="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-900 file:text-white hover:file:bg-zinc-800 cursor-pointer"
+                  />
+                </div>
+              ) : (
+                <p className="text-xs text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 size={14} /> Signed copy uploaded
+                </p>
+              )}
+
+              <div className="flex gap-2 justify-end pt-2">
+                <button onClick={() => setCompleteTarget(null)} className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-600 hover:bg-zinc-50">
+                  Cancel
+                </button>
+                <button
+                  disabled={completeBusy || !completeFile || !!completeUploadedUrl}
+                  onClick={async () => {
+                    if (!token || !completeFile) return;
+                    setCompleteBusy(true);
+                    setCompleteError('');
+                    try {
+                      const { signed_copy_url } = await uploadSignedCopy(token, completeTarget.id, completeFile);
+                      await updateInvoice(token, completeTarget.id, { status: 'completed', signed_copy_url } as any);
+                      setCompleteTarget(null);
+                      setCompleteFile(null);
+                      setCompleteUploadedUrl('');
+                      dispatch(fetchInvoicesList({
+                        token,
+                        params: {
+                          sort_by: sortBy, sort_order: sortOrder, page, page_size: pageSize,
+                          ...(searchDebounced.trim() ? { search: searchDebounced.trim() } : {}),
+                          ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+                          ...(typeFilter !== 'all' ? { invoice_type: typeFilter } : {}),
+                          ...(boyFilter !== 'all' ? { assigned_to: Number(boyFilter) } : {}),
+                          ...(dateFilter ? { date_from: dateFilter, date_to: dateFilter } : {}),
+                          ...(invoiceTab === 'deleted' ? { deleted: true } : {}),
+                        },
+                      }));
+                    } catch (e: any) {
+                      setCompleteError(e.message || 'Failed to mark complete');
+                    } finally {
+                      setCompleteBusy(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {completeBusy ? 'Completing…' : <><CheckCircle2 size={14} /> Complete</>}
                 </button>
               </div>
             </div>

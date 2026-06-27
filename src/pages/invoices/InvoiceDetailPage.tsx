@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getUsers, updateInvoice, getInvoiceAuditLogs } from '../../lib/api';
+import { getUsers, updateInvoice, getInvoiceAuditLogs, uploadSignedCopy } from '../../lib/api';
 import type { AuditLogEntry } from '../../lib/api';
 import {
   MapPin, FileImage, IndianRupee, FileText, AlertCircle, Trash2, List,
@@ -27,6 +27,10 @@ export default function InvoiceDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [pageNotice, setPageNotice] = useState('');
+  const [statusAction, setStatusAction] = useState<'delivered' | 'completed' | null>(null);
+  const [statusBusy, setStatusBusy] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadedUrl, setUploadedUrl] = useState('');
 
   // ── Edit core fields ──
   const [editing, setEditing] = useState(false);
@@ -196,6 +200,8 @@ export default function InvoiceDetailPage() {
     isManager;
   const showRestore =
     invoice.status === 'cancelled' && user?.role !== 'delivery_boy' && isManager;
+  const showMarkDelivered = isManager && invoice.status === 'return';
+  const showMarkComplete = isManager && !['completed', 'cancelled'].includes(invoice.status);
 
   return (
     <InvoiceSectionFrame
@@ -233,6 +239,24 @@ export default function InvoiceDetailPage() {
             >
               <RotateCcw size={16} /> Restore to pending
             </Link>
+          ) : null}
+          {showMarkDelivered ? (
+            <button
+              type="button"
+              onClick={() => { setStatusAction('delivered'); setUploadFile(null); setUploadedUrl(''); }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-blue-200 bg-blue-50 text-xs font-bold text-blue-700 hover:bg-blue-100"
+            >
+              <CheckCircle2 size={16} /> Mark Delivered
+            </button>
+          ) : null}
+          {showMarkComplete ? (
+            <button
+              type="button"
+              onClick={() => { setStatusAction('completed'); setUploadFile(null); setUploadedUrl(''); }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+            >
+              <CheckCircle2 size={16} /> Mark Complete
+            </button>
           ) : null}
           {isManager ? (
             <button
@@ -610,7 +634,10 @@ export default function InvoiceDetailPage() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden"
             >
-              <div className="p-6 border-b border-zinc-100">
+              <div className="p-6 border-b border-zinc-100 relative">
+                <button type="button" onClick={() => { setShowDeleteModal(false); dispatch(clearInvoicesError()); }} className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" aria-label="Close">
+                  <X size={18} />
+                </button>
                 <h2 id="invoice-delete-title" className="text-lg font-bold text-zinc-900">
                   Delete invoice?
                 </h2>
@@ -659,6 +686,101 @@ export default function InvoiceDetailPage() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      {statusAction && invoice && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="p-6 border-b border-zinc-100 relative">
+              <button type="button" onClick={() => { setStatusAction(null); setUploadFile(null); setUploadedUrl(''); }} className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" aria-label="Close">
+                <X size={18} />
+              </button>
+              <h2 className="text-lg font-bold text-zinc-900">
+                {statusAction === 'delivered' ? 'Mark as Delivered' : 'Mark as Complete'}
+              </h2>
+              <p className="text-sm text-zinc-600 mt-2">
+                <span className="font-semibold">{invoice.invoice_number}</span> &middot; {invoice.hospital_name}
+              </p>
+              {statusAction === 'completed' && (
+                <div className="mt-4 space-y-3">
+                  {!uploadedUrl ? (
+                    <>
+                      <label className="text-xs font-bold text-zinc-500 block">Upload invoice document *</label>
+                      <input
+                        type="file" accept="image/*"
+                        onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                        className="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-900 file:text-white hover:file:bg-zinc-800"
+                      />
+                      <button
+                        type="button"
+                        disabled={statusBusy || !uploadFile || !token}
+                        onClick={async () => {
+                          if (!token || !uploadFile) return;
+                          setStatusBusy(true);
+                          try {
+                            const result = await uploadSignedCopy(token, invoice.id, uploadFile);
+                            setUploadedUrl(result.signed_copy_url);
+                            setUploadFile(null);
+                          } catch (e: any) {
+                            setPageNotice(e.message || 'Upload failed');
+                          } finally {
+                            setStatusBusy(false);
+                          }
+                        }}
+                        className="w-full px-4 py-2 rounded-xl bg-zinc-800 text-white text-xs font-bold hover:bg-zinc-700 disabled:opacity-50"
+                      >
+                        {statusBusy ? 'Uploading…' : 'Upload Document'}
+                      </button>
+                    </>
+                  ) : (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                      <p className="text-xs font-bold text-emerald-700">Document uploaded</p>
+                      <p className="text-[10px] text-emerald-600 mt-1 break-all">{uploadedUrl}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {statusAction === 'delivered' && (
+                <p className="text-xs text-zinc-500 mt-3">Change status from return to delivered.</p>
+              )}
+            </div>
+            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
+              <button
+                type="button"
+                disabled={statusBusy}
+                onClick={() => { setStatusAction(null); setUploadFile(null); setUploadedUrl(''); }}
+                className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={statusBusy || !token || (statusAction === 'completed' && !uploadedUrl)}
+                onClick={async () => {
+                  if (!token || !invoice) return;
+                  setStatusBusy(true);
+                  try {
+                    const patch: Record<string, unknown> = { status: statusAction };
+                    if (uploadedUrl) patch.signed_copy_url = uploadedUrl;
+                    await updateInvoice(token, invoice.id, patch as any);
+                    setStatusAction(null);
+                    setUploadFile(null);
+                    setUploadedUrl('');
+                    window.location.reload();
+                  } catch (e: any) {
+                    setPageNotice(e.message || 'Failed to update status');
+                    setStatusAction(null);
+                  } finally {
+                    setStatusBusy(false);
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 disabled:opacity-50"
+              >
+                {statusBusy ? 'Updating…' : statusAction === 'delivered' ? 'Mark Delivered' : 'Complete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </InvoiceSectionFrame>
   );
 }

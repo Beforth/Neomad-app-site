@@ -115,7 +115,6 @@ function dispatchNewInvoiceAlert(detail: NewInvoiceEventDetail): boolean {
     detail.notification_id &&
     appApi.getNotifications().some((n: any) => String(n.notificationId) === String(detail.notification_id))
   ) {
-    window.dispatchEvent(new CustomEvent(NEW_INVOICE_EVENT, { detail }));
     return false;
   }
 

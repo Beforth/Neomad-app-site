@@ -7,6 +7,7 @@ import {
   RotateCcw,
   Trash2,
   Banknote,
+  CheckCircle2,
 } from 'lucide-react';
 import type { ApiInvoice } from '../../lib/api';
 import { InvoiceIconTooltip } from './InvoiceIconTooltip';
@@ -51,6 +52,7 @@ export interface InvoiceDesktopRowProps {
   onRequestRestore: (inv: ApiInvoice) => void;
   onRequestDelete: (inv: ApiInvoice) => void;
   onRequestRecoverDeleted?: (inv: ApiInvoice) => void;
+  onMarkComplete?: (inv: ApiInvoice) => void;
 }
 
 function InvoiceDesktopRowInner({
@@ -68,6 +70,7 @@ function InvoiceDesktopRowInner({
   onRequestRestore,
   onRequestDelete,
   onRequestRecoverDeleted,
+  onMarkComplete,
 }: InvoiceDesktopRowProps) {
   const stop = useCallback((e: React.MouseEvent) => e.stopPropagation(), []);
 
@@ -183,6 +186,19 @@ function InvoiceDesktopRowInner({
               </button>
             </InvoiceIconTooltip>
           )}
+          {(userRole === 'admin' || userRole === 'manager') &&
+            !['completed', 'cancelled'].includes(invoice.status) && (
+            <InvoiceIconTooltip label="Mark complete">
+              <button
+                type="button"
+                onClick={() => onMarkComplete?.(invoice)}
+                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                aria-label="Mark complete"
+              >
+                <CheckCircle2 size={14} />
+              </button>
+            </InvoiceIconTooltip>
+          )}
           {(invoice.status === 'pending' || invoice.status === 'assigned') && (
             <InvoiceIconTooltip label="Void invoice">
               <button
@@ -252,6 +268,7 @@ function propsEqual(prev: InvoiceDesktopRowProps, next: InvoiceDesktopRowProps) 
     prev.onRequestRestore === next.onRequestRestore &&
     prev.onRequestDelete === next.onRequestDelete
     && prev.onRequestRecoverDeleted === next.onRequestRecoverDeleted
+    && prev.onMarkComplete === next.onMarkComplete
   );
 }
 
