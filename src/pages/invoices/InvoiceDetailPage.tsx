@@ -688,41 +688,55 @@ export default function InvoiceDetailPage() {
                 <span className="font-semibold">{invoice.invoice_number}</span> &middot; {invoice.hospital_name}
               </p>
               <div className="mt-4 space-y-3">
-                  {!uploadedUrl ? (
-                    <>
-                      <label className="text-xs font-bold text-zinc-500 block">Upload invoice document (optional)</label>
-                      <input
-                        type="file" accept="image/*"
-                        onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                        className="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-900 file:text-white hover:file:bg-zinc-800"
-                      />
-                      <button
-                        type="button"
-                        disabled={statusBusy || !uploadFile || !token}
-                        onClick={async () => {
-                          if (!token || !uploadFile) return;
-                          setStatusBusy(true);
-                          try {
-                            const result = await uploadSignedCopy(token, invoice.id, uploadFile);
-                            setUploadedUrl(result.signed_copy_url);
-                            setUploadFile(null);
-                          } catch (e: any) {
-                            setPageNotice(e.message || 'Upload failed');
-                          } finally {
-                            setStatusBusy(false);
-                          }
-                        }}
-                        className="w-full px-4 py-2 rounded-xl bg-zinc-800 text-white text-xs font-bold hover:bg-zinc-700 disabled:opacity-50"
-                      >
-                        {statusBusy ? 'Uploading…' : 'Upload Document'}
-                      </button>
-                    </>
-                  ) : (
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                      <p className="text-xs font-bold text-emerald-700">Document uploaded</p>
-                      <p className="text-[10px] text-emerald-600 mt-1 break-all">{uploadedUrl}</p>
-                    </div>
-                  )}
+                  {(() => {
+                    const existingDoc = invoice.signed_copy_url;
+                    if (existingDoc) {
+                      return (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                          <p className="text-xs font-bold text-emerald-700">Document already uploaded</p>
+                          <p className="text-[10px] text-emerald-600 mt-1 break-all">{existingDoc}</p>
+                        </div>
+                      );
+                    }
+                    if (uploadedUrl) {
+                      return (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                          <p className="text-xs font-bold text-emerald-700">Document uploaded</p>
+                          <p className="text-[10px] text-emerald-600 mt-1 break-all">{uploadedUrl}</p>
+                        </div>
+                      );
+                    }
+                    return (
+                      <>
+                        <label className="text-xs font-bold text-zinc-500 block">Upload invoice document *</label>
+                        <input
+                          type="file" accept="image/*"
+                          onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                          className="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-900 file:text-white hover:file:bg-zinc-800"
+                        />
+                        <button
+                          type="button"
+                          disabled={statusBusy || !uploadFile || !token}
+                          onClick={async () => {
+                            if (!token || !uploadFile) return;
+                            setStatusBusy(true);
+                            try {
+                              const result = await uploadSignedCopy(token, invoice.id, uploadFile);
+                              setUploadedUrl(result.signed_copy_url);
+                              setUploadFile(null);
+                            } catch (e: any) {
+                              setPageNotice(e.message || 'Upload failed');
+                            } finally {
+                              setStatusBusy(false);
+                            }
+                          }}
+                          className="w-full px-4 py-2 rounded-xl bg-zinc-800 text-white text-xs font-bold hover:bg-zinc-700 disabled:opacity-50"
+                        >
+                          {statusBusy ? 'Uploading…' : 'Upload Document'}
+                        </button>
+                      </>
+                    );
+                  })()}
                 </div>
             </div>
             <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
@@ -736,7 +750,7 @@ export default function InvoiceDetailPage() {
               </button>
               <button
                 type="button"
-                disabled={statusBusy || !token}
+                disabled={statusBusy || !token || (!uploadedUrl && !invoice.signed_copy_url)}
                 onClick={async () => {
                   if (!token || !invoice) return;
                   setStatusBusy(true);

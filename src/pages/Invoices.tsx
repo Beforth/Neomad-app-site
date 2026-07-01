@@ -838,31 +838,41 @@ export default function Invoices() {
                 Invoice: <span className="font-bold text-zinc-900">{completeTarget.invoice_number}</span>
               </p>
 
-              {!completeUploadedUrl ? (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 mb-1">Upload signed copy (optional)</label>
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf"
-                    onChange={(e) => setCompleteFile(e.target.files?.[0] ?? null)}
-                    className="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-900 file:text-white hover:file:bg-zinc-800 cursor-pointer"
-                  />
-                  {!completeFile && (
-                    <p className="text-[10px] text-zinc-400 mt-1">No file required — can complete without upload</p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs text-emerald-600 flex items-center gap-1">
-                  <CheckCircle2 size={14} /> Signed copy uploaded
-                </p>
-              )}
+              {(() => {
+                const existingCopy = completeTarget.signed_copy_url;
+                if (existingCopy) {
+                  return (
+                    <p className="text-xs text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 size={14} /> Signed copy already uploaded
+                    </p>
+                  );
+                }
+                if (completeUploadedUrl) {
+                  return (
+                    <p className="text-xs text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 size={14} /> Signed copy uploaded
+                    </p>
+                  );
+                }
+                return (
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 mb-1">Upload signed copy *</label>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => setCompleteFile(e.target.files?.[0] ?? null)}
+                      className="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-900 file:text-white hover:file:bg-zinc-800 cursor-pointer"
+                    />
+                  </div>
+                );
+              })()}
 
               <div className="flex gap-2 justify-end pt-2">
                 <button onClick={() => setCompleteTarget(null)} className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-600 hover:bg-zinc-50">
                   Cancel
                 </button>
                 <button
-                  disabled={completeBusy}
+                  disabled={completeBusy || (!completeFile && !completeUploadedUrl && !completeTarget.signed_copy_url)}
                   onClick={async () => {
                     if (!token) return;
                     setCompleteBusy(true);
@@ -872,6 +882,8 @@ export default function Invoices() {
                       if (completeFile) {
                         const result = await uploadSignedCopy(token, completeTarget.id, completeFile);
                         signed_copy_url = result.signed_copy_url;
+                      } else if (completeUploadedUrl) {
+                        signed_copy_url = completeUploadedUrl;
                       }
                       await updateInvoice(token, completeTarget.id, { status: 'completed', signed_copy_url } as any);
                       setCompleteTarget(null);
