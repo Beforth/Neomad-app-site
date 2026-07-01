@@ -27,7 +27,7 @@ export default function InvoiceDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [pageNotice, setPageNotice] = useState('');
-  const [statusAction, setStatusAction] = useState<'delivered' | 'completed' | null>(null);
+  const [statusAction, setStatusAction] = useState<'completed' | null>(null);
   const [statusBusy, setStatusBusy] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadedUrl, setUploadedUrl] = useState('');
@@ -200,7 +200,6 @@ export default function InvoiceDetailPage() {
     isManager;
   const showRestore =
     invoice.status === 'cancelled' && user?.role !== 'delivery_boy' && isManager;
-  const showMarkDelivered = isManager && invoice.status === 'return';
   const showMarkComplete = isManager && !['completed', 'cancelled'].includes(invoice.status);
 
   return (
@@ -239,15 +238,6 @@ export default function InvoiceDetailPage() {
             >
               <RotateCcw size={16} /> Restore to pending
             </Link>
-          ) : null}
-          {showMarkDelivered ? (
-            <button
-              type="button"
-              onClick={() => { setStatusAction('delivered'); setUploadFile(null); setUploadedUrl(''); }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-blue-200 bg-blue-50 text-xs font-bold text-blue-700 hover:bg-blue-100"
-            >
-              <CheckCircle2 size={16} /> Mark Delivered
-            </button>
           ) : null}
           {showMarkComplete ? (
             <button
@@ -330,7 +320,6 @@ export default function InvoiceDetailPage() {
             </div>
           )}
         </div>
-
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-5">
@@ -694,14 +683,11 @@ export default function InvoiceDetailPage() {
               <button type="button" onClick={() => { setStatusAction(null); setUploadFile(null); setUploadedUrl(''); }} className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" aria-label="Close">
                 <X size={18} />
               </button>
-              <h2 className="text-lg font-bold text-zinc-900">
-                {statusAction === 'delivered' ? 'Mark as Delivered' : 'Mark as Complete'}
-              </h2>
+              <h2 className="text-lg font-bold text-zinc-900">Mark as Complete</h2>
               <p className="text-sm text-zinc-600 mt-2">
                 <span className="font-semibold">{invoice.invoice_number}</span> &middot; {invoice.hospital_name}
               </p>
-              {statusAction === 'completed' && (
-                <div className="mt-4 space-y-3">
+              <div className="mt-4 space-y-3">
                   {!uploadedUrl ? (
                     <>
                       <label className="text-xs font-bold text-zinc-500 block">Upload invoice document (optional)</label>
@@ -738,10 +724,6 @@ export default function InvoiceDetailPage() {
                     </div>
                   )}
                 </div>
-              )}
-              {statusAction === 'delivered' && (
-                <p className="text-xs text-zinc-500 mt-3">Change status from return to delivered.</p>
-              )}
             </div>
             <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
               <button
@@ -775,7 +757,7 @@ export default function InvoiceDetailPage() {
                 }}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 disabled:opacity-50"
               >
-                {statusBusy ? 'Updating…' : statusAction === 'delivered' ? 'Mark Delivered' : 'Complete'}
+                {statusBusy ? 'Updating…' : 'Complete'}
               </button>
             </div>
           </div>
