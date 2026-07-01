@@ -704,7 +704,7 @@ export default function InvoiceDetailPage() {
                 <div className="mt-4 space-y-3">
                   {!uploadedUrl ? (
                     <>
-                      <label className="text-xs font-bold text-zinc-500 block">Upload invoice document *</label>
+                      <label className="text-xs font-bold text-zinc-500 block">Upload invoice document (optional)</label>
                       <input
                         type="file" accept="image/*"
                         onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
@@ -754,7 +754,7 @@ export default function InvoiceDetailPage() {
               </button>
               <button
                 type="button"
-                disabled={statusBusy || !token || (statusAction === 'completed' && !uploadedUrl)}
+                disabled={statusBusy || !token}
                 onClick={async () => {
                   if (!token || !invoice) return;
                   setStatusBusy(true);

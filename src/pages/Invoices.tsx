@@ -432,6 +432,8 @@ export default function Invoices() {
             { value: 'pending', label: 'Pending' },
             { value: 'assigned', label: 'Assigned' },
             { value: 'delivered', label: 'Delivered' },
+            { value: 'return', label: 'Return' },
+            { value: 'completed', label: 'Completed' },
             { value: 'cancelled', label: 'Cancelled' },
           ]}
           className="min-w-[150px]"
@@ -838,13 +840,16 @@ export default function Invoices() {
 
               {!completeUploadedUrl ? (
                 <div>
-                  <label className="block text-xs font-bold text-zinc-500 mb-1">Upload signed copy *</label>
+                  <label className="block text-xs font-bold text-zinc-500 mb-1">Upload signed copy (optional)</label>
                   <input
                     type="file"
                     accept="image/*,application/pdf"
                     onChange={(e) => setCompleteFile(e.target.files?.[0] ?? null)}
                     className="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-900 file:text-white hover:file:bg-zinc-800 cursor-pointer"
                   />
+                  {!completeFile && (
+                    <p className="text-[10px] text-zinc-400 mt-1">No file required — can complete without upload</p>
+                  )}
                 </div>
               ) : (
                 <p className="text-xs text-emerald-600 flex items-center gap-1">
@@ -857,13 +862,17 @@ export default function Invoices() {
                   Cancel
                 </button>
                 <button
-                  disabled={completeBusy || !completeFile || !!completeUploadedUrl}
+                  disabled={completeBusy}
                   onClick={async () => {
-                    if (!token || !completeFile) return;
+                    if (!token) return;
                     setCompleteBusy(true);
                     setCompleteError('');
                     try {
-                      const { signed_copy_url } = await uploadSignedCopy(token, completeTarget.id, completeFile);
+                      let signed_copy_url: string | undefined;
+                      if (completeFile) {
+                        const result = await uploadSignedCopy(token, completeTarget.id, completeFile);
+                        signed_copy_url = result.signed_copy_url;
+                      }
                       await updateInvoice(token, completeTarget.id, { status: 'completed', signed_copy_url } as any);
                       setCompleteTarget(null);
                       setCompleteFile(null);
