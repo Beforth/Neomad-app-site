@@ -432,7 +432,6 @@ export default function Invoices() {
             { value: 'pending', label: 'Pending' },
             { value: 'assigned', label: 'Assigned' },
             { value: 'delivered', label: 'Delivered' },
-            { value: 'return', label: 'Return' },
             { value: 'completed', label: 'Completed' },
             { value: 'cancelled', label: 'Cancelled' },
           ]}

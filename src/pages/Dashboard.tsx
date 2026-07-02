@@ -70,7 +70,7 @@ export default function Dashboard() {
     appApi.getStats().then(setStats);
     appApi.getInvoices().then(invoices => {
       const recent = invoices
-        .filter((i: any) => i.status === 'completed' || i.status === 'return')
+        .filter((i: any) => i.status === 'completed' || i.status === 'delivered')
         .sort((a, b) => new Date(b.delivered_at || b.created_at).getTime() - new Date(a.delivered_at || a.created_at).getTime())
         .slice(0, 5);
       setRecentDeliveries(recent);

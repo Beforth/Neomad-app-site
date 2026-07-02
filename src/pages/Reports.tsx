@@ -158,7 +158,7 @@ export default function Reports() {
       const boys = users.filter((u: any) => u.role === 'delivery_boy');
       setDeliveryBoys(boys);
       const totalCompleted = invoices.filter((i: any) => i.status === 'completed').length;
-      const totalReturn = invoices.filter((i: any) => i.status === 'return').length;
+      const totalReturn = invoices.filter((i: any) => i.status === 'delivered').length;
       setGlobalStats(prev => ({ ...prev, totalBoys: boys.length, totalDelivered: totalCompleted }));
 
       const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -191,13 +191,13 @@ export default function Reports() {
 
       const total = Math.max(1, invoices.length);
       const completed = invoices.filter((x: any) => x.status === 'completed').length;
-      const returned = invoices.filter((x: any) => x.status === 'return').length;
+      const returned = invoices.filter((x: any) => x.status === 'delivered').length;
       const pending = invoices.filter((x: any) => x.status === 'pending').length;
       const assigned = invoices.filter((x: any) => x.status === 'assigned').length;
       const cancelled = invoices.filter((x: any) => x.status === 'cancelled').length;
       setPieData([
         { name: 'Completed', value: Math.round((completed / total) * 100), color: '#10b981' },
-        { name: 'Return', value: Math.round((returned / total) * 100), color: '#a855f7' },
+        { name: 'Delivered', value: Math.round((returned / total) * 100), color: '#a855f7' },
         { name: 'Assigned', value: Math.round((assigned / total) * 100), color: '#6366f1' },
         { name: 'Pending', value: Math.round((pending / total) * 100), color: '#f59e0b' },
         { name: 'Cancelled', value: Math.round((cancelled / total) * 100), color: '#ef4444' },
@@ -447,7 +447,7 @@ export default function Reports() {
                 options={[
                   { value: 'all', label: 'All Status' },
                   { value: 'completed', label: 'Completed' },
-                  { value: 'return', label: 'Return' },
+                  { value: 'delivered', label: 'Delivered' },
                   { value: 'assigned', label: 'Assigned' },
                   { value: 'pending', label: 'Pending' },
                   { value: 'cancelled', label: 'Cancelled' },
