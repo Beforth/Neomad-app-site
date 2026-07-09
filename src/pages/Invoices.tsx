@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -277,7 +277,10 @@ export default function Invoices() {
     []
   );
 
-  const filtered = typeFilter === 'all' ? invoices : invoices.filter((i) => i.invoice_type === typeFilter);
+  const filtered = useMemo(
+    () => typeFilter === 'all' ? invoices : invoices.filter((i) => i.invoice_type === typeFilter),
+    [invoices, typeFilter]
+  );
   const handleExport = useCallback(() => {
     const rows = filtered;
     if (rows.length === 0) return;

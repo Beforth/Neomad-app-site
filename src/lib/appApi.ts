@@ -155,7 +155,14 @@ const toFrontendUser = (u: any): User => ({
   status: u.is_active ? 'active' : 'inactive',
 });
 
+const _allInvoicesCache: { data: Invoice[]; loadedAt: number } = { data: [], loadedAt: 0 };
+const _CACHE_TTL_MS = 30_000;
+
 const getAllInvoices = async (): Promise<Invoice[]> => {
+  const now = Date.now();
+  if (_allInvoicesCache.data.length > 0 && now - _allInvoicesCache.loadedAt < _CACHE_TTL_MS) {
+    return _allInvoicesCache.data;
+  }
   const token = getTokenOrThrow();
   const pageSize = 100;
   const first = await getInvoicesApi(token, { page: 1, page_size: pageSize });
@@ -165,6 +172,8 @@ const getAllInvoices = async (): Promise<Invoice[]> => {
     const next = await getInvoicesApi(token, { page: p, page_size: pageSize });
     items = items.concat(next.items as Invoice[]);
   }
+  _allInvoicesCache.data = items;
+  _allInvoicesCache.loadedAt = Date.now();
   return items;
 };
 
