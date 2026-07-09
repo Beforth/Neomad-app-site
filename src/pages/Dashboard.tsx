@@ -68,13 +68,19 @@ export default function Dashboard() {
       setDeliveryBoys(users.filter((u: any) => u.role === 'delivery_boy'));
     });
     appApi.getStats().then(setStats);
-    appApi.getInvoices().then(invoices => {
-      const recent = invoices
-        .filter((i: any) => i.status === 'completed' || i.status === 'delivered')
-        .sort((a, b) => new Date(b.delivered_at || b.created_at).getTime() - new Date(a.delivered_at || a.created_at).getTime())
-        .slice(0, 5);
-      setRecentDeliveries(recent);
-    });
+    (async () => {
+      try {
+        const r = await getInvoicesApi(token!, {
+          page: 1,
+          page_size: 5,
+          sort_by: 'delivered_at',
+          sort_order: 'desc',
+        });
+        setRecentDeliveries((r.items as any[]).filter(
+          (i: any) => i.status === 'completed' || i.status === 'delivered',
+        ));
+      } catch {}
+    })();
   }, [user]);
 
   const mergedDuty = mergeOnDutySnapshotsWithLive(dutySnapshots, liveLocations);
