@@ -184,7 +184,7 @@ export default function DeliveryBoyApp() {
     if (token) {
       data = await appApi.getDeliveryOpenInvoices(token);
     } else {
-      data = await appApi.getInvoices();
+      data = [];
     }
     setInvoices(data);
     const active = data.filter((inv: any) => inv.status === 'assigned' && inv.assigned_to === user?.id);
@@ -214,7 +214,7 @@ export default function DeliveryBoyApp() {
         }
         return;
       }
-      const all = await appApi.getInvoices();
+      const all = [];
       let mine = all.filter(
         (i: any) =>
           i.assigned_to === user.id &&

@@ -153,48 +153,22 @@ export default function Reports() {
   const [loadingSegment, setLoadingSegment] = useState(false);
 
   useEffect(() => {
-    Promise.all([appApi.getUsers(), appApi.getStats(), appApi.getInvoices()])
-      .then(([users, s, invoices]) => {
+    Promise.all([appApi.getUsers(), appApi.getStats(), appApi.getInvoiceMetrics()])
+      .then(([users, s, metrics]: [any, any, any]) => {
       const boys = users.filter((u: any) => u.role === 'delivery_boy');
       setDeliveryBoys(boys);
-      const totalCompleted = invoices.filter((i: any) => i.status === 'completed').length;
-      const totalReturn = invoices.filter((i: any) => i.status === 'delivered').length;
+      const totalCompleted = s.completed?.count || 0;
+      const totalReturn = s.return?.count || 0;
       setGlobalStats(prev => ({ ...prev, totalBoys: boys.length, totalDelivered: totalCompleted }));
 
-      const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const byDay = new Map<string, { deliveries: number; assigned: number; pending: number }>();
-      weekdayNames.forEach((day) => byDay.set(day, { deliveries: 0, assigned: 0, pending: 0 }));
+      setDeliveryData(metrics.by_weekday || []);
 
-      invoices.forEach((inv: any) => {
-        const dateStr = inv.delivered_at || inv.accepted_at || inv.created_at;
-        const d = new Date(dateStr);
-        if (Number.isNaN(d.getTime())) return;
-        const day = weekdayNames[d.getDay()];
-        const row = byDay.get(day);
-        if (!row) return;
-        if (inv.status === 'completed') row.deliveries += 1;
-        if (inv.status === 'assigned') row.assigned += 1;
-        if (inv.status === 'pending') row.pending += 1;
-      });
-
-      setDeliveryData(
-        weekdayNames.map((day) => {
-          const row = byDay.get(day)!;
-          return {
-            name: day,
-            deliveries: row.deliveries,
-            time: row.assigned,
-            waiting: row.pending,
-          };
-        })
-      );
-
-      const total = Math.max(1, invoices.length);
-      const completed = invoices.filter((x: any) => x.status === 'completed').length;
-      const returned = invoices.filter((x: any) => x.status === 'delivered').length;
-      const pending = invoices.filter((x: any) => x.status === 'pending').length;
-      const assigned = invoices.filter((x: any) => x.status === 'assigned').length;
-      const cancelled = invoices.filter((x: any) => x.status === 'cancelled').length;
+      const total = Math.max(1, metrics.totalCount);
+      const completed = s.completed?.count || 0;
+      const returned = s.return?.count || 0;
+      const pending = s.pending?.count || 0;
+      const assigned = s.assigned?.count || 0;
+      const cancelled = s.cancelled?.count || 0;
       setPieData([
         { name: 'Completed', value: Math.round((completed / total) * 100), color: '#10b981' },
         { name: 'Delivered', value: Math.round((returned / total) * 100), color: '#a855f7' },
@@ -203,18 +177,12 @@ export default function Reports() {
         { name: 'Cancelled', value: Math.round((cancelled / total) * 100), color: '#ef4444' },
       ]);
 
-      const byBoy = boys.map((boy: any) => {
-        const mine = invoices.filter((i: any) => i.assigned_to === boy.id);
-        const completed = mine.filter((i: any) => i.status === 'completed').length;
-        const inProgress = mine.filter((i: any) => i.status === 'assigned').length;
-        const queued = mine.filter((i: any) => i.status === 'pending').length;
-        return {
-          name: boy.username,
-          available: mine.length,
-          delivery: completed + inProgress,
-          waiting: queued,
-        };
-      });
+      const byBoy = (metrics.perBoy || []).map((b: any) => ({
+        name: b.name,
+        available: b.total,
+        delivery: (b.completed || 0) + (b.assigned || 0),
+        waiting: b.pending || 0,
+      }));
       setAvailabilityData(byBoy);
     })
       .catch(() => {
@@ -227,7 +195,7 @@ export default function Reports() {
   useEffect(() => {
     if (boyFilter !== 'All') {
       const boyId = Number(boyFilter);
-      appApi.getDeliveryBoyStats(boyId).then((s) => {
+      appApi.getDeliveryBoyStats(boyId).then((s: any) => {
         setBoyStats({ delivered: s.total_delivered });
       });
     } else {

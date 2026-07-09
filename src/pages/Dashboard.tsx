@@ -8,7 +8,7 @@ import { motion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { useTrackingSocket } from '../hooks/useSocket';
 import { appApi } from '../lib/appApi';
-import { getOnDutyDeliveries, normalizeFetchError, type OnDutyDeliveryRow } from '../lib/api';
+import { getInvoices, getOnDutyDeliveries, normalizeFetchError, type OnDutyDeliveryRow } from '../lib/api';
 import {
   DEFAULT_MAP_CENTER,
   averageCenterForMarkers,
@@ -70,7 +70,7 @@ export default function Dashboard() {
     appApi.getStats().then(setStats);
     (async () => {
       try {
-        const r = await getInvoicesApi(token!, {
+        const r = await getInvoices(token!, {
           page: 1,
           page_size: 5,
           sort_by: 'delivered_at',
