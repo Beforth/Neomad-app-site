@@ -155,14 +155,15 @@ const toFrontendUser = (u: any): User => ({
   status: u.is_active ? 'active' : 'inactive',
 });
 
-const getAllInvoices = async (): Promise<Invoice[]> => {
+const getAllInvoices = async (filters?: { date_from?: string; date_to?: string; assigned_to?: number }): Promise<Invoice[]> => {
   const token = getTokenOrThrow();
   const pageSize = 100;
-  const first = await getInvoicesApi(token, { page: 1, page_size: pageSize });
+  const params = { page: 1, page_size: pageSize, ...filters };
+  const first = await getInvoicesApi(token, params);
   let items = [...(first.items as Invoice[])];
   const totalPages = Math.max(1, Math.ceil(first.total / pageSize));
   for (let p = 2; p <= totalPages; p += 1) {
-    const next = await getInvoicesApi(token, { page: p, page_size: pageSize });
+    const next = await getInvoicesApi(token, { ...params, page: p });
     items = items.concat(next.items as Invoice[]);
   }
   return items;
@@ -210,8 +211,8 @@ export const appApi = {
     }
   },
 
-  getInvoices: async () => {
-    return getAllInvoices();
+  getInvoices: async (filters?: { date_from?: string; date_to?: string; assigned_to?: number }) => {
+    return getAllInvoices(filters);
   },
 
   getDeliveryOpenInvoices: async (token: string) => getDeliveryOpenInvoices(token),

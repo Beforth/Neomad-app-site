@@ -25,7 +25,6 @@ import { fakeDuration } from './invoices/invoiceShared';
 import type { ApiInvoice } from '../lib/api';
 import { INVOICES_PAGE_SUBTITLE, INVOICES_PAGE_TITLE } from '../components/invoices/InvoiceSectionFrame';
 import { NEW_INVOICE_EVENT, appApi } from '../lib/appApi';
-
 export default function Invoices() {
   const { user, token } = useAuth();
   const navigate = useNavigate();
@@ -324,7 +323,7 @@ export default function Invoices() {
   const endRow = Math.min(page * pageSize, totalCount);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-16">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">{INVOICES_PAGE_TITLE}</h1>
@@ -664,26 +663,6 @@ export default function Invoices() {
             </span>
           )}
         </p>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1 || listLoading || isRefreshing}
-            className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            aria-label="Previous page"
-          >
-            <ChevronLeft size={18} className="text-zinc-600" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || listLoading || isRefreshing}
-            className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            aria-label="Next page"
-          >
-            <ChevronRight size={18} className="text-zinc-600" />
-          </button>
-        </div>
       </div>
 
       {assignModalInvId && (
@@ -915,6 +894,45 @@ export default function Invoices() {
           </div>
         </div>
       )}
+
+      {/* Sticky bottom bar */}
+      <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 z-[60] bg-white border-t border-zinc-200 px-6 py-2.5 flex items-center justify-between shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center gap-2 text-sm text-zinc-600">
+          <span className="font-bold text-zinc-900">{totalCount}</span>
+          <span>total invoice{totalCount !== 1 ? 's' : ''}</span>
+          {totalCount > 0 && (
+            <>
+              <span className="text-zinc-300 mx-1">|</span>
+              <span>Showing <span className="font-bold text-zinc-900">{startRow}</span>–<span className="font-bold text-zinc-900">{endRow}</span></span>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || listLoading || isRefreshing}
+            className="p-1.5 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            aria-label="Previous page"
+          >
+            <ChevronLeft size={16} className="text-zinc-600" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages || listLoading || isRefreshing}
+            className="p-1.5 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            aria-label="Next page"
+          >
+            <ChevronRight size={16} className="text-zinc-600" />
+          </button>
+          {invoiceMetrics && (
+            <span className="text-sm text-zinc-500 ml-1">
+              Today: <span className="font-bold text-emerald-600">{invoiceMetrics.todayCount}</span>
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

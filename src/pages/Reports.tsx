@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
-import { Calendar, Download, Clock, TrendingUp, Users, AlertCircle, CheckCircle2, Package, BarChart3, Filter, MapPin, PauseCircle } from 'lucide-react';
+import { Calendar, Download, Clock, TrendingUp, Users, AlertCircle, CheckCircle2, Package, BarChart3, Filter, MapPin, PauseCircle, FileText, ChevronDown, ChevronRight } from 'lucide-react';
 import SearchableSelect from '../components/SearchableSelect';
 import MapPreview, { type RouteSegmentLine } from '../components/MapPreview';
 import CheckpointPathPanel from '../components/CheckpointPathPanel';
@@ -95,16 +95,17 @@ function ReportChartBox({
   );
 }
 
-type ReportTab = 'delivery' | 'availability' | 'travel';
+type ReportTab = 'delivery' | 'availability' | 'travel' | 'invoices';
 
 const REPORT_TABS: { id: ReportTab; label: string; icon: typeof Package }[] = [
   { id: 'delivery', label: 'Delivery Duration', icon: Package },
   { id: 'availability', label: 'Availability', icon: BarChart3 },
   { id: 'travel', label: 'Travel Path', icon: MapPin },
+  { id: 'invoices', label: 'Invoices', icon: FileText },
 ];
 
 function parseReportTab(raw: string | null): ReportTab {
-  if (raw === 'availability' || raw === 'travel') return raw;
+  if (raw === 'availability' || raw === 'travel' || raw === 'invoices') return raw;
   return 'delivery';
 }
 
@@ -129,8 +130,10 @@ export default function Reports() {
     [setSearchParams],
   );
   const [dateRange, setDateRange] = useState('7d');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10);
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [statusFilter, setStatusFilter] = useState('all');
   const [boyFilter, setBoyFilter] = useState('All');
 
@@ -141,7 +144,6 @@ export default function Reports() {
   const [availabilityData, setAvailabilityData] = useState<any[]>([]);
   const [pieData, setPieData] = useState<any[]>([]);
 
-  const [pathReportDate, setPathReportDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [pathReport, setPathReport] = useState<DeliveryPathReportResponse | null>(null);
   const [pathReportLoading, setPathReportLoading] = useState(false);
   const [pathReportError, setPathReportError] = useState<string | null>(null);
@@ -151,6 +153,13 @@ export default function Reports() {
   const [segmentRoute, setSegmentRoute] = useState<[number, number][]>([]);
   const [segmentSmoothed, setSegmentSmoothed] = useState<boolean | undefined>();
   const [loadingSegment, setLoadingSegment] = useState(false);
+
+  const [invInvoices, setInvInvoices] = useState<any[]>([]);
+  const [invLoading, setInvLoading] = useState(false);
+  const [expandedType, setExpandedType] = useState<string | null>(null);
+  const [expandedStatus, setExpandedStatus] = useState<string | null>(null);
+  const [showAllType, setShowAllType] = useState(false);
+  const [showAllStatus, setShowAllStatus] = useState(false);
 
   useEffect(() => {
     Promise.all([appApi.getUsers(), appApi.getStats(), appApi.getInvoices()])
@@ -243,7 +252,7 @@ export default function Reports() {
     }
     const userId = Number(boyFilter);
     if (!Number.isFinite(userId)) return;
-    const date = pathReportDate || new Date().toISOString().slice(0, 10);
+    const date = startDate || new Date().toISOString().slice(0, 10);
     let cancelled = false;
     setPathReportLoading(true);
     setPathReportError(null);
@@ -263,7 +272,7 @@ export default function Reports() {
     return () => {
       cancelled = true;
     };
-  }, [tab, token, canTrack, boyFilter, pathReportDate]);
+  }, [tab, token, canTrack, boyFilter, startDate]);
 
   useEffect(() => {
     if (tab !== 'travel' || !token || !canTrack || boyFilter === 'All') {
@@ -276,7 +285,7 @@ export default function Reports() {
     setPathViewMode('day');
     const userId = Number(boyFilter);
     if (!Number.isFinite(userId)) return;
-    const date = pathReportDate || new Date().toISOString().slice(0, 10);
+    const date = startDate || new Date().toISOString().slice(0, 10);
     let cancelled = false;
     getDeliveryCheckpoints(token, { user_id: userId, date_from: date, date_to: date })
       .then((rows) => {
@@ -288,7 +297,7 @@ export default function Reports() {
     return () => {
       cancelled = true;
     };
-  }, [tab, token, canTrack, boyFilter, pathReportDate]);
+  }, [tab, token, canTrack, boyFilter, startDate]);
 
   useEffect(() => {
     if (tab !== 'travel' || !token || selectedCheckpointId == null || pathViewMode !== 'segment') {
@@ -318,6 +327,27 @@ export default function Reports() {
       cancelled = true;
     };
   }, [tab, token, selectedCheckpointId, pathViewMode]);
+
+  useEffect(() => {
+    if (tab !== 'invoices') return;
+    let cancelled = false;
+    setInvLoading(true);
+    appApi.getInvoices({
+      date_from: startDate || undefined,
+      date_to: endDate || undefined,
+      assigned_to: boyFilter !== 'All' ? Number(boyFilter) : undefined,
+    })
+      .then((data) => {
+        if (!cancelled) setInvInvoices(data);
+      })
+      .catch(() => {
+        if (!cancelled) setInvInvoices([]);
+      })
+      .finally(() => {
+        if (!cancelled) setInvLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [tab, startDate, endDate, boyFilter]);
 
   const handleSelectCheckpoint = (id: number | null) => {
     setSelectedCheckpointId(id);
@@ -398,6 +428,47 @@ export default function Reports() {
     }
     return DEFAULT_MAP_CENTER;
   }, [pathReport, pathViewMode, segmentRoute, checkpointMapMarkers]);
+
+  const invAggregation = useMemo(() => {
+    const total = invInvoices.length;
+    const typeCounts: Record<string, number> = {};
+    const statusCounts: Record<string, number> = {};
+
+    invInvoices.forEach((inv: any) => {
+      const t = inv.invoice_type || 'unknown';
+      typeCounts[t] = (typeCounts[t] || 0) + 1;
+      const s = inv.status || 'unknown';
+      statusCounts[s] = (statusCounts[s] || 0) + 1;
+    });
+
+    const typeLabels: Record<string, string> = {
+      challan: 'Challan',
+      price_difference: 'Price Diff',
+      sale_bill: 'Sale Bill',
+      sale_return_credit_note: 'Sale Return',
+      unknown: 'Other',
+    };
+
+    const statusLabels: Record<string, string> = {
+      pending: 'Pending',
+      assigned: 'Assigned',
+      delivered: 'Delivered',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+      return: 'Return',
+      unknown: 'Other',
+    };
+
+    const typeEntries = Object.entries(typeCounts)
+      .map(([type, count]) => ({ type, label: typeLabels[type] || type, count, pct: Math.round((count / total) * 100) }))
+      .sort((a, b) => b.count - a.count);
+
+    const statusEntries = Object.entries(statusCounts)
+      .map(([status, count]) => ({ status, label: statusLabels[status] || status, count, pct: Math.round((count / total) * 100) }))
+      .sort((a, b) => b.count - a.count);
+
+    return { total, typeEntries, statusEntries };
+  }, [invInvoices]);
 
   return (
     <div className="space-y-6">
@@ -576,35 +647,6 @@ export default function Reports() {
       {/* TRAVEL PATH TAB — stored GPS from Redis / delivery_travel_paths */}
       {tab === 'travel' && (
         <motion.div initial={false} animate={{ opacity: 1 }} className="space-y-6">
-          <div className="bg-white p-4 rounded-2xl border border-zinc-100 shadow-sm flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Users size={14} className="text-zinc-400" />
-              <SearchableSelect
-                value={boyFilter}
-                onChange={setBoyFilter}
-                className="min-w-[200px]"
-                options={[
-                  { value: 'All', label: 'Select delivery boy…' },
-                  ...deliveryBoys.map((b) => ({ value: String(b.id), label: b.username })),
-                ]}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Calendar size={14} className="text-zinc-400" />
-              <input
-                type="date"
-                value={pathReportDate}
-                onChange={(e) => setPathReportDate(e.target.value)}
-                className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-xl text-xs font-bold text-zinc-600 outline-none focus:border-emerald-500"
-              />
-            </div>
-            {pathReport && (
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-                Data source: {pathReport.source}
-              </span>
-            )}
-          </div>
-
           {boyFilter === 'All' && (
             <div className="bg-amber-50 border border-amber-100 text-amber-800 text-sm font-medium p-4 rounded-2xl">
               Select a delivery boy above to view their stored travel path for the chosen day.
@@ -867,6 +909,231 @@ export default function Reports() {
               </tbody>
             </table>
           </div>
+        </motion.div>
+      )}
+
+      {/* INVOICES TAB */}
+      {tab === 'invoices' && (
+        <motion.div initial={false} animate={{ opacity: 1 }} className="space-y-6">
+          {invLoading && (
+            <div className="text-sm text-zinc-500 font-medium p-8 text-center">Loading invoices…</div>
+          )}
+
+          {!invLoading && invInvoices.length === 0 && (
+            <div className="bg-zinc-50 border border-zinc-100 text-zinc-600 text-sm p-4 rounded-2xl">
+              No invoices found for the selected filters.
+            </div>
+          )}
+
+          {!invLoading && invInvoices.length > 0 && (
+            <>
+              {/* Summary cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-zinc-100 shadow-sm">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <FileText size={16} />
+                    </div>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Total Invoices</p>
+                  </div>
+                  <h3 className="text-xl font-bold text-zinc-900 tracking-tight">{invAggregation.total}</h3>
+                  <p className="text-[10px] text-zinc-400 mt-1">In selected period</p>
+                </div>
+                {invAggregation.typeEntries.slice(0, 3).map((entry: any) => (
+                  <div key={entry.type} className="bg-white p-4 rounded-xl border border-zinc-100 shadow-sm">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                        <FileText size={16} />
+                      </div>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{entry.label}</p>
+                    </div>
+                    <h3 className="text-xl font-bold text-zinc-900 tracking-tight">{entry.count}</h3>
+                    <p className="text-[10px] text-zinc-400 mt-1">{entry.pct}% of total</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Type breakdown table */}
+              <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-zinc-100 flex items-center gap-2">
+                  <FileText size={16} className="text-zinc-500" />
+                  <h3 className="font-bold text-zinc-900">Invoice Type Breakdown</h3>
+                </div>
+                <table className="w-full text-left">
+                  <thead className="bg-zinc-50 border-b border-zinc-100">
+                    <tr>
+                      {['Type', 'Count', '% of Total', ''].map((h) => (
+                        <th key={h} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-50">
+                    {invAggregation.typeEntries.map((entry: any) => {
+                      const isExpanded = expandedType === entry.type;
+                      const typeInvoices = invInvoices.filter((i: any) => (i.invoice_type || 'unknown') === entry.type);
+                      const displayInvoices = showAllType ? typeInvoices : typeInvoices.slice(0, 20);
+                      return (
+                        <>
+                          <tr
+                            key={entry.type}
+                            onClick={() => {
+                              setExpandedType(isExpanded ? null : entry.type);
+                              setShowAllType(false);
+                            }}
+                            className="hover:bg-zinc-50/50 cursor-pointer"
+                          >
+                            <td className="px-4 py-3 text-sm font-bold text-zinc-900 flex items-center gap-2">
+                              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                              {entry.label}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-zinc-600">{entry.count}</td>
+                            <td className="px-4 py-3 text-xs font-medium text-zinc-800">{entry.pct}%</td>
+                            <td className="px-4 py-3 text-[10px] text-zinc-400">{typeInvoices.length} invoices</td>
+                          </tr>
+                          {isExpanded && (
+                            <tr key={`${entry.type}-expanded`}>
+                              <td colSpan={4} className="px-4 pb-4">
+                                <div className="bg-zinc-50 rounded-xl p-3">
+                                  <table className="w-full text-left">
+                                    <thead>
+                                      <tr className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                        <th className="px-3 py-2">Invoice #</th>
+                                        <th className="px-3 py-2">Hospital</th>
+                                        <th className="px-3 py-2">Amount</th>
+                                        <th className="px-3 py-2">Status</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-200/50">
+                                      {displayInvoices.map((inv: any) => (
+                                        <tr key={inv.id} className="text-xs text-zinc-700">
+                                          <td className="px-3 py-2 font-medium">{inv.invoice_number}</td>
+                                          <td className="px-3 py-2">{inv.hospital_name}</td>
+                                          <td className="px-3 py-2">₹{Number(inv.amount).toLocaleString()}</td>
+                                          <td className="px-3 py-2">
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                              inv.status === 'completed' ? 'bg-emerald-50 text-emerald-700' :
+                                              inv.status === 'delivered' ? 'bg-purple-50 text-purple-700' :
+                                              inv.status === 'assigned' ? 'bg-indigo-50 text-indigo-700' :
+                                              inv.status === 'cancelled' ? 'bg-red-50 text-red-700' :
+                                              inv.status === 'return' ? 'bg-orange-50 text-orange-700' :
+                                              'bg-amber-50 text-amber-700'
+                                            }`}>
+                                              {inv.status}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                  {typeInvoices.length > 20 && !showAllType && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setShowAllType(true); }}
+                                      className="mt-2 text-xs font-bold text-emerald-600 hover:text-emerald-700"
+                                    >
+                                      Show All ({typeInvoices.length} invoices)
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Status breakdown table */}
+              <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-zinc-100 flex items-center gap-2">
+                  <BarChart3 size={16} className="text-zinc-500" />
+                  <h3 className="font-bold text-zinc-900">Status Breakdown</h3>
+                </div>
+                <table className="w-full text-left">
+                  <thead className="bg-zinc-50 border-b border-zinc-100">
+                    <tr>
+                      {['Status', 'Count', '% of Total', ''].map((h) => (
+                        <th key={h} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-50">
+                    {invAggregation.statusEntries.map((entry: any) => {
+                      const isExpanded = expandedStatus === entry.status;
+                      const statusInvoices = invInvoices.filter((i: any) => (i.status || 'unknown') === entry.status);
+                      const displayInvoices = showAllStatus ? statusInvoices : statusInvoices.slice(0, 20);
+                      return (
+                        <>
+                          <tr
+                            key={entry.status}
+                            onClick={() => {
+                              setExpandedStatus(isExpanded ? null : entry.status);
+                              setShowAllStatus(false);
+                            }}
+                            className="hover:bg-zinc-50/50 cursor-pointer"
+                          >
+                            <td className="px-4 py-3 text-sm font-bold text-zinc-900 flex items-center gap-2">
+                              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                entry.status === 'completed' ? 'bg-emerald-50 text-emerald-700' :
+                                entry.status === 'delivered' ? 'bg-purple-50 text-purple-700' :
+                                entry.status === 'assigned' ? 'bg-indigo-50 text-indigo-700' :
+                                entry.status === 'cancelled' ? 'bg-red-50 text-red-700' :
+                                entry.status === 'return' ? 'bg-orange-50 text-orange-700' :
+                                'bg-amber-50 text-amber-700'
+                              }`}>
+                                {entry.label}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-xs text-zinc-600">{entry.count}</td>
+                            <td className="px-4 py-3 text-xs font-medium text-zinc-800">{entry.pct}%</td>
+                            <td className="px-4 py-3 text-[10px] text-zinc-400">{statusInvoices.length} invoices</td>
+                          </tr>
+                          {isExpanded && (
+                            <tr key={`${entry.status}-expanded`}>
+                              <td colSpan={4} className="px-4 pb-4">
+                                <div className="bg-zinc-50 rounded-xl p-3">
+                                  <table className="w-full text-left">
+                                    <thead>
+                                      <tr className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                        <th className="px-3 py-2">Invoice #</th>
+                                        <th className="px-3 py-2">Hospital</th>
+                                        <th className="px-3 py-2">Amount</th>
+                                        <th className="px-3 py-2">Type</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-200/50">
+                                      {displayInvoices.map((inv: any) => (
+                                        <tr key={inv.id} className="text-xs text-zinc-700">
+                                          <td className="px-3 py-2 font-medium">{inv.invoice_number}</td>
+                                          <td className="px-3 py-2">{inv.hospital_name}</td>
+                                          <td className="px-3 py-2">₹{Number(inv.amount).toLocaleString()}</td>
+                                          <td className="px-3 py-2">{inv.invoice_type || '—'}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                  {statusInvoices.length > 20 && !showAllStatus && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setShowAllStatus(true); }}
+                                      className="mt-2 text-xs font-bold text-emerald-600 hover:text-emerald-700"
+                                    >
+                                      Show All ({statusInvoices.length} invoices)
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </motion.div>
       )}
     </div>
