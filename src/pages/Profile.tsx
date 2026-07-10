@@ -3,22 +3,27 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   changePassword,
+  clearGmailDelayRecords,
+  completeGmailOAuth,
   createStoreGeoSetting,
   createWorkingLocation,
   deleteStoreGeoSetting,
   deleteWorkingLocation,
-  completeGmailOAuth,
   disconnectGmail,
-  listStoreGeoSettings,
-  listWorkingLocations,
   getGmailAuthUrl,
+  getGmailDelayRecords,
+  getGmailMonitorSettings,
   getGmailStatus,
   listGmailEmails,
+  listStoreGeoSettings,
+  listWorkingLocations,
   markGmailEmailRead,
   syncRecentGmailEmails,
   toggleGmailEmailStar,
+  updateGmailMonitorSettings,
   updateStoreGeoSetting,
   updateWorkingLocation,
+  type GmailDelayRecord,
   type GmailEmail,
   type StoreGeoSetting,
   type WorkingLocation,
@@ -46,6 +51,10 @@ export default function Profile() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [showStarredOnly, setShowStarredOnly] = useState(false);
   const [oauthHandling, setOauthHandling] = useState(false);
+  const [pollInterval, setPollInterval] = useState(60);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [delayRecords, setDelayRecords] = useState<GmailDelayRecord[]>([]);
+
   const [syncResult, setSyncResult] = useState<'success' | 'error' | null>(null);
   const [syncMessage, setSyncMessage] = useState('');
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -255,6 +264,49 @@ export default function Profile() {
       /* ignore */
     }
   };
+
+  const loadMonitorSettings = async () => {
+    if (!token || !gmailConnected) return;
+    try {
+      const settings = await getGmailMonitorSettings(token);
+      setPollInterval(settings.poll_interval_seconds);
+    } catch {
+      /* use default */
+    }
+  };
+
+  const saveMonitorSettings = async () => {
+    if (!token) return;
+    setSettingsSaving(true);
+    try {
+      await updateGmailMonitorSettings(token, pollInterval);
+    } catch {
+      /* silent */
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const fetchDelayRecords = async () => {
+    if (!token || !gmailConnected) return;
+    try {
+      const records = await getGmailDelayRecords(token, 50);
+      setDelayRecords(records);
+    } catch {
+      /* silent */
+    }
+  };
+
+  useEffect(() => {
+    loadMonitorSettings();
+  }, [token, gmailConnected]);
+
+  useEffect(() => {
+    if (!gmailConnected) return;
+    fetchDelayRecords();
+    const id = setInterval(fetchDelayRecords, 5000);
+    return () => clearInterval(id);
+  }, [token, gmailConnected]);
 
   const unreadCount = useMemo(() => emails.filter((e) => !e.is_read).length, [emails]);
 
@@ -833,6 +885,27 @@ export default function Profile() {
                         Disconnect
                       </button>
                     </div>
+                    <div className="flex flex-wrap items-center gap-3 border-t border-zinc-100 pt-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-zinc-500">Check every:</span>
+                        <input
+                          type="number"
+                          min={10}
+                          max={3600}
+                          value={pollInterval}
+                          onChange={(e) => setPollInterval(Math.max(10, Math.min(3600, Number(e.target.value))))}
+                          className="w-16 px-2 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-bold text-zinc-700 text-center outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        />
+                        <span className="text-xs text-zinc-500">sec</span>
+                      </div>
+                      <button onClick={saveMonitorSettings} disabled={settingsSaving}
+                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50">
+                        {settingsSaving ? 'Saving...' : 'Save'}
+                      </button>
+                      <span className="text-xs text-zinc-400">
+                        Background scheduler checks Gmail every N seconds for new invoice emails.
+                      </span>
+                    </div>
                     <div className="flex flex-col sm:flex-row gap-3">
                       <div className="flex-1 relative">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
@@ -894,6 +967,44 @@ export default function Profile() {
                         ))
                       )}
                     </div>
+                    {delayRecords.length > 0 && (
+                      <div className="border-t border-zinc-100 pt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-bold text-zinc-900">Invoice Delivery Delays</h3>
+                          <button onClick={() => setDelayRecords([])} className="text-xs font-bold text-zinc-400 hover:text-red-500 transition-colors">
+                            Clear Log
+                          </button>
+                        </div>
+                        <div className="max-h-64 overflow-y-auto border border-zinc-100 rounded-lg divide-y divide-zinc-100">
+                          <div className="sticky top-0 bg-zinc-50 px-3 py-2 flex items-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                            <span className="w-2/5">Subject</span>
+                            <span className="w-1/5">Sent At</span>
+                            <span className="w-1/5">Detected At</span>
+                            <span className="w-1/5 text-right">Delay</span>
+                          </div>
+                          {delayRecords.map((r, i) => (
+                            <div key={i} className="px-3 py-2 flex items-center text-xs text-zinc-700 hover:bg-zinc-50">
+                              <span className="w-2/5 truncate font-medium">{r.email_subject}</span>
+                              <span className="w-1/5 text-zinc-500">{new Date(r.sent_at).toLocaleTimeString()}</span>
+                              <span className="w-1/5 text-zinc-500">{new Date(r.detected_at).toLocaleTimeString()}</span>
+                              <span className="w-1/5 text-right font-bold text-zinc-900">
+                                {r.delay_sec < 60 ? `${r.delay_sec}s` : `${Math.floor(r.delay_sec / 60)}m ${r.delay_sec % 60}s`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-2 flex items-center gap-4 text-xs text-zinc-500">
+                          <span>Records: {delayRecords.length}</span>
+                          {delayRecords.length > 0 && (
+                            <>
+                              <span>Avg: {Math.round(delayRecords.reduce((a, r) => a + r.delay_sec, 0) / delayRecords.length)}s</span>
+                              <span>Max: {Math.max(...delayRecords.map((r) => r.delay_sec))}s</span>
+                              <span>Min: {Math.min(...delayRecords.map((r) => r.delay_sec))}s</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>
