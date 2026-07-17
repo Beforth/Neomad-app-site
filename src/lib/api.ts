@@ -1476,4 +1476,84 @@ export async function deleteApiKey(token: string, keyId: number): Promise<void> 
   }
 }
 
+// ── Gmail Monitor Settings ─────────────────────────────────────────────────
+
+export interface GmailDelayRecord {
+  id: number;
+  email_subject: string;
+  sender: string;
+  sent_at: string;
+  detected_at: string;
+  delay_sec: number;
+  created_at: string;
+}
+
+export interface GmailMonitorSettings {
+  poll_interval_seconds: number;
+}
+
+/** Get the current Gmail polling interval for the connected user. */
+export async function getGmailMonitorSettings(token: string): Promise<GmailMonitorSettings> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/gmail/monitor-settings`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to load Gmail monitor settings'));
+  }
+  return res.json();
+}
+
+/** Update the Gmail polling interval for the connected user. */
+export async function updateGmailMonitorSettings(
+  token: string,
+  poll_interval_seconds: number,
+): Promise<GmailMonitorSettings> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/gmail/monitor-settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ poll_interval_seconds }),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to update Gmail monitor settings'));
+  }
+  return res.json();
+}
+
+/** Get delay records for the connected Gmail account. */
+export async function getGmailDelayRecords(
+  token: string,
+  limit = 50,
+): Promise<GmailDelayRecord[]> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/gmail/delay-records?limit=${limit}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to load Gmail delay records'));
+  }
+  return res.json();
+}
+
+/** Clear all delay records for the connected Gmail account. */
+export async function clearGmailDelayRecords(token: string): Promise<void> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/gmail/delay-records`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to clear Gmail delay records'));
+  }
+}
+
 export { getBaseUrl };
