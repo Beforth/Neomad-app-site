@@ -394,7 +394,7 @@ export default function Invoices() {
         </div>
       )}
 
-      <div className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center">
+      <div className="sticky top-0 z-20 bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center">
         <div className="flex rounded-lg bg-zinc-100 p-1">
           <button
             type="button"

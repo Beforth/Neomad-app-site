@@ -34,6 +34,11 @@ import Expenses from './pages/hrms/Expenses';
 import Incentives from './pages/hrms/Incentives';
 import Payroll from './pages/hrms/Payroll';
 import Leave from './pages/hrms/Leave';
+import Staff from './pages/hrms/Staff';
+import StaffDetail from './pages/hrms/StaffDetail';
+import StaffCreate from './pages/hrms/StaffCreate';
+import StaffEdit from './pages/hrms/StaffEdit';
+import HrmsDashboard from './pages/hrms/HrmsDashboard';
 import { useNotifications } from './hooks/useNotifications';
 import { useStaffInvoiceAlerts } from './hooks/useSocket';
 import { useWebPush } from './hooks/useWebPush';
@@ -50,7 +55,9 @@ const PAGE_TITLES: Record<string, string> = {
   '/settings': 'Settings',
   '/notifications': 'Notifications',
   '/profile': 'Profile',
+  '/hrms/dashboard': 'HRMS Dashboard',
   '/hrms/attendance': 'Attendance',
+  '/hrms/staff': 'Staff',
   '/hrms/shifts': 'Shifts',
   '/hrms/expenses': 'Expenses',
   '/hrms/incentives': 'Incentives',
@@ -75,7 +82,10 @@ function TopBar() {
   if (activeApp === 'hrms' && p.startsWith('/hrms/')) {
     title = PAGE_TITLES[p] || 'HRMS';
   }
-  const showBack = p !== '/' && p !== '/hrms/attendance';
+  if (p === '/hrms/staff' || p.startsWith('/hrms/staff/')) {
+    title = 'Staff';
+  }
+  const showBack = p !== '/' && p !== '/hrms/dashboard' && p !== '/hrms/attendance' && p !== '/hrms/staff';
   return (
     <header className="h-16 bg-white border-b border-zinc-100 px-5 flex items-center justify-between sticky top-0 z-30 shadow-sm grow-0 shrink-0">
       <div className="flex items-center gap-3">
@@ -157,7 +167,12 @@ function AppRoutes() {
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/hrms/dashboard" element={<HrmsDashboard />} />
             <Route path="/hrms/attendance" element={<Attendance />} />
+            <Route path="/hrms/staff/new" element={<StaffCreate />} />
+            <Route path="/hrms/staff/:staffId/edit" element={<StaffEdit />} />
+            <Route path="/hrms/staff/:staffId" element={<StaffDetail />} />
+            <Route path="/hrms/staff" element={<Staff />} />
             <Route path="/hrms/shifts" element={<Shifts />} />
             <Route path="/hrms/expenses" element={<Expenses />} />
             <Route path="/hrms/incentives" element={<Incentives />} />

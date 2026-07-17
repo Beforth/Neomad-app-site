@@ -25,7 +25,9 @@ const DELIVERY_ITEMS = [
 ];
 
 const HRMS_ITEMS = [
+  { icon: null, label: 'Dashboard', path: '/hrms/dashboard', roles: ['admin', 'manager'] },
   { icon: null, label: 'Attendance', path: '/hrms/attendance', roles: ['admin', 'manager'] },
+  { icon: null, label: 'Staff', path: '/hrms/staff', roles: ['admin', 'manager'] },
   { icon: null, label: 'Expenses', path: '/hrms/expenses', roles: ['admin', 'manager'] },
   { icon: null, label: 'Incentives', path: '/hrms/incentives', roles: ['admin', 'manager'] },
   { icon: null, label: 'Payroll', path: '/hrms/payroll', roles: ['admin', 'manager'] },

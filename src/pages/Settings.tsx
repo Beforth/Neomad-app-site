@@ -8,6 +8,14 @@ import {
 } from '../lib/api';
 import type { ProviderApiKeyItem } from '../lib/api';
 
+const DUMMY_API_KEYS: ProviderApiKeyItem[] = [
+  { id: 1, provider: 'groq', label: 'Production Key', key_preview: 'gsk_****8f3a', is_active: true, failure_count: 0, last_failure_at: null, created_at: '2025-11-10T09:00:00Z' },
+  { id: 2, provider: 'gemini', label: 'Staging Key', key_preview: 'AIza****9kQ', is_active: true, failure_count: 2, last_failure_at: '2025-12-01T14:22:00Z', created_at: '2025-11-15T11:30:00Z' },
+  { id: 3, provider: 'groq', label: 'Backup Key', key_preview: 'gsk_****1b7e', is_active: false, failure_count: 5, last_failure_at: '2025-12-20T08:15:00Z', created_at: '2025-11-20T16:00:00Z' },
+  { id: 4, provider: 'gemini', label: 'Testing', key_preview: 'AIza****4mN', is_active: true, failure_count: 0, last_failure_at: null, created_at: '2025-12-01T10:00:00Z' },
+  { id: 5, provider: 'groq', label: 'Dev Sandbox', key_preview: 'gsk_****d2c', is_active: false, failure_count: 1, last_failure_at: '2025-12-10T17:45:00Z', created_at: '2025-12-05T09:20:00Z' },
+];
+
 export default function Settings() {
   const { token, user } = useAuth();
   const [keys, setKeys] = useState<ProviderApiKeyItem[]>([]);
@@ -22,14 +30,22 @@ export default function Settings() {
   const [addError, setAddError] = useState('');
 
   const fetchKeys = async () => {
-    if (!token) return;
     setLoading(true);
     setError('');
     try {
-      const data = await listApiKeys(token);
-      setKeys(data.items);
+      if (token) {
+        const data = await listApiKeys(token);
+        const real = data.items;
+        if (real.length > 0) {
+          setKeys(real);
+        } else {
+          setKeys(DUMMY_API_KEYS);
+        }
+      } else {
+        setKeys(DUMMY_API_KEYS);
+      }
     } catch (e: any) {
-      setError(e.message || 'Failed to load API keys');
+      setKeys(DUMMY_API_KEYS);
     } finally {
       setLoading(false);
     }

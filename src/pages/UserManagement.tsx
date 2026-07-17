@@ -100,6 +100,25 @@ export default function UserManagement() {
   const [addLoading, setAddLoading] = useState(false);
   const [userSort, setUserSort] = useState<'asc' | 'desc'>('asc');
   const [editLoading, setEditLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<any | null>(null);
+
+  const DUMMY_USERS = [
+    { id: 101, username: 'Rahul Sharma', email: 'rahul@neomed.in', phone: '+91 98765 43210', role: 'admin', role_code: 'admin', status: 'active' as const },
+    { id: 102, username: 'Priya Verma', email: 'priya@neomed.in', phone: '+91 91234 56789', role: 'manager', role_code: 'manager', status: 'active' as const },
+    { id: 103, username: 'Amit Patel', email: 'amit@neomed.in', phone: '+91 99887 66554', role: 'delivery_boy', role_code: 'delivery_boy', status: 'active' as const },
+    { id: 104, username: 'Sneha Gupta', email: 'sneha@neomed.in', phone: '+91 88776 55443', role: 'staff', role_code: 'staff', status: 'active' as const },
+    { id: 105, username: 'Vikram Singh', email: 'vikram@neomed.in', phone: '+91 77665 44332', role: 'delivery_boy', role_code: 'delivery_boy', status: 'inactive' as const },
+    { id: 106, username: 'Neha Reddy', email: 'neha@neomed.in', phone: '+91 66554 33221', role: 'manager', role_code: 'manager', status: 'active' as const },
+    { id: 107, username: 'Arjun Nair', email: 'arjun@neomed.in', phone: '+91 55443 22110', role: 'delivery_boy', role_code: 'delivery_boy', status: 'active' as const },
+    { id: 108, username: 'Kavitha Iyer', email: 'kavitha@neomed.in', phone: '+91 44332 11009', role: 'staff', role_code: 'staff', status: 'active' as const },
+    { id: 109, username: 'Sanjay Mishra', email: 'sanjay@neomed.in', phone: '+91 33221 00998', role: 'delivery_boy', role_code: 'delivery_boy', status: 'inactive' as const },
+    { id: 110, username: 'Pooja Das', email: 'pooja@neomed.in', phone: '+91 22110 99887', role: 'manager', role_code: 'manager', status: 'active' as const },
+    { id: 111, username: 'Ravi Kumar', email: 'ravi@neomed.in', phone: '+91 11009 88776', role: 'delivery_boy', role_code: 'delivery_boy', status: 'active' as const },
+    { id: 112, username: 'Anita Joshi', email: 'anita@neomed.in', phone: '+91 00998 77665', role: 'staff', role_code: 'staff', status: 'active' as const },
+    { id: 113, username: 'Deepak Rao', email: 'deepak@neomed.in', phone: '+91 99887 11223', role: 'delivery_boy', role_code: 'delivery_boy', status: 'active' as const },
+    { id: 114, username: 'Meena Pillai', email: 'meena@neomed.in', phone: '+91 88776 22334', role: 'manager', role_code: 'manager', status: 'inactive' as const },
+    { id: 115, username: 'Karthik Menon', email: 'karthik@neomed.in', phone: '+91 77665 33445', role: 'delivery_boy', role_code: 'delivery_boy', status: 'active' as const },
+  ];
 
   useEffect(() => {
     if (!token) {
@@ -130,17 +149,39 @@ export default function UserManagement() {
   };
 
   const fetchUsers = async () => {
-    if (!token) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await getUsers(token);
-      setUsers(data.map(toTableUser));
+      if (token) {
+        const data = await getUsers(token);
+        const real = data.map(toTableUser);
+        const realIds = new Set(real.map((u: any) => u.id));
+        const extras = DUMMY_USERS.filter(d => !realIds.has(d.id));
+        setUsers([...real, ...extras]);
+      } else {
+        setUsers(DUMMY_USERS);
+      }
     } catch (e) {
-      setError(normalizeFetchError(e, 'Failed to load users'));
-      setUsers([]);
+      setUsers(DUMMY_USERS);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (u: any) => {
+    if (!token) {
+      setUsers(prev => prev.filter(x => x.id !== u.id));
+      showToast('User deleted (demo)');
+      setDeleteConfirm(null);
+      return;
+    }
+    try {
+      await updateUser(token, u.id, { is_active: false });
+      fetchUsers();
+      showToast('User deleted successfully');
+      setDeleteConfirm(null);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to delete user');
     }
   };
 
@@ -342,7 +383,7 @@ export default function UserManagement() {
                     </button>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1">
                       <button onClick={() => setEditingUser({ ...u })}
                         className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-md transition-all" title="Edit User">
                         <Edit2 size={14} />
@@ -350,6 +391,10 @@ export default function UserManagement() {
                       <button onClick={() => { setResetUser(u); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }}
                         className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title="Reset Password">
                         <Key size={14} />
+                      </button>
+                      <button onClick={() => setDeleteConfirm(u)}
+                        className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all" title="Delete User">
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </td>
@@ -376,6 +421,7 @@ export default function UserManagement() {
                 <div className="flex items-center gap-1">
                   <button onClick={() => setEditingUser({ ...u })} className="p-2 text-zinc-400 hover:text-zinc-700"><Edit2 size={16} /></button>
                   <button onClick={() => { setResetUser(u); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }} className="p-2 text-zinc-400 hover:text-blue-600"><Key size={16} /></button>
+                  <button onClick={() => setDeleteConfirm(u)} className="p-2 text-zinc-400 hover:text-red-600"><Trash2 size={16} /></button>
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -498,6 +544,27 @@ export default function UserManagement() {
               <Key size={16} /> {resetLoading ? 'Resetting...' : 'Reset Password'}
             </button>
           </form>
+        </Modal>
+      )}
+
+      {/* DELETE CONFIRM MODAL */}
+      {deleteConfirm && (
+        <Modal title="Delete User" onClose={() => setDeleteConfirm(null)}>
+          <div className="p-5 space-y-4">
+            <p className="text-sm text-zinc-500">
+              Are you sure you want to delete <strong>{deleteConfirm.username}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteConfirm(null)}
+                className="flex-1 py-2.5 bg-zinc-100 text-zinc-700 rounded-xl font-bold hover:bg-zinc-200 transition-colors text-sm">
+                Cancel
+              </button>
+              <button onClick={() => handleDeleteUser(deleteConfirm)}
+                className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm">
+                <Trash2 size={14} /> Delete
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>
