@@ -1,7 +1,8 @@
 import {
   LayoutDashboard, FileText, MapPin, BarChart3, Users,
   UserCircle, LogOut, Menu, X, Bell, Package, History, Settings as SettingsIcon,
-  ChevronDown, Truck, CalendarCheck, Clock, Receipt, Trophy, Check
+  ChevronDown, Truck, CalendarCheck, Clock, Receipt, Trophy, Check,
+  Wallet, Banknote, CalendarOff, CalendarClock
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
@@ -25,15 +26,15 @@ const DELIVERY_ITEMS = [
 ];
 
 const HRMS_ITEMS = [
-  { icon: null, label: 'Dashboard', path: '/hrms/dashboard', roles: ['admin', 'manager'] },
-  { icon: null, label: 'Attendance', path: '/hrms/attendance', roles: ['admin', 'manager'] },
-  { icon: null, label: 'Staff', path: '/hrms/staff', roles: ['admin', 'manager'] },
-  { icon: null, label: 'Expenses', path: '/hrms/expenses', roles: ['admin', 'manager'] },
-  { icon: null, label: 'Incentives', path: '/hrms/incentives', roles: ['admin', 'manager'] },
-  { icon: null, label: 'Payroll', path: '/hrms/payroll', roles: ['admin', 'manager'] },
-  { icon: null, label: 'Leave', path: '/hrms/leave', roles: ['admin', 'manager'] },
-  { icon: null, label: 'Shifts', path: '/hrms/shifts', roles: ['admin', 'manager'] },
-  { icon: null, label: 'Profile', path: '/profile', roles: ['admin', 'manager'] },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/hrms/dashboard', roles: ['admin', 'manager'] },
+  { icon: CalendarCheck, label: 'Attendance', path: '/hrms/attendance', roles: ['admin', 'manager'] },
+  { icon: Users, label: 'Staff', path: '/hrms/staff', roles: ['admin', 'manager'] },
+  { icon: Wallet, label: 'Expenses', path: '/hrms/expenses', roles: ['admin', 'manager'] },
+  { icon: Trophy, label: 'Incentives', path: '/hrms/incentives', roles: ['admin', 'manager'] },
+  { icon: Banknote, label: 'Payroll', path: '/hrms/payroll', roles: ['admin', 'manager'] },
+  { icon: CalendarOff, label: 'Leave', path: '/hrms/leave', roles: ['admin', 'manager'] },
+  { icon: CalendarClock, label: 'Shifts', path: '/hrms/shifts', roles: ['admin', 'manager'] },
+  { icon: UserCircle, label: 'Profile', path: '/profile', roles: ['admin', 'manager'] },
 ];
 
 export default function Sidebar() {
