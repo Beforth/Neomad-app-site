@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { AppProvider, useApp } from './context/AppContext';
 import Sidebar from './components/Sidebar';
 import NotificationBell from './components/NotificationBell';
 import { ChevronLeft, LogOut } from 'lucide-react';
@@ -27,6 +28,12 @@ import TaskDetailPage from './pages/tasks/TaskDetailPage';
 import TaskCreatePage from './pages/tasks/TaskCreatePage';
 import TaskEditPage from './pages/tasks/TaskEditPage';
 import TaskDeletePage from './pages/tasks/TaskDeletePage';
+import Attendance from './pages/hrms/Attendance';
+import Shifts from './pages/hrms/Shifts';
+import Expenses from './pages/hrms/Expenses';
+import Incentives from './pages/hrms/Incentives';
+import Payroll from './pages/hrms/Payroll';
+import Leave from './pages/hrms/Leave';
 import { useNotifications } from './hooks/useNotifications';
 import { useStaffInvoiceAlerts } from './hooks/useSocket';
 import { useWebPush } from './hooks/useWebPush';
@@ -43,22 +50,32 @@ const PAGE_TITLES: Record<string, string> = {
   '/settings': 'Settings',
   '/notifications': 'Notifications',
   '/profile': 'Profile',
+  '/hrms/attendance': 'Attendance',
+  '/hrms/shifts': 'Shifts',
+  '/hrms/expenses': 'Expenses',
+  '/hrms/incentives': 'Incentives',
+  '/hrms/payroll': 'Payroll',
+  '/hrms/leave': 'Leave',
 };
 
 function TopBar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { activeApp } = useApp();
   const location = useLocation();
   let title = PAGE_TITLES[location.pathname] || 'Dashboard';
   const p = location.pathname;
-  /* Keep top bar aligned with sidebar: all invoice routes show “Invoices” like the list page. */
+  /* Keep top bar aligned with sidebar: all invoice routes show "Invoices" like the list page. */
   if (p === '/invoices' || p.startsWith('/invoices/')) {
     title = 'Invoices';
   }
   if (p === '/tasks' || p.startsWith('/tasks/')) {
     title = 'Tasks';
   }
-  const showBack = p !== '/';
+  if (activeApp === 'hrms' && p.startsWith('/hrms/')) {
+    title = PAGE_TITLES[p] || 'HRMS';
+  }
+  const showBack = p !== '/' && p !== '/hrms/attendance';
   return (
     <header className="h-16 bg-white border-b border-zinc-100 px-5 flex items-center justify-between sticky top-0 z-30 shadow-sm grow-0 shrink-0">
       <div className="flex items-center gap-3">
@@ -72,9 +89,6 @@ function TopBar() {
             <ChevronLeft size={20} />
           </button>
         )}
-        <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-4 ring-emerald-50">
-          M
-        </div>
         <h2 className="text-base font-extrabold text-zinc-900 tracking-tight">{title}</h2>
       </div>
       <div className="flex items-center gap-2">
@@ -141,9 +155,15 @@ function AppRoutes() {
             <Route path="/users" element={user.role === 'admin' ? <UserManagement /> : <Navigate to="/" />} />
             <Route path="/logs" element={<AuditLogs />} />
             <Route path="/reports" element={<Reports />} />
-    <Route path="/settings" element={<Settings />} />
-    <Route path="/notifications" element={<Notifications />} />
-    <Route path="*" element={<Navigate to="/" />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/hrms/attendance" element={<Attendance />} />
+            <Route path="/hrms/shifts" element={<Shifts />} />
+            <Route path="/hrms/expenses" element={<Expenses />} />
+            <Route path="/hrms/incentives" element={<Incentives />} />
+            <Route path="/hrms/payroll" element={<Payroll />} />
+            <Route path="/hrms/leave" element={<Leave />} />
+            <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
         <div className="lg:hidden">
@@ -162,7 +182,9 @@ export default function App() {
         {/* Main app — wrapped in AuthProvider */}
         <Route path="/*" element={
           <AuthProvider>
-            <AppRoutes />
+            <AppProvider>
+              <AppRoutes />
+            </AppProvider>
           </AuthProvider>
         } />
       </Routes>
