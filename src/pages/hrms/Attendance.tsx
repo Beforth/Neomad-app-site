@@ -1,22 +1,813 @@
-import { CalendarCheck } from 'lucide-react';
+﻿import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import {
+  UserCheck, UserX, Clock, Plus, X, Save,
+  CheckCircle2, Download, Shield, Search, MapPin, Loader2,
+  Settings as SettingsIcon, Navigation, Filter, LogIn, LogOut
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { getUsers, mapBackendRoleToFrontend } from '../../lib/api';
+import SearchableSelect from '../../components/SearchableSelect';
 
-export default function Attendance() {
+const STATUS_STYLES: Record<string, string> = {
+  present: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  absent: 'bg-red-50 text-red-700 border-red-100',
+  late: 'bg-amber-50 text-amber-700 border-amber-100',
+  half_day: 'bg-blue-50 text-blue-700 border-blue-100',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  present: 'Present',
+  absent: 'Absent',
+  late: 'Late',
+  half_day: 'Half Day',
+};
+
+let _idCounter = 10000;
+function generateId() { return ++_idCounter; }
+
+function formatHours(h: number) {
+  const hrs = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  return hrs > 0 || mins > 0 ? `${hrs}h ${mins}m` : '\u2014';
+}
+
+function getStatus(checkIn: string | null, checkOut: string | null): 'present' | 'absent' | 'late' | 'half_day' {
+  if (!checkIn) return 'absent';
+  const hour = parseInt(checkIn.split(':')[0], 10);
+  if (hour > 9) return 'late';
+  if (checkOut) {
+    const [outH, outM] = checkOut.split(':').map(Number);
+    const [inH, inM] = checkIn.split(':').map(Number);
+    const totalMins = (outH - inH) * 60 + (outM - inM);
+    if (totalMins < 240) return 'half_day';
+  }
+  return 'present';
+}
+
+function calcHours(checkIn: string, checkOut: string): number {
+  const [inH, inM] = checkIn.split(':').map(Number);
+  const [outH, outM] = checkOut.split(':').map(Number);
+  return Math.round(((outH * 60 + outM) - (inH * 60 + inM)) / 60 * 10) / 10;
+}
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function monthStartStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+function timeNow() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371e3;
+  const p1 = lat1 * Math.PI / 180;
+  const p2 = lat2 * Math.PI / 180;
+  const dp = (lat2 - lat1) * Math.PI / 180;
+  const dl = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dp / 2) * Math.sin(dp / 2) +
+    Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function Modal({ title, onClose, children, closeOnBackdropClick = true }: { title: string; onClose: () => void; children: React.ReactNode; closeOnBackdropClick?: boolean }) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') { if (closeOnBackdropClick) onClose(); else e.preventDefault(); }
+  };
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Attendance</h1>
-        <p className="text-sm text-zinc-500 mt-1">Track daily attendance and work hours</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
+      onClick={closeOnBackdropClick ? onClose : undefined} onKeyDown={handleKeyDown} role="dialog" aria-modal="true">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+        onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
+          <h3 className="font-bold text-zinc-900">{title}</h3>
+          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors"><X size={20} /></button>
+        </div>
+        {children}
+      </motion.div>
+    </div>
+  );
+}
+
+const inputClassName = "w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all";
+
+interface AttendanceSettings {
+  officeName: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  absentAfterTime: string;
+}
+
+const DEFAULT_SETTINGS: AttendanceSettings = {
+  officeName: 'Neomed Office, Nashik',
+  latitude: 19.9975,
+  longitude: 73.7898,
+  radiusMeters: 500,
+  absentAfterTime: '12:00',
+};
+export default function Attendance() {
+  const { user: currentUser, token } = useAuth();
+  const [allStaff, setAllStaff] = useState<any[]>([]);
+  const [records, setRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState('');
+
+  const [dateFrom, setDateFrom] = useState(monthStartStr());
+  const [dateTo, setDateTo] = useState(todayStr());
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [showStatusFilter, setShowStatusFilter] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const [showPunchModal, setShowPunchModal] = useState(false);
+  const [punchMode, setPunchMode] = useState<'in' | 'out'>('in');
+  const [punchStaffId, setPunchStaffId] = useState('');
+  const [punchTime, setPunchTime] = useState(timeNow());
+  const [punchLoading, setPunchLoading] = useState(false);
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'fetching' | 'success' | 'error'>('idle');
+  const [geoDistance, setGeoDistance] = useState<number | null>(null);
+  const [geoPosition, setGeoPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoError, setGeoError] = useState('');
+
+  const [settings, setSettings] = useState<AttendanceSettings>(DEFAULT_SETTINGS);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+
+  const canManage = currentUser?.role === 'admin' || currentUser?.role === 'manager';
+
+  const isPunchingSelf = String(punchStaffId) === String(currentUser?.id);
+  const isWithinRadius = geoDistance !== null && geoDistance <= settings.radiusMeters;
+  const canPunch = isPunchingSelf ? (geoStatus === 'success' && isWithinRadius) : true;
+
+  useEffect(() => {
+    fetchData();
+  }, [token]);
+
+  useEffect(() => {
+    if (showPunchModal && isPunchingSelf) {
+      handleGeoClick();
+    }
+  }, [showPunchModal, isPunchingSelf]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      if (token) {
+        const data = await getUsers(token);
+        const users = data.map((u: any) => ({
+          id: u.id,
+          name: u.full_name || u.email.split('@')[0],
+          email: u.email,
+          role: mapBackendRoleToFrontend(u.role_codes),
+        }));
+        setAllStaff(users);
+        generateMockRecords(users);
+      }
+    } catch {
+      setAllStaff([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateMockRecords = (users: any[]) => {
+    const today = new Date();
+    const mockRecords: any[] = [];
+    users.forEach((u: any) => {
+      for (let d = 0; d < 15; d++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - d);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        if (date.getDay() === 0) continue;
+        const hasRecord = Math.random() > 0.15;
+        if (!hasRecord) {
+          mockRecords.push({
+            id: generateId() + d * 100 + u.id,
+            staffId: u.id, staffName: u.name, staffEmail: u.email,
+            date: dateStr, checkIn: null, checkOut: null,
+            status: 'absent', hoursWorked: 0, markedBy: 'self',
+            punchInLocation: null, distanceFromOffice: null,
+          });
+          continue;
+        }
+        const lateChance = Math.random();
+        const checkInH = lateChance > 0.8 ? 9 + Math.floor(Math.random() * 2) : 8 + Math.floor(Math.random() * 2);
+        const checkInM = Math.floor(Math.random() * 60);
+        const checkIn = `${String(checkInH).padStart(2, '0')}:${String(checkInM).padStart(2, '0')}`;
+        const shouldCheckout = Math.random() > 0.1;
+        let checkOut = null;
+        let hoursWorked = 0;
+        if (shouldCheckout) {
+          const outH = checkInH + 7 + Math.floor(Math.random() * 3);
+          const outM = Math.floor(Math.random() * 60);
+          checkOut = `${String(Math.min(outH, 18)).padStart(2, '0')}:${String(outM).padStart(2, '0')}`;
+          hoursWorked = calcHours(checkIn, checkOut);
+        }
+        const status = getStatus(checkIn, checkOut);
+        const isManual = Math.random() > 0.85;
+        const dist = Math.round(Math.random() * 300);
+        mockRecords.push({
+          id: generateId() + d * 100 + u.id,
+          staffId: u.id, staffName: u.name, staffEmail: u.email,
+          date: dateStr, checkIn, checkOut, status, hoursWorked,
+          markedBy: isManual ? 'Admin' : 'self',
+          punchInLocation: isManual ? null : { lat: settings.latitude + (Math.random() - 0.5) * 0.002, lng: settings.longitude + (Math.random() - 0.5) * 0.002 },
+          distanceFromOffice: isManual ? null : dist,
+        });
+      }
+    });
+    setRecords(mockRecords);
+  };
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2500);
+  };
+
+  const fetchLocation = useCallback(() => {
+    return new Promise<{ lat: number; lng: number; distance: number }>((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation not supported'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const dist = getDistance(settings.latitude, settings.longitude, latitude, longitude);
+          resolve({ lat: latitude, lng: longitude, distance: dist });
+        },
+        (err) => {
+          reject(err);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
+  }, [settings.latitude, settings.longitude]);
+
+  const resetGeoState = () => {
+    setGeoStatus('idle');
+    setGeoDistance(null);
+    setGeoPosition(null);
+    setGeoError('');
+  };
+
+  const handleGeoClick = async () => {
+    setGeoStatus('fetching');
+    setGeoError('');
+    try {
+      const loc = await fetchLocation();
+      setGeoPosition({ lat: loc.lat, lng: loc.lng });
+      setGeoDistance(loc.distance);
+      setGeoStatus('success');
+    } catch (err: any) {
+      setGeoStatus('error');
+      if (err.code === 1) {
+        setGeoError('Location access denied. Please enable location permissions.');
+      } else if (err.code === 2) {
+        setGeoError('Location unavailable. Please try again.');
+      } else if (err.code === 3) {
+        setGeoError('Location request timed out. Please try again.');
+      } else {
+        setGeoError(err.message || 'Failed to get location.');
+      }
+    }
+  };
+
+  const handlePunchSubmit = async () => {
+    const staffId = parseInt(punchStaffId, 10);
+    if (isNaN(staffId)) { showToast('Please select a staff member.'); return; }
+
+    if (isPunchingSelf && geoStatus !== 'success') {
+      showToast('Please fetch your location first.');
+      return;
+    }
+    if (isPunchingSelf && geoDistance !== null && geoDistance > settings.radiusMeters) {
+      showToast(`You are ${Math.round(geoDistance)}m from office. Maximum allowed is ${settings.radiusMeters}m.`);
+      return;
+    }
+
+    setPunchLoading(true);
+    await new Promise(r => setTimeout(r, 500));
+
+    const staff = allStaff.find(s => s.id === staffId);
+    const dateStr = todayStr();
+
+    if (punchMode === 'in') {
+      const existing = records.find(r => r.staffId === staffId && r.date === dateStr && r.checkIn);
+      if (existing) { showToast('Already punched in for today.'); setPunchLoading(false); return; }
+
+      setRecords(prev => {
+        const absIdx = prev.findIndex(r => r.staffId === staffId && r.date === dateStr && !r.checkIn);
+        if (absIdx >= 0) {
+          const updated = [...prev];
+          updated[absIdx] = {
+            ...updated[absIdx],
+            checkIn: punchTime,
+            status: getStatus(punchTime, null),
+            markedBy: canPunch && !isPunchingSelf ? (currentUser?.username || 'Admin') : 'self',
+            punchInLocation: geoPosition,
+            distanceFromOffice: geoDistance !== null ? Math.round(geoDistance) : null,
+          };
+          return updated;
+        }
+        return [...prev, {
+          id: generateId(), staffId, staffName: staff?.name || '', staffEmail: staff?.email || '',
+          date: dateStr, checkIn: punchTime, checkOut: null,
+          status: getStatus(punchTime, null), hoursWorked: 0,
+          markedBy: canPunch && !isPunchingSelf ? (currentUser?.username || 'Admin') : 'self',
+          punchInLocation: geoPosition,
+          distanceFromOffice: geoDistance !== null ? Math.round(geoDistance) : null,
+        }];
+      });
+      showToast(`Punched in at ${punchTime}${geoDistance !== null ? ` (${Math.round(geoDistance)}m from office)` : ''}`);
+    } else {
+      const todayRecord = records.find(r => r.staffId === staffId && r.date === dateStr && r.checkIn && !r.checkOut);
+      if (!todayRecord) { showToast('No active punch-in found for today.'); setPunchLoading(false); return; }
+
+      setRecords(prev => prev.map(r => {
+        if (r.staffId === staffId && r.date === dateStr && r.checkIn && !r.checkOut) {
+          return { ...r, checkOut: punchTime, hoursWorked: calcHours(r.checkIn, punchTime), status: getStatus(r.checkIn, punchTime) };
+        }
+        return r;
+      }));
+      showToast(`Punched out at ${punchTime}`);
+    }
+
+    setPunchLoading(false);
+    setShowPunchModal(false);
+    resetGeoState();
+  };
+
+  const handleSaveSettings = async () => {
+    setSettingsSaving(true);
+    await new Promise(r => setTimeout(r, 300));
+    setSettingsSaving(false);
+    setShowSettings(false);
+    showToast('Office location settings saved.');
+  };
+
+  const handleGetCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setSettings(prev => ({
+            ...prev,
+            latitude: parseFloat(pos.coords.latitude.toFixed(4)),
+            longitude: parseFloat(pos.coords.longitude.toFixed(4)),
+          }));
+          showToast('Current location set as office.');
+        },
+        () => showToast('Failed to get current location.')
+      );
+    }
+  };
+
+  const filtered = useMemo(() => {
+    const today = todayStr();
+    const now = new Date();
+    const [cutoffH, cutoffM] = settings.absentAfterTime.split(':').map(Number);
+    const cutoffPassed = now.getHours() > cutoffH || (now.getHours() === cutoffH && now.getMinutes() >= cutoffM);
+
+    return records.filter(r => {
+      if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+      if (dateFrom && r.date < dateFrom) return false;
+      if (dateTo && r.date > dateTo) return false;
+      if (r.date === today && r.status === 'absent' && !cutoffPassed) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        if (!r.staffName.toLowerCase().includes(q) && !r.staffEmail.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [records, statusFilter, dateFrom, dateTo, search, settings.absentAfterTime]);
+
+  const stats = useMemo(() => {
+    const today = todayStr();
+    const todayRecords = records.filter(r => r.date === today);
+    const totalStaff = allStaff.length;
+    const now = new Date();
+    const [cutoffH, cutoffM] = settings.absentAfterTime.split(':').map(Number);
+    const cutoffPassed = now.getHours() > cutoffH || (now.getHours() === cutoffH && now.getMinutes() >= cutoffM);
+    const presentToday = todayRecords.filter(r => r.status !== 'absent').length;
+    const absentToday = cutoffPassed
+      ? todayRecords.filter(r => r.status === 'absent').length + (totalStaff - todayRecords.length)
+      : todayRecords.filter(r => r.status === 'absent').length;
+    return { totalStaff, presentToday, absentToday };
+  }, [records, allStaff, settings.absentAfterTime]);
+
+  const handleExport = () => {
+    const headers = ['Date', 'Staff', 'Email', 'Check In', 'Check Out', 'Hours', 'Status', 'Distance (m)', 'Marked By'];
+    const rows = filtered.map(r => [
+      r.date, r.staffName, r.staffEmail, r.checkIn || '', r.checkOut || '',
+      r.hoursWorked ? String(r.hoursWorked) : '', STATUS_LABELS[r.status] || r.status,
+      r.distanceFromOffice !== null ? String(r.distanceFromOffice) : 'Manual',
+      r.markedBy || '',
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `attendance-${dateFrom}-to-${dateTo}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    showToast('Attendance exported as CSV.');
+  };
+
+  return (
+    <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-5">
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-5 right-5 z-50 bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium"
+          >
+            <CheckCircle2 size={16} className="text-emerald-400" />
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900">Attendance</h1>
+          <p className="text-sm text-zinc-500 mt-1">Track staff attendance with geo-fenced punch in/out</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {canManage && (
+            <button onClick={() => setShowSettings(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
+              <SettingsIcon size={16} />
+              Office Settings
+            </button>
+          )}
+          <button onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
+            <Download size={16} />
+            Export CSV
+          </button>
+          <button onClick={() => { setPunchMode('in'); setPunchStaffId(currentUser?.id ? String(currentUser.id) : ''); setPunchTime(timeNow()); resetGeoState(); setShowPunchModal(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-emerald-200">
+            <LogIn size={16} />
+            Punch In / Out
+          </button>
+          {canManage && (
+            <button onClick={() => { setPunchMode('in'); setPunchStaffId(''); setPunchTime(timeNow()); resetGeoState(); setShowPunchModal(true); }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors border border-zinc-200">
+              <Plus size={16} />
+              Mark for Staff
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="bg-white border border-zinc-100 rounded-2xl p-10 flex flex-col items-center justify-center text-center shadow-sm">
-        <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mb-4">
-          <CalendarCheck size={28} className="text-emerald-500" />
-        </div>
-        <h2 className="text-lg font-bold text-zinc-900 mb-1">Coming Soon</h2>
-        <p className="text-sm text-zinc-400 max-w-xs">
-          Attendance tracking will let you manage check-ins, check-outs, and daily work hours for your team.
-        </p>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl p-5 border border-zinc-100 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Total Staff</p>
+              <p className="text-3xl font-bold text-zinc-900 mt-1">{stats.totalStaff}</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
+              <Shield size={20} className="text-blue-600" />
+            </div>
+          </div>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+          className="bg-white rounded-2xl p-5 border border-zinc-100 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Present Today</p>
+              <p className="text-3xl font-bold text-emerald-600 mt-1">{stats.presentToday}</p>
+            </div>
+            <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center">
+              <UserCheck size={20} className="text-emerald-600" />
+            </div>
+          </div>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className="bg-white rounded-2xl p-5 border border-zinc-100 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Absent Today</p>
+              <p className="text-3xl font-bold text-red-600 mt-1">{stats.absentToday}</p>
+            </div>
+            <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
+              <UserX size={20} className="text-red-600" />
+            </div>
+          </div>
+        </motion.div>
       </div>
+
+      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-zinc-100">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search staff..."
+                className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
+            </div>
+            <div className="flex gap-2">
+              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                className="px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
+              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                className="px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
+              <div className="relative">
+                <button onClick={() => setShowStatusFilter(!showStatusFilter)}
+                  className="flex items-center gap-2 px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm hover:bg-zinc-100 transition-colors">
+                  <Filter size={14} />
+                  {statusFilter === 'all' ? 'All Status' : STATUS_LABELS[statusFilter]}
+                </button>
+                <AnimatePresence>
+                  {showStatusFilter && (
+                    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 4 }}
+                      className="absolute right-0 mt-1 w-44 bg-white border border-zinc-200 rounded-xl shadow-lg z-10 py-1">
+                      {[{ value: 'all', label: 'All Status' }, ...Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }))].map(opt => (
+                        <button key={opt.value}
+                          onClick={() => { setStatusFilter(opt.value); setShowStatusFilter(false); }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-zinc-50 ${statusFilter === opt.value ? 'text-emerald-600 font-medium' : 'text-zinc-700'}`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="p-12 text-center text-zinc-500 text-sm">Loading attendance records...</div>
+        ) : filtered.length === 0 ? (
+          <div className="p-12 text-center text-zinc-500 text-sm">No attendance records found.</div>
+        ) : (
+          <>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-zinc-100">
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Staff</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Date</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Check In</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Check Out</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Hours</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Location</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Status</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Marked By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.slice(0, 50).map((r) => (
+                    <tr key={r.id} className="border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors">
+                      <td className="py-3 px-4">
+                        <div>
+                          <p className="text-sm font-medium text-zinc-900">{r.staffName}</p>
+                          <p className="text-xs text-zinc-500">{r.staffEmail}</p>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-zinc-600">{r.date}</td>
+                      <td className="py-3 px-4 text-sm text-zinc-900 font-medium">{r.checkIn || '—'}</td>
+                      <td className="py-3 px-4 text-sm text-zinc-900 font-medium">{r.checkOut || '—'}</td>
+                      <td className="py-3 px-4 text-sm text-zinc-600">{formatHours(r.hoursWorked)}</td>
+                      <td className="py-3 px-4">
+                        {r.distanceFromOffice !== null ? (
+                          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg ${r.distanceFromOffice <= settings.radiusMeters ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                            <MapPin size={12} />
+                            {r.distanceFromOffice}m
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg bg-blue-50 text-blue-700">
+                            <Shield size={12} />
+                            Manual
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-medium border ${STATUS_STYLES[r.status] || ''}`}>
+                          {STATUS_LABELS[r.status] || r.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-zinc-600">{r.markedBy || 'self'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="md:hidden divide-y divide-zinc-100">
+              {filtered.slice(0, 30).map((r) => (
+                <div key={r.id} className="p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-900">{r.staffName}</p>
+                      <p className="text-xs text-zinc-500">{r.date}</p>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${STATUS_STYLES[r.status] || ''}`}>
+                      {STATUS_LABELS[r.status] || r.status}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><span className="text-zinc-500">In:</span> <span className="font-medium text-zinc-900 ml-1">{r.checkIn || '—'}</span></div>
+                    <div><span className="text-zinc-500">Out:</span> <span className="font-medium text-zinc-900 ml-1">{r.checkOut || '—'}</span></div>
+                    <div><span className="text-zinc-500">Hours:</span> <span className="font-medium text-zinc-900 ml-1">{formatHours(r.hoursWorked)}</span></div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-zinc-500">Loc:</span>
+                      {r.distanceFromOffice !== null ? (
+                        <span className={`font-medium ml-1 ${r.distanceFromOffice <= settings.radiusMeters ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          <MapPin size={10} className="inline" /> {r.distanceFromOffice}m
+                        </span>
+                      ) : (
+                        <span className="font-medium text-blue-600 ml-1"><Shield size={10} className="inline" /> Manual</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {showPunchModal && (
+        <Modal title="Punch Attendance" onClose={() => { setShowPunchModal(false); resetGeoState(); }}>
+          <div className="p-5 space-y-4">
+            <div className="flex items-center bg-zinc-100 rounded-xl p-1">
+              <button type="button" onClick={() => setPunchMode('in')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${punchMode === 'in' ? 'bg-emerald-600 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
+                <LogIn size={16} />
+                Punch In
+              </button>
+              <button type="button" onClick={() => setPunchMode('out')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${punchMode === 'out' ? 'bg-amber-600 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
+                <LogOut size={16} />
+                Punch Out
+              </button>
+            </div>
+            {canManage && !punchStaffId && (
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Staff Member</label>
+                <SearchableSelect
+                  options={allStaff.map(s => ({ value: String(s.id), label: `${s.name} (${s.role})` }))}
+                  value={punchStaffId}
+                  onChange={setPunchStaffId}
+                  placeholder="Select staff..."
+                />
+              </div>
+            )}
+
+            {canManage && punchStaffId && !isPunchingSelf && (
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Marking for</label>
+                <div className="flex items-center gap-2 px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm text-zinc-700">
+                  <Shield size={14} className="text-amber-500" />
+                  {allStaff.find(s => String(s.id) === String(punchStaffId))?.name || 'Staff'}
+                  <button type="button" onClick={() => setPunchStaffId('')} className="ml-auto text-zinc-400 hover:text-zinc-600"><X size={14} /></button>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Time</label>
+              <input type="time" value={punchTime} onChange={(e) => setPunchTime(e.target.value)}
+                className={inputClassName} />
+            </div>
+
+            {isPunchingSelf && (
+              <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4">
+                {geoStatus === 'fetching' && (
+                  <div className="flex items-center justify-center gap-2 text-sm text-zinc-500">
+                    <Loader2 size={16} className="animate-spin" />
+                    Verifying location...
+                  </div>
+                )}
+                {geoStatus === 'success' && isWithinRadius && (
+                  <div className="flex items-center justify-center gap-2 text-sm text-emerald-600 font-medium">
+                    <CheckCircle2 size={16} />
+                    Location verified — {Math.round(geoDistance || 0)}m from office
+                  </div>
+                )}
+                {geoStatus === 'success' && !isWithinRadius && (
+                  <div className="flex items-center justify-center gap-2 text-sm text-red-600 font-medium">
+                    <MapPin size={16} />
+                    You are outside the work area ({Math.round(geoDistance || 0)}m)
+                  </div>
+                )}
+                {geoStatus === 'error' && (
+                  <div className="text-center text-sm text-red-500">{geoError}</div>
+                )}
+              </div>
+            )}
+
+            {!isPunchingSelf && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2">
+                <Shield size={16} className="text-amber-600 shrink-0" />
+                <p className="text-xs text-amber-700">Admin/Manager override: Location check bypassed for manual attendance.</p>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => { setShowPunchModal(false); resetGeoState(); }}
+                className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
+                Cancel
+              </button>
+              <button type="button" onClick={handlePunchSubmit} disabled={punchLoading || (isPunchingSelf && !canPunch)}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all
+                  ${punchLoading || (isPunchingSelf && !canPunch)
+                    ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+                    : punchMode === 'in'
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-amber-600 hover:bg-amber-700 text-white'}`}>
+                {punchLoading ? (
+                  <><Loader2 size={16} className="animate-spin" /> Processing...</>
+                ) : punchMode === 'in' ? (
+                  <><UserCheck size={16} /> Punch In</>
+                ) : (
+                  <><UserX size={16} /> Punch Out</>
+                )}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {showSettings && canManage && (
+        <Modal title="Office Location Settings" onClose={() => setShowSettings(false)}>
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Office Name</label>
+              <input type="text" value={settings.officeName} onChange={(e) => setSettings(s => ({ ...s, officeName: e.target.value }))}
+                className={inputClassName} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Latitude</label>
+                <input type="number" step="0.0001" value={settings.latitude}
+                  onChange={(e) => setSettings(s => ({ ...s, latitude: parseFloat(e.target.value) || 0 }))}
+                  className={inputClassName} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Longitude</label>
+                <input type="number" step="0.0001" value={settings.longitude}
+                  onChange={(e) => setSettings(s => ({ ...s, longitude: parseFloat(e.target.value) || 0 }))}
+                  className={inputClassName} />
+              </div>
+            </div>
+            <button type="button" onClick={handleGetCurrentLocation}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-sm font-medium transition-colors">
+              <Navigation size={16} />
+              Use My Current Location
+            </button>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
+                Geo-Fence Radius ({settings.radiusMeters}m)
+              </label>
+              <input type="range" min="100" max="5000" step="100" value={settings.radiusMeters}
+                onChange={(e) => setSettings(s => ({ ...s, radiusMeters: parseInt(e.target.value) }))}
+                className="w-full accent-emerald-600" />
+              <div className="flex justify-between text-xs text-zinc-400 mt-1">
+                <span>100m</span>
+                <span>5000m</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Auto-mark Absent After</label>
+              <input type="time" value={settings.absentAfterTime}
+                onChange={(e) => setSettings(s => ({ ...s, absentAfterTime: e.target.value }))}
+                className={inputClassName} />
+              <p className="text-xs text-zinc-400 mt-1">Employees with no punch-in by this time are marked absent.</p>
+            </div>
+            <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3">
+              <p className="text-xs text-zinc-500">
+                Employees must be within <strong className="text-zinc-700">{settings.radiusMeters}m</strong> of
+                <strong className="text-zinc-700"> {settings.officeName}</strong> to punch in/out.
+                Admins and managers can override this for manual attendance marking.
+              </p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setShowSettings(false)}
+                className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
+                Cancel
+              </button>
+              <button type="button" onClick={handleSaveSettings} disabled={settingsSaving}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors">
+                {settingsSaving ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : <><Save size={16} /> Save Settings</>}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -1,6 +1,31 @@
-import { LayoutDashboard, Users, CalendarCheck, Clock, Receipt, TrendingUp } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { LayoutDashboard, Users, UserCheck, UserX, Receipt, TrendingUp } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { getUsers } from '../../lib/api';
 
 export default function HrmsDashboard() {
+  const { token } = useAuth();
+  const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0 });
+
+  useEffect(() => {
+    fetchStats();
+  }, [token]);
+
+  const fetchStats = async () => {
+    try {
+      if (token) {
+        const data = await getUsers(token);
+        setStats({
+          total: data.length,
+          active: data.filter((u: any) => u.is_active).length,
+          inactive: data.filter((u: any) => !u.is_active).length,
+        });
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -10,12 +35,12 @@ export default function HrmsDashboard() {
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {[
-          { label: 'Total Staff', value: '24', icon: Users, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Present Today', value: '20', icon: CalendarCheck, color: 'bg-emerald-50 text-emerald-600' },
-          { label: 'On Leave', value: '1', icon: Clock, color: 'bg-amber-50 text-amber-600' },
-          { label: 'Pending Expenses', value: '3', icon: Receipt, color: 'bg-rose-50 text-rose-600' },
-          { label: 'Departments', value: '4', icon: LayoutDashboard, color: 'bg-purple-50 text-purple-600' },
-          { label: 'This Month', value: '92%', icon: TrendingUp, color: 'bg-cyan-50 text-cyan-600' },
+          { label: 'Total Staff', value: stats.total, icon: Users, color: 'bg-blue-50 text-blue-600' },
+          { label: 'Active', value: stats.active, icon: UserCheck, color: 'bg-emerald-50 text-emerald-600' },
+          { label: 'Inactive', value: stats.inactive, icon: UserX, color: 'bg-zinc-100 text-zinc-500' },
+          { label: 'Pending Expenses', value: '—', icon: Receipt, color: 'bg-rose-50 text-rose-600' },
+          { label: 'Departments', value: '—', icon: LayoutDashboard, color: 'bg-purple-50 text-purple-600' },
+          { label: 'This Month', value: '—', icon: TrendingUp, color: 'bg-cyan-50 text-cyan-600' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${stat.color}`}>
