@@ -12,7 +12,20 @@ import { motion, AnimatePresence } from 'motion/react';
 import { APP_NOTIFICATIONS_UPDATED_EVENT, appApi } from '../lib/appApi';
 import { isNavItemActive } from '../lib/navActive';
 
-const DELIVERY_ITEMS = [
+interface NavChildItem {
+  label: string;
+  path: string;
+}
+
+interface NavItem {
+  icon?: typeof LayoutDashboard;
+  label: string;
+  path?: string;
+  roles: string[];
+  children?: NavChildItem[];
+}
+
+const DELIVERY_ITEMS: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/', roles: ['admin', 'manager'] },
   { icon: Package, label: 'Tasks', path: '/tasks', roles: ['admin', 'manager'] },
   { icon: FileText, label: 'Invoices', path: '/invoices', roles: ['admin', 'manager'] },
@@ -25,14 +38,19 @@ const DELIVERY_ITEMS = [
   { icon: UserCircle, label: 'Profile', path: '/profile', roles: ['admin', 'manager'] },
 ];
 
-const HRMS_ITEMS = [
+const HRMS_ITEMS: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/hrms/dashboard', roles: ['admin', 'manager'] },
   { icon: CalendarCheck, label: 'Attendance', path: '/hrms/attendance', roles: ['admin', 'manager'] },
   { icon: Users, label: 'Staff', path: '/hrms/staff', roles: ['admin', 'manager'] },
   { icon: Wallet, label: 'Expenses', path: '/hrms/expenses', roles: ['admin', 'manager'] },
   { icon: Trophy, label: 'Incentives', path: '/hrms/incentives', roles: ['admin', 'manager'] },
   { icon: Banknote, label: 'Payroll', path: '/hrms/payroll', roles: ['admin', 'manager'] },
-  { icon: CalendarOff, label: 'Leave', path: '/hrms/leave', roles: ['admin', 'manager'] },
+  { icon: CalendarOff, label: 'Leave', roles: ['admin', 'manager'], children: [
+    { label: 'Apply', path: '/hrms/leave/apply' },
+    { label: 'Requests', path: '/hrms/leave/requests' },
+    { label: 'Type', path: '/hrms/leave/type' },
+    { label: 'Policy', path: '/hrms/leave/policy' },
+  ]},
   { icon: CalendarClock, label: 'Shifts', path: '/hrms/shifts', roles: ['admin', 'manager'] },
   { icon: UserCircle, label: 'Profile', path: '/profile', roles: ['admin', 'manager'] },
 ];
@@ -41,11 +59,15 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
   const { activeApp, setActiveApp } = useApp();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(true);
   const [unread, setUnread] = useState(0);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [expandedItem, setExpandedItem] = useState<string | null>(() => {
+    if (location.pathname.startsWith('/hrms/leave')) return 'Leave';
+    return null;
+  });
   const switcherRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
 
   const canSwitch = user?.role === 'admin' || user?.role === 'manager';
 
@@ -81,6 +103,12 @@ export default function Sidebar() {
 
   const menuItems = activeApp === 'hrms' ? HRMS_ITEMS : DELIVERY_ITEMS;
   const filteredItems = menuItems.filter(item => item.roles.includes(user?.role || ''));
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/hrms/leave')) {
+      setExpandedItem('Leave');
+    }
+  }, [location.pathname]);
 
   const handleAppSwitch = (app: 'delivery' | 'hrms') => {
     setActiveApp(app);
@@ -170,9 +198,69 @@ export default function Sidebar() {
 
         <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
           {filteredItems.map(item => {
-            const active = isNavItemActive(item.path, location.pathname);
+            const hasChildren = item.children && item.children.length > 0;
+            const isExpanded = expandedItem === item.label;
+            const active = hasChildren
+              ? item.children!.some(c => location.pathname === c.path)
+              : isNavItemActive(item.path || '', location.pathname);
+
+            if (hasChildren) {
+              return (
+                <div key={item.label}>
+                  <button
+                    onClick={() => setExpandedItem(isExpanded ? null : item.label)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all whitespace-nowrap group ${
+                      active
+                        ? 'bg-zinc-900 text-white shadow-sm'
+                        : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
+                    }`}
+                  >
+                    <div className="relative">
+                      {item.icon && <item.icon size={18} className={active ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-900'} />}
+                    </div>
+                    <span className="font-medium text-sm tracking-tight flex-1 text-left">{item.label}</span>
+                    <ChevronDown size={14} className={`transition-transform duration-200 ${active ? 'text-white' : 'text-zinc-400'} ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="ml-4 pl-3 border-l border-zinc-200 space-y-0.5 py-1">
+                          {item.children!.map(child => {
+                            const childActive = location.pathname === child.path;
+                            return (
+                              <Link
+                                key={child.path}
+                                to={child.path}
+                                onClick={() => { window.innerWidth < 1024 && setIsOpen(false); }}
+                                className={`flex items-center px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all relative ${
+                                  childActive
+                                    ? 'bg-emerald-50 text-emerald-700 font-semibold'
+                                    : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700'
+                                }`}
+                              >
+                                {childActive && (
+                                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-emerald-500 rounded-r-full" />
+                                )}
+                                {child.label}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            }
+
             return (
-              <Link key={item.path} to={item.path} onClick={() => { window.innerWidth < 1024 && setIsOpen(false); }}
+              <Link key={item.path} to={item.path!} onClick={() => { window.innerWidth < 1024 && setIsOpen(false); }}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all whitespace-nowrap group ${active
                   ? 'bg-zinc-900 text-white shadow-sm'
                   : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'

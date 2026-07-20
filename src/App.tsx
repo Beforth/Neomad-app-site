@@ -33,7 +33,11 @@ import Shifts from './pages/hrms/Shifts';
 import Expenses from './pages/hrms/Expenses';
 import Incentives from './pages/hrms/Incentives';
 import Payroll from './pages/hrms/Payroll';
-import Leave from './pages/hrms/Leave';
+import LeaveApply from './pages/hrms/LeaveApply';
+import LeaveApplyForm from './pages/hrms/LeaveApplyForm';
+import LeaveRequest from './pages/hrms/LeaveRequest';
+import LeaveType from './pages/hrms/LeaveType';
+import LeavePolicy from './pages/hrms/LeavePolicy';
 import Staff from './pages/hrms/Staff';
 import StaffDetail from './pages/hrms/StaffDetail';
 import StaffCreate from './pages/hrms/StaffCreate';
@@ -63,6 +67,11 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/incentives': 'Incentives',
   '/hrms/payroll': 'Payroll',
   '/hrms/leave': 'Leave',
+  '/hrms/leave/apply': 'Apply Leave',
+  '/hrms/leave/apply/new': 'New Leave Application',
+  '/hrms/leave/requests': 'Leave Requests',
+  '/hrms/leave/type': 'Leave Types',
+  '/hrms/leave/policy': 'Leave Policy',
 };
 
 function TopBar() {
@@ -84,6 +93,9 @@ function TopBar() {
   }
   if (p === '/hrms/staff' || p.startsWith('/hrms/staff/')) {
     title = 'Staff';
+  }
+  if (p.startsWith('/hrms/leave')) {
+    title = PAGE_TITLES[p] || 'Leave';
   }
   const showBack = p !== '/' && p !== '/hrms/dashboard' && p !== '/hrms/attendance' && p !== '/hrms/staff';
   return (
@@ -177,7 +189,12 @@ function AppRoutes() {
             <Route path="/hrms/expenses" element={<Expenses />} />
             <Route path="/hrms/incentives" element={<Incentives />} />
             <Route path="/hrms/payroll" element={<Payroll />} />
-            <Route path="/hrms/leave" element={<Leave />} />
+            <Route path="/hrms/leave" element={<Navigate to="/hrms/leave/requests" replace />} />
+            <Route path="/hrms/leave/apply" element={<LeaveApply />} />
+            <Route path="/hrms/leave/apply/new" element={<LeaveApplyForm />} />
+            <Route path="/hrms/leave/requests" element={<LeaveRequest />} />
+            <Route path="/hrms/leave/type" element={<LeaveType />} />
+            <Route path="/hrms/leave/policy" element={<LeavePolicy />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>

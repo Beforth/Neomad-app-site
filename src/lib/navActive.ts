@@ -9,5 +9,8 @@ export function isNavItemActive(itemPath: string, pathname: string): boolean {
   if (itemPath === '/tasks') {
     return pathname === '/tasks' || pathname.startsWith('/tasks/');
   }
+  if (itemPath === '/hrms/leave') {
+    return pathname === '/hrms/leave' || pathname.startsWith('/hrms/leave/');
+  }
   return pathname === itemPath;
 }
