@@ -1,14 +1,17 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Users, CalendarCheck, Clock, Receipt, TrendingUp,
   UserPlus, FileText, CalendarOff, AlertCircle, CheckCircle2,
-  ChevronRight
+  ChevronRight, LayoutDashboard, UserCheck, UserX
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
+import { useAuth } from '../../context/AuthContext';
+import { getUsers } from '../../lib/api';
 
 const CHART_STYLE = {
   contentStyle: { backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #f4f4f5', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' },
@@ -63,6 +66,28 @@ const RECENT_ACTIVITY = [
 ];
 
 export default function HrmsDashboard() {
+  const { token } = useAuth();
+  const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0 });
+
+  useEffect(() => {
+    fetchStats();
+  }, [token]);
+
+  const fetchStats = async () => {
+    try {
+      if (token) {
+        const data = await getUsers(token);
+        setStats({
+          total: data.length,
+          active: data.filter((u: any) => u.is_active).length,
+          inactive: data.filter((u: any) => !u.is_active).length,
+        });
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -74,10 +99,10 @@ export default function HrmsDashboard() {
       {/* Compact Stat Cards */}
       <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
         {[
-          { label: 'Total Staff', value: '24', icon: Users, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Present Today', value: '20', icon: CalendarCheck, color: 'bg-emerald-50 text-emerald-600' },
-          { label: 'On Leave', value: '1', icon: Clock, color: 'bg-amber-50 text-amber-600' },
-          { label: 'Pending Exp.', value: '3', icon: Receipt, color: 'bg-rose-50 text-rose-600' },
+          { label: 'Total Staff', value: stats.total, icon: Users, color: 'bg-blue-50 text-blue-600' },
+          { label: 'Active', value: stats.active, icon: UserCheck, color: 'bg-emerald-50 text-emerald-600' },
+          { label: 'Inactive', value: stats.inactive, icon: UserX, color: 'bg-zinc-100 text-zinc-500' },
+          { label: 'Pending Exp.', value: '—', icon: Receipt, color: 'bg-rose-50 text-rose-600' },
           { label: 'Attend. Rate', value: '92%', icon: TrendingUp, color: 'bg-cyan-50 text-cyan-600' },
         ].map((stat, i) => (
           <motion.div
