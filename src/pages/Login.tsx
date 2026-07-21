@@ -55,11 +55,12 @@ export default function Login() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 px-6 pb-8 w-full max-w-md mx-auto flex flex-col items-center text-center">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-          
+      <div className="flex-1 px-6 pb-8 w-full max-w-md mx-auto flex flex-col items-center">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          className="w-full bg-white border border-zinc-200 rounded-xl shadow-2xl py-10 px-6 sm:py-12 sm:px-8">
+
           {/* Title Section */}
-          <div className="text-center">
+          <div className="text-center mb-6">
             <AnimatePresence mode="wait">
               {view === 'login' && (
                 <motion.div key="lh" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>

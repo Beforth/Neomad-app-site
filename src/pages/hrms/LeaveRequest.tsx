@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Search, XCircle, ChevronLeft, ChevronRight, ArrowUpDown,
-  Plus, ChevronUp, ChevronDown, Inbox, Eye, CheckCircle2,
+  Plus, ChevronUp, ChevronDown, Inbox, Eye, CheckCircle2, X,
 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
 
@@ -58,6 +58,14 @@ const initialData: LeaveRequest[] = [
 
 const PAGE_SIZE = 10;
 
+function loadRequests(): LeaveRequest[] {
+  try {
+    const stored = localStorage.getItem('leaveRequests');
+    if (stored) return JSON.parse(stored) as LeaveRequest[];
+  } catch {}
+  return initialData;
+}
+
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
@@ -77,12 +85,19 @@ export default function LeaveRequest() {
   const [sortBy, setSortBy] = useState<SortKey>('startDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
-  const [requests, setRequests] = useState<LeaveRequest[]>(initialData);
+  const [requests, setRequests] = useState<LeaveRequest[]>(loadRequests);
+  const [actionTarget, setActionTarget] = useState<{ id: number; action: 'approved' | 'rejected' } | null>(null);
+
+  useEffect(() => { localStorage.setItem('leaveRequests', JSON.stringify(requests)); }, [requests]);
 
   function handleAction(id: number, newStatus: 'approved' | 'rejected') {
-    const label = newStatus === 'approved' ? 'Approve' : 'Reject';
-    if (!window.confirm(`${label} this leave request?`)) return;
-    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r)));
+    setActionTarget({ id, action: newStatus });
+  }
+
+  function confirmAction() {
+    if (!actionTarget) return;
+    setRequests((prev) => prev.map((r) => (r.id === actionTarget.id ? { ...r, status: actionTarget.action } : r)));
+    setActionTarget(null);
   }
 
   useEffect(() => {
@@ -370,6 +385,47 @@ export default function LeaveRequest() {
           </>
         )}
       </motion.div>
+
+      {actionTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
+          onClick={() => setActionTarget(null)} role="dialog" aria-modal="true">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden"
+          >
+            <div className="p-6 border-b border-zinc-100 relative">
+              <button type="button" onClick={() => setActionTarget(null)}
+                className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+                <X size={18} />
+              </button>
+              <h3 className="text-lg font-bold text-zinc-900">
+                {actionTarget.action === 'approved' ? 'Approve' : 'Reject'} leave request?
+              </h3>
+              <p className="text-sm text-zinc-600 mt-2">
+                <span className="font-semibold text-zinc-800">
+                  {requests.find((r) => r.id === actionTarget.id)?.employee}
+                </span>
+                {' · '}
+                {requests.find((r) => r.id === actionTarget.id)?.leaveType}
+              </p>
+              <p className="text-xs text-red-600 font-medium mt-2">This action cannot be undone.</p>
+            </div>
+            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
+              <button type="button" onClick={() => setActionTarget(null)}
+                className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
+                Cancel
+              </button>
+              <button type="button" onClick={confirmAction}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold transition-colors ${actionTarget.action === 'approved' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'}`}>
+                {actionTarget.action === 'approved' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                {actionTarget.action === 'approved' ? 'Approve' : 'Reject'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

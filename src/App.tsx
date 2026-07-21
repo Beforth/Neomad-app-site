@@ -33,10 +33,11 @@ import Shifts from './pages/hrms/Shifts';
 import Expenses from './pages/hrms/Expenses';
 import Incentives from './pages/hrms/Incentives';
 import Payroll from './pages/hrms/Payroll';
-import LeaveApply from './pages/hrms/LeaveApply';
-import LeaveApplyForm from './pages/hrms/LeaveApplyForm';
+// import LeaveApply from './pages/hrms/LeaveApply';
+// import LeaveApplyForm from './pages/hrms/LeaveApplyForm';
 import LeaveRequest from './pages/hrms/LeaveRequest';
 import LeaveType from './pages/hrms/LeaveType';
+import LeaveTypeForm from './pages/hrms/LeaveTypeForm';
 import LeavePolicy from './pages/hrms/LeavePolicy';
 import Staff from './pages/hrms/Staff';
 import StaffDetail from './pages/hrms/StaffDetail';
@@ -190,10 +191,12 @@ function AppRoutes() {
             <Route path="/hrms/incentives" element={<Incentives />} />
             <Route path="/hrms/payroll" element={<Payroll />} />
             <Route path="/hrms/leave" element={<Navigate to="/hrms/leave/requests" replace />} />
-            <Route path="/hrms/leave/apply" element={<LeaveApply />} />
-            <Route path="/hrms/leave/apply/new" element={<LeaveApplyForm />} />
+            {/* <Route path="/hrms/leave/apply" element={<LeaveApply />} /> */}
+            {/* <Route path="/hrms/leave/apply/new" element={<LeaveApplyForm />} /> */}
             <Route path="/hrms/leave/requests" element={<LeaveRequest />} />
             <Route path="/hrms/leave/type" element={<LeaveType />} />
+            <Route path="/hrms/leave/type/new" element={<LeaveTypeForm />} />
+            <Route path="/hrms/leave/type/edit/:id" element={<LeaveTypeForm />} />
             <Route path="/hrms/leave/policy" element={<LeavePolicy />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

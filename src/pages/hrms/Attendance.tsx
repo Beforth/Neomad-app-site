@@ -3,17 +3,18 @@ import { useAuth } from '../../context/AuthContext';
 import {
   UserCheck, UserX, Clock, Plus, X, Save,
   CheckCircle2, Download, Shield, Search, MapPin, Loader2,
-  Settings as SettingsIcon, Navigation, Filter, LogIn, LogOut
+  Settings as SettingsIcon, Navigation, LogIn, LogOut,
+  ChevronLeft, ChevronRight, Inbox, XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getUsers, mapBackendRoleToFrontend } from '../../lib/api';
 import SearchableSelect from '../../components/SearchableSelect';
 
 const STATUS_STYLES: Record<string, string> = {
-  present: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-  absent: 'bg-red-50 text-red-700 border-red-100',
-  late: 'bg-amber-50 text-amber-700 border-amber-100',
-  half_day: 'bg-blue-50 text-blue-700 border-blue-100',
+  present: 'bg-emerald-50 text-emerald-600',
+  absent: 'bg-red-50 text-red-600',
+  late: 'bg-amber-50 text-amber-600',
+  half_day: 'bg-blue-50 text-blue-600',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -22,6 +23,16 @@ const STATUS_LABELS: Record<string, string> = {
   late: 'Late',
   half_day: 'Half Day',
 };
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'All Status' },
+  { value: 'present', label: 'Present' },
+  { value: 'absent', label: 'Absent' },
+  { value: 'late', label: 'Late' },
+  { value: 'half_day', label: 'Half Day' },
+];
+
+const PAGE_SIZE = 10;
 
 let _idCounter = 10000;
 function generateId() { return ++_idCounter; }
@@ -114,6 +125,7 @@ const DEFAULT_SETTINGS: AttendanceSettings = {
   radiusMeters: 500,
   absentAfterTime: '12:00',
 };
+
 export default function Attendance() {
   const { user: currentUser, token } = useAuth();
   const [allStaff, setAllStaff] = useState<any[]>([]);
@@ -124,8 +136,9 @@ export default function Attendance() {
   const [dateFrom, setDateFrom] = useState(monthStartStr());
   const [dateTo, setDateTo] = useState(todayStr());
   const [statusFilter, setStatusFilter] = useState('all');
-  const [showStatusFilter, setShowStatusFilter] = useState(false);
   const [search, setSearch] = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
+  const [page, setPage] = useState(1);
 
   const [showPunchModal, setShowPunchModal] = useState(false);
   const [punchMode, setPunchMode] = useState<'in' | 'out'>('in');
@@ -156,6 +169,13 @@ export default function Attendance() {
       handleGeoClick();
     }
   }, [showPunchModal, isPunchingSelf]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [statusFilter, searchDebounced, dateFrom, dateTo]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -381,13 +401,20 @@ export default function Attendance() {
       if (dateFrom && r.date < dateFrom) return false;
       if (dateTo && r.date > dateTo) return false;
       if (r.date === today && r.status === 'absent' && !cutoffPassed) return false;
-      if (search) {
-        const q = search.toLowerCase();
+      if (searchDebounced) {
+        const q = searchDebounced.toLowerCase();
         if (!r.staffName.toLowerCase().includes(q) && !r.staffEmail.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [records, statusFilter, dateFrom, dateTo, search, settings.absentAfterTime]);
+  }, [records, statusFilter, dateFrom, dateTo, searchDebounced, settings.absentAfterTime]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const startRow = (page - 1) * PAGE_SIZE + 1;
+  const endRow = Math.min(page * PAGE_SIZE, filtered.length);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const hasFilters = search || statusFilter !== 'all' || dateFrom !== monthStartStr() || dateTo !== todayStr();
 
   const stats = useMemo(() => {
     const today = todayStr();
@@ -421,7 +448,7 @@ export default function Attendance() {
   };
 
   return (
-    <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-5">
+    <div className="space-y-6">
       <AnimatePresence>
         {toast && (
           <motion.div
@@ -436,38 +463,43 @@ export default function Attendance() {
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <motion.header
+        initial={{ opacity: 0, y: -12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+      >
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900">Attendance</h1>
-          <p className="text-sm text-zinc-500 mt-1">Track staff attendance with geo-fenced punch in/out</p>
+          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Attendance</h1>
+          <p className="text-xs text-zinc-500 font-medium mt-0.5">Track staff attendance with geo-fenced punch in/out</p>
         </div>
         <div className="flex items-center gap-2">
           {canManage && (
             <button onClick={() => setShowSettings(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
-              <SettingsIcon size={16} />
+              className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm">
+              <SettingsIcon size={14} />
               Office Settings
             </button>
           )}
           <button onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
-            <Download size={16} />
+            className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm">
+            <Download size={14} />
             Export CSV
           </button>
           <button onClick={() => { setPunchMode('in'); setPunchStaffId(currentUser?.id ? String(currentUser.id) : ''); setPunchTime(timeNow()); resetGeoState(); setShowPunchModal(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-emerald-200">
-            <LogIn size={16} />
+            className="flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+            <LogIn size={14} />
             Punch In / Out
           </button>
           {canManage && (
             <button onClick={() => { setPunchMode('in'); setPunchStaffId(''); setPunchTime(timeNow()); resetGeoState(); setShowPunchModal(true); }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors border border-zinc-200">
-              <Plus size={16} />
+              className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm">
+              <Plus size={14} />
               Mark for Staff
             </button>
           )}
         </div>
-      </div>
+      </motion.header>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -475,7 +507,7 @@ export default function Attendance() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Total Staff</p>
-              <p className="text-3xl font-bold text-zinc-900 mt-1">{stats.totalStaff}</p>
+              <p className="text-2xl font-bold text-zinc-900 mt-1">{stats.totalStaff}</p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
               <Shield size={20} className="text-blue-600" />
@@ -487,7 +519,7 @@ export default function Attendance() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Present Today</p>
-              <p className="text-3xl font-bold text-emerald-600 mt-1">{stats.presentToday}</p>
+              <p className="text-2xl font-bold text-emerald-600 mt-1">{stats.presentToday}</p>
             </div>
             <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center">
               <UserCheck size={20} className="text-emerald-600" />
@@ -499,7 +531,7 @@ export default function Attendance() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Absent Today</p>
-              <p className="text-3xl font-bold text-red-600 mt-1">{stats.absentToday}</p>
+              <p className="text-2xl font-bold text-red-600 mt-1">{stats.absentToday}</p>
             </div>
             <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
               <UserX size={20} className="text-red-600" />
@@ -508,137 +540,193 @@ export default function Attendance() {
         </motion.div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-zinc-100">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search staff..."
-                className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
-            </div>
-            <div className="flex gap-2">
-              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-                className="px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
-              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-                className="px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
-              <div className="relative">
-                <button onClick={() => setShowStatusFilter(!showStatusFilter)}
-                  className="flex items-center gap-2 px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm hover:bg-zinc-100 transition-colors">
-                  <Filter size={14} />
-                  {statusFilter === 'all' ? 'All Status' : STATUS_LABELS[statusFilter]}
-                </button>
-                <AnimatePresence>
-                  {showStatusFilter && (
-                    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 4 }}
-                      className="absolute right-0 mt-1 w-44 bg-white border border-zinc-200 rounded-xl shadow-lg z-10 py-1">
-                      {[{ value: 'all', label: 'All Status' }, ...Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }))].map(opt => (
-                        <button key={opt.value}
-                          onClick={() => { setStatusFilter(opt.value); setShowStatusFilter(false); }}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-zinc-50 ${statusFilter === opt.value ? 'text-emerald-600 font-medium' : 'text-zinc-700'}`}>
-                          {opt.label}
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
+      <motion.div
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center"
+      >
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
+          <input
+            type="text"
+            placeholder="Search staff..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+          />
         </div>
+        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+          className="h-8 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all" />
+        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+          className="h-8 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all" />
+        <div className="w-[160px]">
+          <SearchableSelect
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={STATUS_OPTIONS}
+            className="w-full"
+          />
+        </div>
+        {hasFilters && (
+          <button
+            onClick={() => { setSearch(''); setSearchDebounced(''); setStatusFilter('all'); setDateFrom(monthStartStr()); setDateTo(todayStr()); }}
+            className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors"
+          >
+            <XCircle size={12} />Clear
+          </button>
+        )}
+      </motion.div>
 
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden"
+      >
         {loading ? (
           <div className="p-12 text-center text-zinc-500 text-sm">Loading attendance records...</div>
         ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-zinc-500 text-sm">No attendance records found.</div>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
+              <Inbox size={24} className="text-zinc-300" />
+            </div>
+            <h3 className="text-sm font-bold text-zinc-900 mb-1">No attendance records found</h3>
+            <p className="text-xs text-zinc-400 max-w-xs">Try adjusting your search or filters</p>
+          </div>
         ) : (
           <>
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-zinc-100">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Staff</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Date</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Check In</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Check Out</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Hours</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Location</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Status</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Marked By</th>
+              <table className="w-full text-left">
+                <thead className="bg-zinc-50/50 border-b border-zinc-100">
+                  <tr>
+                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Staff</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Date</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Check In</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Check Out</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Hours</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Location</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Status</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Marked By</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {filtered.slice(0, 50).map((r) => (
-                    <tr key={r.id} className="border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors">
-                      <td className="py-3 px-4">
-                        <div>
-                          <p className="text-sm font-medium text-zinc-900">{r.staffName}</p>
-                          <p className="text-xs text-zinc-500">{r.staffEmail}</p>
+                <tbody className="divide-y divide-zinc-50">
+                  {paged.map((r, i) => (
+                    <motion.tr
+                      key={r.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.02 }}
+                      className="hover:bg-zinc-50/50 transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500 border border-zinc-200 shadow-sm shrink-0">
+                            {r.staffName[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-zinc-800">{r.staffName}</p>
+                            <p className="text-[10px] text-zinc-400">{r.staffEmail}</p>
+                          </div>
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-sm text-zinc-600">{r.date}</td>
-                      <td className="py-3 px-4 text-sm text-zinc-900 font-medium">{r.checkIn || '—'}</td>
-                      <td className="py-3 px-4 text-sm text-zinc-900 font-medium">{r.checkOut || '—'}</td>
-                      <td className="py-3 px-4 text-sm text-zinc-600">{formatHours(r.hoursWorked)}</td>
-                      <td className="py-3 px-4">
+                      <td className="px-4 py-3 text-xs text-zinc-600">{r.date}</td>
+                      <td className="px-4 py-3 text-xs text-zinc-900 font-semibold">{r.checkIn || '\u2014'}</td>
+                      <td className="px-4 py-3 text-xs text-zinc-900 font-semibold">{r.checkOut || '\u2014'}</td>
+                      <td className="px-4 py-3 text-xs text-zinc-500">{formatHours(r.hoursWorked)}</td>
+                      <td className="px-4 py-3">
                         {r.distanceFromOffice !== null ? (
-                          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg ${r.distanceFromOffice <= settings.radiusMeters ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                            <MapPin size={12} />
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium ${r.distanceFromOffice <= settings.radiusMeters ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                            <MapPin size={10} />
                             {r.distanceFromOffice}m
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg bg-blue-50 text-blue-700">
-                            <Shield size={12} />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700">
+                            <Shield size={10} />
                             Manual
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-4">
-                        <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-medium border ${STATUS_STYLES[r.status] || ''}`}>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold capitalize ${STATUS_STYLES[r.status] || ''}`}>
                           {STATUS_LABELS[r.status] || r.status}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-sm text-zinc-600">{r.markedBy || 'self'}</td>
-                    </tr>
+                      <td className="px-4 py-3 text-xs text-zinc-500">{r.markedBy || 'self'}</td>
+                    </motion.tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
             <div className="md:hidden divide-y divide-zinc-100">
-              {filtered.slice(0, 30).map((r) => (
-                <div key={r.id} className="p-4 space-y-2">
+              {paged.map((r, i) => (
+                <motion.div
+                  key={r.id}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.03 }}
+                  className="p-4 space-y-2"
+                >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-zinc-900">{r.staffName}</p>
-                      <p className="text-xs text-zinc-500">{r.date}</p>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500 border border-zinc-200 shadow-sm shrink-0">
+                        {r.staffName[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-zinc-900">{r.staffName}</p>
+                        <p className="text-[10px] text-zinc-500">{r.date}</p>
+                      </div>
                     </div>
-                    <span className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${STATUS_STYLES[r.status] || ''}`}>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold capitalize ${STATUS_STYLES[r.status] || ''}`}>
                       {STATUS_LABELS[r.status] || r.status}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div><span className="text-zinc-500">In:</span> <span className="font-medium text-zinc-900 ml-1">{r.checkIn || '—'}</span></div>
-                    <div><span className="text-zinc-500">Out:</span> <span className="font-medium text-zinc-900 ml-1">{r.checkOut || '—'}</span></div>
-                    <div><span className="text-zinc-500">Hours:</span> <span className="font-medium text-zinc-900 ml-1">{formatHours(r.hoursWorked)}</span></div>
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div><span className="text-zinc-400">In:</span> <span className="font-semibold text-zinc-800 ml-1">{r.checkIn || '\u2014'}</span></div>
+                    <div><span className="text-zinc-400">Out:</span> <span className="font-semibold text-zinc-800 ml-1">{r.checkOut || '\u2014'}</span></div>
+                    <div><span className="text-zinc-400">Hours:</span> <span className="font-semibold text-zinc-800 ml-1">{formatHours(r.hoursWorked)}</span></div>
                     <div className="flex items-center gap-1">
-                      <span className="text-zinc-500">Loc:</span>
+                      <span className="text-zinc-400">Loc:</span>
                       {r.distanceFromOffice !== null ? (
-                        <span className={`font-medium ml-1 ${r.distanceFromOffice <= settings.radiusMeters ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        <span className={`font-semibold ml-1 ${r.distanceFromOffice <= settings.radiusMeters ? 'text-emerald-600' : 'text-amber-600'}`}>
                           <MapPin size={10} className="inline" /> {r.distanceFromOffice}m
                         </span>
                       ) : (
-                        <span className="font-medium text-blue-600 ml-1"><Shield size={10} className="inline" /> Manual</span>
+                        <span className="font-semibold text-blue-600 ml-1"><Shield size={10} className="inline" /> Manual</span>
                       )}
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
+            </div>
+
+            <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-zinc-100">
+              <p className="text-xs text-zinc-500">
+                Showing <span className="font-bold text-zinc-900">{startRow}</span>–
+                <span className="font-bold text-zinc-900">{endRow}</span> of{' '}
+                <span className="font-bold text-zinc-900">{filtered.length}</span> records
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={16} className="text-zinc-600" />
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight size={16} className="text-zinc-600" />
+                </button>
+              </div>
             </div>
           </>
         )}
-      </div>
+      </motion.div>
 
       {showPunchModal && (
         <Modal title="Punch Attendance" onClose={() => { setShowPunchModal(false); resetGeoState(); }}>

@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Search, XCircle, ChevronLeft, ChevronRight, ArrowUpDown,
-  Plus, ChevronUp, ChevronDown, Inbox, Pencil, Trash2,
+  Plus, ChevronUp, ChevronDown, Inbox, Pencil, Trash2, X,
 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
 
@@ -17,33 +18,73 @@ interface LeaveTypeItem {
   name: string;
   daysPerYear: number;
   carryForward: boolean;
+  maxCarryForwardLeaves: number;
+  carryForwardExpiryDays: number;
+  allowLeaveAfterDays: number;
+  maxConsecutiveLeaves: number;
+  isLeaveWithoutPay: boolean;
+  isPartiallyPaidLeave: boolean;
+  isOptionalLeave: boolean;
+  allowNegativeBalance: boolean;
+  allowOverAllocating: boolean;
+  includeHolidaysAsLeaves: boolean;
+  isCompensatory: boolean;
   description: string;
   status: 'active' | 'inactive';
 }
 
 const initialData: LeaveTypeItem[] = [
-  { id: 1, name: 'Sick Leave', daysPerYear: 12, carryForward: true, description: 'For medical reasons and health issues', status: 'active' },
-  { id: 2, name: 'Casual Leave', daysPerYear: 12, carryForward: false, description: 'For personal work and short-term needs', status: 'active' },
-  { id: 3, name: 'Earned Leave', daysPerYear: 20, carryForward: true, description: 'Accumulated leave for vacation and long breaks', status: 'active' },
-  { id: 4, name: 'Maternity Leave', daysPerYear: 180, carryForward: false, description: 'For expecting and new mothers', status: 'active' },
-  { id: 5, name: 'Paternity Leave', daysPerYear: 5, carryForward: false, description: 'For new fathers', status: 'active' },
-  { id: 6, name: 'Bereavement Leave', daysPerYear: 5, carryForward: false, description: 'For loss of immediate family member', status: 'active' },
-  { id: 7, name: 'Unpaid Leave', daysPerYear: 0, carryForward: false, description: 'Leave without pay', status: 'active' },
-  { id: 8, name: 'Comp Off', daysPerYear: 10, carryForward: false, description: 'Compensatory off for weekend or holiday work', status: 'inactive' },
+  { id: 1, name: 'Sick Leave', daysPerYear: 12, carryForward: true, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'For medical reasons and health issues', status: 'active' },
+  { id: 2, name: 'Casual Leave', daysPerYear: 12, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'For personal work and short-term needs', status: 'active' },
+  { id: 3, name: 'Earned Leave', daysPerYear: 20, carryForward: true, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'Accumulated leave for vacation and long breaks', status: 'active' },
+  { id: 4, name: 'Maternity Leave', daysPerYear: 180, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'For expecting and new mothers', status: 'active' },
+  { id: 5, name: 'Paternity Leave', daysPerYear: 5, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'For new fathers', status: 'active' },
+  { id: 6, name: 'Bereavement Leave', daysPerYear: 5, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'For loss of immediate family member', status: 'active' },
+  { id: 7, name: 'Unpaid Leave', daysPerYear: 0, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: true, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'Leave without pay', status: 'active' },
+  { id: 8, name: 'Comp Off', daysPerYear: 10, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: true, description: 'Compensatory off for weekend or holiday work', status: 'inactive' },
 ];
 
 const PAGE_SIZE = 10;
 
 type SortKey = 'name' | 'daysPerYear';
 
+function loadTypes() {
+  try {
+    const stored = localStorage.getItem('leaveTypes');
+    if (stored) {
+      const parsed = JSON.parse(stored) as LeaveTypeItem[];
+      return parsed.map((item) => ({
+        ...item,
+        carryForward: item.carryForward ?? false,
+        maxCarryForwardLeaves: item.maxCarryForwardLeaves ?? 0,
+        carryForwardExpiryDays: item.carryForwardExpiryDays ?? 0,
+        allowLeaveAfterDays: item.allowLeaveAfterDays ?? 0,
+        maxConsecutiveLeaves: item.maxConsecutiveLeaves ?? 0,
+        isLeaveWithoutPay: item.isLeaveWithoutPay ?? false,
+        isPartiallyPaidLeave: item.isPartiallyPaidLeave ?? false,
+        isOptionalLeave: item.isOptionalLeave ?? false,
+        allowNegativeBalance: item.allowNegativeBalance ?? false,
+        allowOverAllocating: item.allowOverAllocating ?? false,
+        includeHolidaysAsLeaves: item.includeHolidaysAsLeaves ?? false,
+        isCompensatory: item.isCompensatory ?? false,
+      }));
+    }
+  } catch {}
+  return initialData;
+}
+
 export default function LeaveType() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState<SortKey>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
-  const [types, setTypes] = useState<LeaveTypeItem[]>(initialData);
+  const [types, setTypes] = useState<LeaveTypeItem[]>(loadTypes);
+  const [deleteTarget, setDeleteTarget] = useState<LeaveTypeItem | null>(null);
+
+  useEffect(() => { localStorage.setItem('leaveTypes', JSON.stringify(types)); }, [types]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300);
@@ -86,9 +127,14 @@ export default function LeaveType() {
     return sortOrder === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />;
   }
 
-  function handleDelete(id: number) {
-    if (!window.confirm('Delete this leave type?')) return;
-    setTypes((prev) => prev.filter((t) => t.id !== id));
+  function handleDelete(item: LeaveTypeItem) {
+    setDeleteTarget(item);
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    setTypes((prev) => prev.filter((t) => t.id !== deleteTarget.id));
+    setDeleteTarget(null);
   }
 
   function statusBadge(status: string) {
@@ -108,7 +154,7 @@ export default function LeaveType() {
           <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Leave Types</h1>
           <p className="text-xs text-zinc-500 font-medium mt-0.5">Manage leave categories</p>
         </div>
-        <button className="self-start sm:self-auto flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+        <button onClick={() => navigate('/hrms/leave/type/new')} className="self-start sm:self-auto flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
           <Plus size={14} />Add Leave Type
         </button>
       </motion.header>
@@ -211,11 +257,11 @@ export default function LeaveType() {
                       <td className="px-4 py-3">{statusBadge(r.status)}</td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
-                          <button className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
+                            <button onClick={() => navigate(`/hrms/leave/type/edit/${r.id}`)} className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
                             <Pencil size={14} />
                           </button>
                           <button
-                            onClick={() => handleDelete(r.id)}
+                            onClick={() => handleDelete(r)}
                             className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete"
                           >
@@ -252,11 +298,11 @@ export default function LeaveType() {
                     <span>Carry forward: {r.carryForward ? 'Yes' : 'No'}</span>
                   </div>
                   <div className="flex items-center gap-1 pt-1">
-                    <button className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
+                    <button onClick={() => navigate(`/hrms/leave/type/edit/${r.id}`)} className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
                       <Pencil size={14} />
                     </button>
                     <button
-                      onClick={() => handleDelete(r.id)}
+                      onClick={() => handleDelete(r)}
                       className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                       title="Delete"
                     >
@@ -294,6 +340,40 @@ export default function LeaveType() {
           </>
         )}
       </motion.div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
+          onClick={() => setDeleteTarget(null)} role="dialog" aria-modal="true">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden"
+          >
+            <div className="p-6 border-b border-zinc-100 relative">
+              <button type="button" onClick={() => setDeleteTarget(null)}
+                className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+                <X size={18} />
+              </button>
+              <h3 className="text-lg font-bold text-zinc-900">Delete leave type?</h3>
+              <p className="text-sm text-zinc-600 mt-2">
+                <span className="font-semibold text-zinc-800">{deleteTarget.name}</span>
+              </p>
+              <p className="text-xs text-red-600 font-medium mt-2">This action cannot be undone.</p>
+            </div>
+            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
+              <button type="button" onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
+                Cancel
+              </button>
+              <button type="button" onClick={confirmDelete}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors">
+                <Trash2 size={16} /> Delete
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

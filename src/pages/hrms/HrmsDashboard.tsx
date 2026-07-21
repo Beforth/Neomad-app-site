@@ -206,7 +206,7 @@ export default function HrmsDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm"
+          className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm h-full flex flex-col"
         >
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -218,7 +218,8 @@ export default function HrmsDashboard() {
               <span>12% vs last month</span>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
             <BarChart data={MONTHLY_EXPENSES}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
               <XAxis dataKey="week" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} />
@@ -227,6 +228,7 @@ export default function HrmsDashboard() {
               <Bar dataKey="amount" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={28} />
             </BarChart>
           </ResponsiveContainer>
+          </div>
         </motion.div>
 
         {/* Leave Requests */}

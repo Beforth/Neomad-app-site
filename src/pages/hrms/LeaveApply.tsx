@@ -1,7 +1,7 @@
 import { CalendarOff, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-export default function LeaveApply() {
+{/*export default function LeaveApply() {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
@@ -26,4 +26,4 @@ export default function LeaveApply() {
       </div>
     </div>
   );
-}
+}*/}

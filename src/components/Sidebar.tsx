@@ -46,7 +46,7 @@ const HRMS_ITEMS: NavItem[] = [
   { icon: Trophy, label: 'Incentives', path: '/hrms/incentives', roles: ['admin', 'manager'] },
   { icon: Banknote, label: 'Payroll', path: '/hrms/payroll', roles: ['admin', 'manager'] },
   { icon: CalendarOff, label: 'Leave', roles: ['admin', 'manager'], children: [
-    { label: 'Apply', path: '/hrms/leave/apply' },
+    // { label: 'Apply', path: '/hrms/leave/apply' },
     { label: 'Requests', path: '/hrms/leave/requests' },
     { label: 'Type', path: '/hrms/leave/type' },
     { label: 'Policy', path: '/hrms/leave/policy' },
