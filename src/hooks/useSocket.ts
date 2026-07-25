@@ -134,13 +134,6 @@ export function useTrackingSocket(enabled: boolean) {
     const shared = _getSharedConn();
     shared.refCount++;
 
-    // Sync local handler set into shared listener set
-    const syncListeners = () => {
-      shared.listeners.clear();
-      handlersRef.current.forEach((fn) => shared.listeners.add(fn));
-    };
-    syncListeners();
-
     // If this is the first reference, open the WebSocket
     if (shared.refCount === 1) {
       const base = getWsBaseUrl();
