@@ -51,7 +51,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!canLiveMap || !token) return;
-    const pollMs = connected ? 45_000 : 5_000;
+    const pollMs = connected ? 45_000 : 15_000;
     const id = window.setInterval(loadOnDutyForMap, pollMs);
     return () => window.clearInterval(id);
   }, [canLiveMap, token, loadOnDutyForMap, connected]);
@@ -66,21 +66,29 @@ export default function Dashboard() {
   useEffect(() => {
     appApi.getUsers().then(users => {
       setDeliveryBoys(users.filter((u: any) => u.role === 'delivery_boy'));
-    });
-    appApi.getStats().then(setStats);
+    }).catch(() => {});
+    appApi.getStats().then(setStats).catch(() => {});
+    if (!token) return;
+    const ac = new AbortController();
     (async () => {
       try {
-        const r = await getInvoices(token!, {
+        const r = await getInvoices(token, {
           page: 1,
           page_size: 5,
           sort_by: 'delivered_at',
           sort_order: 'desc',
+          status: 'completed,delivered',
         });
-        setRecentDeliveries((r.items as any[]).filter(
-          (i: any) => i.status === 'completed' || i.status === 'delivered',
-        ));
-      } catch {}
+        if (!ac.signal.aborted) {
+          setRecentDeliveries(r.items as any[]);
+        }
+      } catch (e) {
+        if (!ac.signal.aborted) {
+          console.error('Failed to load recent deliveries', e);
+        }
+      }
     })();
+    return () => ac.abort();
   }, [user]);
 
   const mergedDuty = mergeOnDutySnapshotsWithLive(dutySnapshots, liveLocations);

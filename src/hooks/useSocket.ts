@@ -26,20 +26,104 @@ export interface LocationUpdateMessage {
 
 /**
  * Subscribes admin/manager browsers to `/ws/tracking` (JWT query param).
- * Messages are JSON `{ type: 'location_update', user_id, lat, lng, status, ... }`.
+ * Handles location_update, new_invoice, and delivery_user_offline messages
+ * through a single shared WebSocket connection per browser tab.
  */
 const WS_RECONNECT_MIN_MS = 1000;
 const WS_RECONNECT_MAX_MS = 30000;
 
+type TrackingHandler = (msg: LocationUpdateMessage) => void;
+
+interface SharedTrackingConn {
+  ws: WebSocket | null;
+  connected: boolean;
+  listeners: Set<TrackingHandler>;
+  refCount: number;
+  audio: HTMLAudioElement;
+}
+
+let _sharedConn: SharedTrackingConn | null = null;
+
+function _getSharedConn(): SharedTrackingConn {
+  if (!_sharedConn) {
+    _sharedConn = {
+      ws: null,
+      connected: false,
+      listeners: new Set(),
+      refCount: 0,
+      audio: new Audio(NOTIFICATION_SOUND),
+    };
+  }
+  return _sharedConn;
+}
+
+function _handleTrackingMessage(msg: Record<string, unknown>) {
+  if (msg.type === 'location_update') {
+    const shared = _getSharedConn();
+    const locMsg = msg as unknown as LocationUpdateMessage;
+    shared.listeners.forEach((fn) => fn(locMsg));
+    return;
+  }
+  if (msg.type === 'delivery_user_offline') {
+    const name =
+      (typeof msg.full_name === 'string' && msg.full_name.trim()) ||
+      (typeof msg.email === 'string' ? msg.email : 'Delivery user');
+    const title = `${name} went offline`;
+    const message =
+      msg.reason === 'disconnect'
+        ? 'Delivery app disconnected or network/mobile may be off.'
+        : 'The delivery user ended their shift from the app.';
+    appApi.saveNotification({
+      title,
+      message,
+      targets: ['admin', 'manager'],
+      priority: 'important',
+      sentBy: 'System',
+      isSystem: true,
+    });
+    window.dispatchEvent(new CustomEvent(APP_NOTIFICATIONS_UPDATED_EVENT));
+    _getSharedConn().audio.play().catch(() => {});
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(title, { body: message, icon: '/favicon.ico' });
+      } catch { /* ignore */ }
+    }
+    return;
+  }
+  if (msg.type === 'new_invoice' && msg.invoice && typeof msg.invoice === 'object') {
+    const inv = msg.invoice as NewInvoiceEventDetail['invoice'];
+    const detail: NewInvoiceEventDetail = {
+      invoice: inv,
+      notification_id:
+        typeof msg.notification_id === 'string' ? msg.notification_id : undefined,
+    };
+    const shouldAlert = dispatchNewInvoiceAlert(detail);
+    if (!shouldAlert) return;
+    _getSharedConn().audio.play().catch(() => {});
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(`New invoice — ${inv.invoice_number}`, {
+          body: `${inv.hospital_name} — ₹${Number(inv.amount || 0).toLocaleString('en-IN')}`,
+          icon: '/favicon.ico',
+        });
+      } catch { /* ignore */ }
+    }
+  }
+}
+
 export function useTrackingSocket(enabled: boolean) {
   const { token, user } = useAuth();
   const [connected, setConnected] = useState(false);
-  const handlersRef = useRef<Set<(msg: LocationUpdateMessage) => void>>(new Set());
+  const handlersRef = useRef<Set<TrackingHandler>>(new Set());
 
-  const subscribe = useCallback((fn: (msg: LocationUpdateMessage) => void) => {
+  const subscribe = useCallback((fn: TrackingHandler) => {
     handlersRef.current.add(fn);
+    // Sync to shared connection listeners
+    const shared = _getSharedConn();
+    shared.listeners.add(fn);
     return () => {
       handlersRef.current.delete(fn);
+      shared.listeners.delete(fn);
     };
   }, []);
 
@@ -47,60 +131,85 @@ export function useTrackingSocket(enabled: boolean) {
     if (!enabled || !token || !user) return;
     if (user.role !== 'admin' && user.role !== 'manager') return;
 
-    const base = getWsBaseUrl();
-    const wsUrl = `${base}/ws/tracking?token=${encodeURIComponent(token)}`;
+    const shared = _getSharedConn();
+    shared.refCount++;
 
-    let ws: WebSocket | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
-    let reconnectDelayMs = WS_RECONNECT_MIN_MS;
-    let closedByUnmount = false;
-
-    const connect = () => {
-      if (closedByUnmount) return;
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        setConnected(true);
-        reconnectDelayMs = WS_RECONNECT_MIN_MS;
-      };
-      ws.onclose = () => {
-        setConnected(false);
-        if (!closedByUnmount) {
-          const wait = reconnectDelayMs;
-          reconnectDelayMs = Math.min(reconnectDelayMs * 2, WS_RECONNECT_MAX_MS);
-          reconnectTimer = setTimeout(connect, wait);
-        }
-      };
-      ws.onerror = () => {
-        setConnected(false);
-        try {
-          ws?.close();
-        } catch {
-          /* noop */
-        }
-      };
-
-      ws.onmessage = (ev: MessageEvent<string>) => {
-        try {
-          const msg = JSON.parse(ev.data) as Record<string, unknown>;
-          if (msg.type === 'location_update') {
-            handlersRef.current.forEach((fn) => fn(msg as unknown as LocationUpdateMessage));
-          }
-        } catch {
-          /* ignore malformed */
-        }
-      };
+    // Sync local handler set into shared listener set
+    const syncListeners = () => {
+      shared.listeners.clear();
+      handlersRef.current.forEach((fn) => shared.listeners.add(fn));
     };
+    syncListeners();
 
-    connect();
+    // If this is the first reference, open the WebSocket
+    if (shared.refCount === 1) {
+      const base = getWsBaseUrl();
+      const wsUrl = `${base}/ws/tracking?token=${encodeURIComponent(token)}`;
+
+      let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+      let reconnectDelayMs = WS_RECONNECT_MIN_MS;
+      let closedByCleanup = false;
+
+      const connect = () => {
+        if (closedByCleanup) return;
+        const ws = new WebSocket(wsUrl);
+        shared.ws = ws;
+
+        ws.onopen = () => {
+          shared.connected = true;
+          setConnected(true);
+          reconnectDelayMs = WS_RECONNECT_MIN_MS;
+        };
+        ws.onclose = () => {
+          shared.connected = false;
+          setConnected(false);
+          if (!closedByCleanup) {
+            const wait = reconnectDelayMs;
+            reconnectDelayMs = Math.min(reconnectDelayMs * 2, WS_RECONNECT_MAX_MS);
+            reconnectTimer = setTimeout(connect, wait);
+          }
+        };
+        ws.onerror = () => {
+          shared.connected = false;
+          setConnected(false);
+          try { ws?.close(); } catch { /* noop */ }
+        };
+        ws.onmessage = (ev: MessageEvent<string>) => {
+          try {
+            const msg = JSON.parse(ev.data) as Record<string, unknown>;
+            _handleTrackingMessage(msg);
+          } catch { /* ignore malformed */ }
+        };
+      };
+
+      if ('Notification' in window && Notification.permission === 'default') {
+        void Notification.requestPermission();
+      }
+
+      connect();
+
+      // Store cleanup on shared conn for when refCount reaches 0
+      (shared as any)._cleanup = () => {
+        closedByCleanup = true;
+        if (reconnectTimer !== undefined) clearTimeout(reconnectTimer);
+        if (shared.ws && (shared.ws.readyState === WebSocket.OPEN || shared.ws.readyState === WebSocket.CONNECTING)) {
+          shared.ws.close();
+        }
+        shared.ws = null;
+        shared.connected = false;
+      };
+    } else {
+      // Already connected — just sync connected state
+      setConnected(shared.connected);
+    }
 
     return () => {
-      closedByUnmount = true;
-      if (reconnectTimer !== undefined) clearTimeout(reconnectTimer);
-      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-        ws.close();
+      shared.refCount--;
+      if (shared.refCount <= 0) {
+        shared.refCount = 0;
+        (shared as any)._cleanup?.();
+        shared.listeners.clear();
       }
-      setConnected(false);
     };
   }, [enabled, token, user?.role]);
 
@@ -134,119 +243,10 @@ function dispatchNewInvoiceAlert(detail: NewInvoiceEventDetail): boolean {
   return true;
 }
 
-/**
- * Admin/manager: listen on /ws/tracking for `new_invoice` (and location updates elsewhere).
- */
-export function useStaffInvoiceAlerts(enabled: boolean) {
-  const { token, user } = useAuth();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    audioRef.current = new Audio(NOTIFICATION_SOUND);
-  }, []);
-
-  useEffect(() => {
-    if (!enabled || !token || !user) return;
-    if (user.role !== 'admin' && user.role !== 'manager') return;
-
-    const wsUrl = `${getWsBaseUrl()}/ws/tracking?token=${encodeURIComponent(token)}`;
-    let ws: WebSocket | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
-    let reconnectDelayMs = WS_RECONNECT_MIN_MS;
-    let closedByUnmount = false;
-
-    const connect = () => {
-      if (closedByUnmount) return;
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        reconnectDelayMs = WS_RECONNECT_MIN_MS;
-      };
-      ws.onclose = () => {
-        if (!closedByUnmount) {
-          const wait = reconnectDelayMs;
-          reconnectDelayMs = Math.min(reconnectDelayMs * 2, WS_RECONNECT_MAX_MS);
-          reconnectTimer = setTimeout(connect, wait);
-        }
-      };
-      ws.onerror = () => {
-        try {
-          ws?.close();
-        } catch {
-          /* noop */
-        }
-      };
-      ws.onmessage = (ev: MessageEvent<string>) => {
-        try {
-          const msg = JSON.parse(ev.data) as Record<string, unknown>;
-          if (msg.type === 'delivery_user_offline') {
-            const name =
-              (typeof msg.full_name === 'string' && msg.full_name.trim()) ||
-              (typeof msg.email === 'string' ? msg.email : 'Delivery user');
-            const title = `${name} went offline`;
-            const message =
-              msg.reason === 'disconnect'
-                ? 'Delivery app disconnected or network/mobile may be off.'
-                : 'The delivery user ended their shift from the app.';
-            appApi.saveNotification({
-              title,
-              message,
-              targets: ['admin', 'manager'],
-              priority: 'important',
-              sentBy: 'System',
-              isSystem: true,
-            });
-            window.dispatchEvent(new CustomEvent(APP_NOTIFICATIONS_UPDATED_EVENT));
-            audioRef.current?.play().catch(() => {});
-            if ('Notification' in window && Notification.permission === 'granted') {
-              try {
-                new Notification(title, { body: message, icon: '/favicon.ico' });
-              } catch {
-                /* ignore */
-              }
-            }
-            return;
-          }
-          if (msg.type !== 'new_invoice' || !msg.invoice || typeof msg.invoice !== 'object') return;
-          const inv = msg.invoice as NewInvoiceEventDetail['invoice'];
-          const detail: NewInvoiceEventDetail = {
-            invoice: inv,
-            notification_id:
-              typeof msg.notification_id === 'string' ? msg.notification_id : undefined,
-          };
-          const shouldAlert = dispatchNewInvoiceAlert(detail);
-          if (!shouldAlert) return;
-          audioRef.current?.play().catch(() => {});
-          if ('Notification' in window && Notification.permission === 'granted') {
-            try {
-              new Notification(`New invoice — ${inv.invoice_number}`, {
-                body: `${inv.hospital_name} — ₹${Number(inv.amount || 0).toLocaleString('en-IN')}`,
-                icon: '/favicon.ico',
-              });
-            } catch {
-              /* ignore */
-            }
-          }
-        } catch {
-          /* ignore malformed */
-        }
-      };
-    };
-
-    if ('Notification' in window && Notification.permission === 'default') {
-      void Notification.requestPermission();
-    }
-
-    connect();
-
-    return () => {
-      closedByUnmount = true;
-      if (reconnectTimer !== undefined) clearTimeout(reconnectTimer);
-      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-        ws.close();
-      }
-    };
-  }, [enabled, token, user?.id, user?.role]);
+/** @deprecated Use useTrackingSocket instead — it now handles invoice alerts via a shared connection. */
+export function useStaffInvoiceAlerts(_enabled: boolean) {
+  // No-op: invoice alerts are now handled by useTrackingSocket's shared connection.
+  // This export is kept for backward compatibility but does nothing.
 }
 
 type DeliverySocketHandler = (payload: any) => void;

@@ -1,6 +1,7 @@
 import {
   assignInvoice,
   createInvoice,
+  createTask as createTaskApi,
   getBaseUrl,
   getInvoices as getInvoicesApi,
   getUsers as getUsersApi,
@@ -202,13 +203,8 @@ export async function getDeliveryCompletedHistoryPage(
 export const appApi = {
   getUsers: async () => {
     const token = getTokenOrThrow();
-    try {
-      const users = await getUsersApi(token);
-      return users.map(toFrontendUser);
-    } catch {
-      const users = await getUsersApi(token, { role_code: 'delivery' });
-      return users.map(toFrontendUser);
-    }
+    const users = await getUsersApi(token);
+    return users.map(toFrontendUser);
   },
 
   getDeliveryOpenInvoices: async (token: string) => getDeliveryOpenInvoices(token),
@@ -305,12 +301,8 @@ export const appApi = {
 
   createTask: async (data: any) => {
     const token = getTokenOrThrow();
-    const now = new Date();
-    const taskNo = `TASK-${now.getFullYear()}-${String(now.getTime()).slice(-6)}`;
-    const task = await createInvoice(token, {
-      invoice_number: taskNo,
-      hospital_name: data.hospital_name || data.task_name || 'Task',
-      amount: Number(data.amount || 0),
+    const task = await createTaskApi(token, {
+      title: data.hospital_name || data.task_name || data.title || 'Task',
       description: data.description || '',
       assigned_to: data.assigned_to ? Number(data.assigned_to) : undefined,
     });
