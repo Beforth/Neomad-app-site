@@ -50,6 +50,7 @@ const HRMS_ITEMS: NavItem[] = [
     { label: 'Requests', path: '/hrms/leave/requests' },
     { label: 'Type', path: '/hrms/leave/type' },
     { label: 'Policy', path: '/hrms/leave/policy' },
+    { label: 'Period', path: '/hrms/leave/period' },
   ]},
   { icon: CalendarClock, label: 'Shifts', path: '/hrms/shifts', roles: ['admin', 'manager'] },
   { icon: UserCircle, label: 'Profile', path: '/profile', roles: ['admin', 'manager'] },

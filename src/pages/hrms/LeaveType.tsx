@@ -246,7 +246,12 @@ export default function LeaveType() {
                       transition={{ delay: i * 0.02 }}
                       className="hover:bg-zinc-50/50 transition-colors"
                     >
-                      <td className="px-4 py-3 text-xs font-bold text-zinc-900">{r.name}</td>
+                      <td className="px-4 py-3 text-xs font-bold text-zinc-900">
+                          <button onClick={() => navigate(`/hrms/leave/type/${r.id}`)}
+                            className="hover:text-blue-600 transition-colors cursor-pointer">
+                            {r.name}
+                          </button>
+                        </td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-zinc-100 text-[11px] font-bold text-zinc-700">
                           {r.daysPerYear}
@@ -287,7 +292,12 @@ export default function LeaveType() {
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-xs font-bold text-zinc-900">{r.name}</p>
+                      <p className="text-xs font-bold text-zinc-900">
+                        <button onClick={() => navigate(`/hrms/leave/type/${r.id}`)}
+                          className="hover:text-blue-600 transition-colors cursor-pointer">
+                          {r.name}
+                        </button>
+                      </p>
                       <p className="text-[10px] text-zinc-400 mt-0.5">{r.description}</p>
                     </div>
                     {statusBadge(r.status)}

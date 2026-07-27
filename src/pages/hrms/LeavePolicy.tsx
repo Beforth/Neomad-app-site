@@ -1,36 +1,41 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import {
-  Settings, Tag, Calendar, ArrowRightLeft, Clock, Info, ChevronRight,
-  Search, XCircle, ArrowUpDown, ChevronUp, ChevronDown, Plus, Inbox,
-} from 'lucide-react';
-import SearchableSelect from '../../components/SearchableSelect';
+import { Plus, FileText, CheckCircle, XCircle, Inbox, Info, ChevronRight, Calendar, ArrowRightLeft, Users, Trash2 } from 'lucide-react';
 
-const CARRY_FORWARD_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'yes', label: 'Carry Forward: Yes' },
-  { value: 'no', label: 'Carry Forward: No' },
-];
-
-type SortKey = 'type' | 'days';
-
-interface PolicyItem {
+interface SavedPolicy {
   id: number;
-  type: string;
-  days: number;
-  carryForward: boolean;
-  maxContinuous: number;
+  name: string;
   description: string;
+  effectiveDate: string;
+  status: 'active' | 'inactive';
+  entitlements: { leaveTypeName: string }[];
 }
 
-const initialEntitlements: PolicyItem[] = [
-  { id: 1, type: 'Sick Leave', days: 12, carryForward: true, maxContinuous: 5, description: 'For medical reasons and health issues' },
-  { id: 2, type: 'Casual Leave', days: 12, carryForward: false, maxContinuous: 3, description: 'For personal work and short-term needs' },
-  { id: 3, type: 'Earned Leave', days: 20, carryForward: true, maxContinuous: 10, description: 'Accumulated leave for vacation' },
-  { id: 4, type: 'Maternity Leave', days: 180, carryForward: false, maxContinuous: 180, description: 'For expecting and new mothers' },
-  { id: 5, type: 'Paternity Leave', days: 5, carryForward: false, maxContinuous: 5, description: 'For new fathers' },
-  { id: 6, type: 'Bereavement Leave', days: 5, carryForward: false, maxContinuous: 5, description: 'For loss of immediate family member' },
-];
+function loadPolicies(): SavedPolicy[] {
+  try {
+    const stored = localStorage.getItem('leavePolicies');
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+interface Assignment {
+  id: number;
+  policyName: string;
+  employeeName: string;
+  assignedAt: string;
+}
+
+function loadAssignments(): Assignment[] {
+  try {
+    const stored = localStorage.getItem('leavePolicyAssignments');
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
 
 const generalRules = [
   { label: 'Casual Leave Notice', value: '1 day prior' },
@@ -56,53 +61,31 @@ const carryForwardRules = [
 ];
 
 export default function LeavePolicy() {
-  const [search, setSearch] = useState('');
-  const [searchDebounced, setSearchDebounced] = useState('');
-  const [carryForwardFilter, setCarryForwardFilter] = useState('all');
-  const [sortBy, setSortBy] = useState<SortKey>('type');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [entitlements, setEntitlements] = useState<PolicyItem[]>(initialEntitlements);
+  const navigate = useNavigate();
+  const [policies, setPolicies] = useState<SavedPolicy[]>([]);
+  const [viewMode, setViewMode] = useState<'policies' | 'assignments'>('policies');
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
 
   useEffect(() => {
-    const t = setTimeout(() => setSearchDebounced(search), 300);
-    return () => clearTimeout(t);
-  }, [search]);
+    setPolicies(loadPolicies());
+    setAssignments(loadAssignments());
+  }, []);
 
-  const filtered = useMemo(() => {
-    let data = [...entitlements];
-    const q = searchDebounced.toLowerCase().trim();
-    if (q) {
-      data = data.filter((r) => r.type.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
-    }
-    if (carryForwardFilter === 'yes') data = data.filter((r) => r.carryForward);
-    if (carryForwardFilter === 'no') data = data.filter((r) => !r.carryForward);
+  const activeCount = policies.filter((p) => p.status === 'active').length;
+  const inactiveCount = policies.filter((p) => p.status === 'inactive').length;
+  const totalEntitlements = policies.reduce((s, p) => s + p.entitlements.length, 0);
 
-    data.sort((a, b) => {
-      let cmp = 0;
-      if (sortBy === 'type') cmp = a.type.localeCompare(b.type);
-      else if (sortBy === 'days') cmp = a.days - b.days;
-      return sortOrder === 'asc' ? cmp : -cmp;
-    });
-    return data;
-  }, [entitlements, searchDebounced, carryForwardFilter, sortBy, sortOrder]);
-
-  const hasFilters = search || carryForwardFilter !== 'all';
-
-  function toggleSort(key: SortKey) {
-    if (sortBy === key) setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
-    else { setSortBy(key); setSortOrder('asc'); }
-  }
-
-  function SortIcon({ col }: { col: SortKey }) {
-    if (sortBy !== col) return <ArrowUpDown size={12} className="text-zinc-300" />;
-    return sortOrder === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />;
-  }
+  const removeAssignment = (id: number) => {
+    const list = assignments.filter((a) => a.id !== id);
+    setAssignments(list);
+    localStorage.setItem('leavePolicyAssignments', JSON.stringify(list));
+  };
 
   const statCards = [
-    { label: 'Total Types', value: entitlements.length, icon: Tag, color: 'bg-blue-50 text-blue-600' },
-    { label: 'Annual Days', value: entitlements.reduce((s, r) => s + r.days, 0), icon: Calendar, color: 'bg-emerald-50 text-emerald-600' },
-    { label: 'Carry Forward', value: entitlements.filter((r) => r.carryForward).length, icon: ArrowRightLeft, color: 'bg-amber-50 text-amber-600' },
-    { label: 'Max Continuous', value: Math.max(...entitlements.map((r) => r.maxContinuous)), icon: Clock, color: 'bg-rose-50 text-rose-600' },
+    { label: 'Total Policies', value: policies.length, icon: FileText, color: 'bg-blue-50 text-blue-600' },
+    { label: 'Active', value: activeCount, icon: CheckCircle, color: 'bg-emerald-50 text-emerald-600' },
+    { label: 'Inactive', value: inactiveCount, icon: XCircle, color: 'bg-amber-50 text-amber-600' },
+    { label: 'Total Entitlements', value: totalEntitlements, icon: FileText, color: 'bg-rose-50 text-rose-600' },
   ];
 
   return (
@@ -113,12 +96,17 @@ export default function LeavePolicy() {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Leave Policy</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">Company leave guidelines and entitlements</p>
+          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Leave Policies</h1>
+          <p className="text-xs text-zinc-500 font-medium mt-0.5">Manage company leave guidelines and entitlements</p>
         </div>
-        <button className="self-start sm:self-auto flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
-          <Plus size={14} />Create New Policy
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/hrms/leave/policy/assign')} className="flex items-center gap-2 bg-white border border-zinc-300 text-zinc-700 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm">
+            <Users size={14} />Assign Leave Policy
+          </button>
+          <button onClick={() => navigate('/hrms/leave/policy/new')} className="flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+            <Plus size={14} />Create New Policy
+          </button>
+        </div>
       </motion.header>
 
       {/* Stat Cards */}
@@ -142,140 +130,166 @@ export default function LeavePolicy() {
         ))}
       </div>
 
-      {/* Filter Bar */}
-      <motion.div
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center"
-      >
-        <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input
-            type="text"
-            placeholder="Search leave types..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
-          />
-        </div>
-        <div className="w-[180px]">
-          <SearchableSelect
-            value={carryForwardFilter}
-            onChange={setCarryForwardFilter}
-            options={CARRY_FORWARD_OPTIONS}
-            className="w-full"
-          />
-        </div>
-        {hasFilters && (
-          <button
-            onClick={() => { setSearch(''); setCarryForwardFilter('all'); }}
-            className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors"
-          >
-            <XCircle size={12} />Clear
-          </button>
-        )}
-      </motion.div>
+      {/* Tabs */}
+      <div className="flex items-center gap-1 bg-zinc-100 rounded-xl p-1">
+        <button
+          onClick={() => setViewMode('policies')}
+          className={`flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
+            viewMode === 'policies'
+              ? 'bg-white text-zinc-900 shadow-sm'
+              : 'text-zinc-500 hover:text-zinc-700'
+          }`}
+        >
+          All Policies
+        </button>
+        <button
+          onClick={() => setViewMode('assignments')}
+          className={`flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
+            viewMode === 'assignments'
+              ? 'bg-white text-zinc-900 shadow-sm'
+              : 'text-zinc-500 hover:text-zinc-700'
+          }`}
+        >
+          Assigned Policies
+        </button>
+      </div>
 
-      {/* Leave Entitlements */}
+      {/* Policy List / Assigned Policies */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
+        transition={{ delay: 0.1 }}
         className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
       >
-        <div className="p-4 border-b border-zinc-100">
-          <h2 className="font-bold text-zinc-900 text-sm">Leave Entitlements</h2>
-          <p className="text-xs text-zinc-400 mt-0.5">Annual leave allocation per leave type</p>
-        </div>
 
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-              <Inbox size={24} className="text-zinc-300" />
+        {viewMode === 'policies' ? (
+          policies.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
+                <Inbox size={24} className="text-zinc-300" />
+              </div>
+              <h3 className="text-sm font-bold text-zinc-900 mb-1">No policies yet</h3>
+              <p className="text-xs text-zinc-400 max-w-xs">Create your first leave policy to get started.</p>
             </div>
-            <h3 className="text-sm font-bold text-zinc-900 mb-1">No leave types found</h3>
-            <p className="text-xs text-zinc-400 max-w-xs">Try adjusting your search or filters</p>
-          </div>
+          ) : (
+            <>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-zinc-50/50 border-b border-zinc-100">
+                    <tr>
+                      {['Policy Name', 'Description', 'Effective Date', 'Status', 'Entitlements'].map((label) => (
+                        <th key={label} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">
+                          {label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-50">
+                    {policies.map((p, i) => (
+                      <motion.tr
+                        key={p.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: i * 0.02 }}
+                        className="hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/hrms/leave/policy/${p.id}`)}
+                      >
+                        <td className="px-4 py-3 text-xs font-bold text-zinc-900">{p.name}</td>
+                        <td className="px-4 py-3 text-xs text-zinc-500 max-w-[200px] truncate">{p.description || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-zinc-500">{p.effectiveDate || '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${p.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                            {p.status === 'active' ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-zinc-100 text-[11px] font-bold text-zinc-700">
+                            {p.entitlements.length}
+                          </span>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="md:hidden divide-y divide-zinc-100">
+                {policies.map((p, i) => (
+                  <motion.div
+                    key={p.id}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="p-4 space-y-2 cursor-pointer hover:bg-zinc-50/50 transition-colors"
+                    onClick={() => navigate(`/hrms/leave/policy/${p.id}`)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-bold text-zinc-900">{p.name}</p>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">{p.description || 'No description'}</p>
+                      </div>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${p.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                        {p.status === 'active' ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[10px] text-zinc-500">
+                      <span>Effective: {p.effectiveDate || '—'}</span>
+                      <span>·</span>
+                      <span>{p.entitlements.length} entitlement{p.entitlements.length !== 1 ? 's' : ''}</span>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </>
+          )
         ) : (
-          <>
-            {/* Desktop Table */}
-            <div className="hidden md:block overflow-x-auto">
+          assignments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
+                <Inbox size={24} className="text-zinc-300" />
+              </div>
+              <h3 className="text-sm font-bold text-zinc-900 mb-1">No assignments yet</h3>
+              <p className="text-xs text-zinc-400 max-w-xs">Assign a leave policy to an employee first.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-zinc-50/50 border-b border-zinc-100">
                   <tr>
-                    {[
-                      { key: 'type' as SortKey, label: 'Leave Type' },
-                      { key: 'days' as SortKey, label: 'Days / Year' },
-                      { key: null, label: 'Carry Forward' },
-                      { key: null, label: 'Max Continuous' },
-                      { key: null, label: 'Description' },
-                    ].map((col) => (
-                      <th
-                        key={col.label}
-                        onClick={col.key ? () => toggleSort(col.key) : undefined}
-                        className={`px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap ${col.key ? 'cursor-pointer hover:text-zinc-600 select-none' : ''}`}
-                      >
-                        <span className="flex items-center gap-1">
-                          {col.label}
-                          {col.key && <SortIcon col={col.key} />}
-                        </span>
+                    {['Employee', 'Policy', 'Assigned Date', ''].map((label) => (
+                      <th key={label} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">
+                        {label}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-50">
-                  {filtered.map((r, i) => (
+                  {assignments.map((a, i) => (
                     <motion.tr
-                      key={r.id}
+                      key={a.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: i * 0.02 }}
                       className="hover:bg-zinc-50/50 transition-colors"
                     >
-                      <td className="px-4 py-3 text-xs font-bold text-zinc-900">{r.type}</td>
+                      <td className="px-4 py-3 text-xs font-bold text-zinc-900 cursor-pointer hover:text-zinc-700"
+                          onClick={() => navigate(`/hrms/leave/policy/assign/${a.id}`)}>{a.employeeName}</td>
+                      <td className="px-4 py-3 text-xs text-zinc-500">{a.policyName}</td>
+                      <td className="px-4 py-3 text-xs text-zinc-500">{a.assignedAt}</td>
                       <td className="px-4 py-3">
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-zinc-100 text-[11px] font-bold text-zinc-700">
-                          {r.days}
-                        </span>
+                        <button
+                          onClick={() => removeAssignment(a.id)}
+                          className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </td>
-                      <td className="px-4 py-3 text-xs text-zinc-500">{r.carryForward ? 'Yes' : 'No'}</td>
-                      <td className="px-4 py-3 text-xs text-zinc-500">{r.maxContinuous} days</td>
-                      <td className="px-4 py-3 text-xs text-zinc-500 max-w-[200px] truncate">{r.description}</td>
                     </motion.tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
-            {/* Mobile Cards */}
-            <div className="md:hidden divide-y divide-zinc-100">
-              {filtered.map((r, i) => (
-                <motion.div
-                  key={r.id}
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.03 }}
-                  className="p-4 space-y-2"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs font-bold text-zinc-900">{r.type}</p>
-                      <p className="text-[10px] text-zinc-400 mt-0.5">{r.description}</p>
-                    </div>
-                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-zinc-100 text-xs font-bold text-zinc-700 shrink-0">
-                      {r.days}d
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-[10px] text-zinc-500">
-                    <span>Carry forward: {r.carryForward ? 'Yes' : 'No'}</span>
-                    <span>·</span>
-                    <span>Max: {r.maxContinuous}d</span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </>
+          )
         )}
       </motion.div>
 

@@ -34,11 +34,20 @@ import Expenses from './pages/hrms/Expenses';
 import Incentives from './pages/hrms/Incentives';
 import Payroll from './pages/hrms/Payroll';
 // import LeaveApply from './pages/hrms/LeaveApply';
-// import LeaveApplyForm from './pages/hrms/LeaveApplyForm';
+import LeaveApplyForm from './pages/hrms/LeaveApplyForm';
 import LeaveRequest from './pages/hrms/LeaveRequest';
 import LeaveType from './pages/hrms/LeaveType';
 import LeaveTypeForm from './pages/hrms/LeaveTypeForm';
+import LeaveTypeDetail from './pages/hrms/LeaveTypeDetail';
 import LeavePolicy from './pages/hrms/LeavePolicy';
+import LeavePolicyForm from './pages/hrms/LeavePolicyForm';
+import LeavePolicyDetail from './pages/hrms/LeavePolicyDetail';
+import LeavePolicyAssign from './pages/hrms/LeavePolicyAssign';
+import LeavePolicyAssignDetail from './pages/hrms/LeavePolicyAssignDetail';
+import LeavePeriod from './pages/hrms/LeavePeriod';
+import LeavePeriodForm from './pages/hrms/LeavePeriodForm';
+import LeaveHolidayList from './pages/hrms/LeaveHolidayList';
+import LeavePeriodDetail from './pages/hrms/LeavePeriodDetail';
 import Staff from './pages/hrms/Staff';
 import StaffDetail from './pages/hrms/StaffDetail';
 import StaffCreate from './pages/hrms/StaffCreate';
@@ -72,7 +81,16 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/leave/apply/new': 'New Leave Application',
   '/hrms/leave/requests': 'Leave Requests',
   '/hrms/leave/type': 'Leave Types',
+  '/hrms/leave/type/:id': 'Leave Type Details',
   '/hrms/leave/policy': 'Leave Policy',
+  '/hrms/leave/policy/new': 'New Leave Policy',
+  '/hrms/leave/policy/assign': 'Assign Leave Policy',
+  '/hrms/leave/policy/assign/:id': 'Assign Policy Detail',
+  '/hrms/leave/policy/:id': 'Leave Policy',
+  '/hrms/leave/period': 'Leave Period',
+  '/hrms/leave/period/new': 'New Leave Period',
+  '/hrms/leave/period/holidays/new': 'Holiday List',
+  '/hrms/leave/period/:id': 'Leave Period',
 };
 
 function TopBar() {
@@ -191,13 +209,24 @@ function AppRoutes() {
             <Route path="/hrms/incentives" element={<Incentives />} />
             <Route path="/hrms/payroll" element={<Payroll />} />
             <Route path="/hrms/leave" element={<Navigate to="/hrms/leave/requests" replace />} />
-            {/* <Route path="/hrms/leave/apply" element={<LeaveApply />} /> */}
-            {/* <Route path="/hrms/leave/apply/new" element={<LeaveApplyForm />} /> */}
+            <Route path="/hrms/leave/apply" element={<LeaveApplyForm />} />
+            <Route path="/hrms/leave/apply/new" element={<LeaveApplyForm />} />
             <Route path="/hrms/leave/requests" element={<LeaveRequest />} />
             <Route path="/hrms/leave/type" element={<LeaveType />} />
             <Route path="/hrms/leave/type/new" element={<LeaveTypeForm />} />
+            <Route path="/hrms/leave/type/:id" element={<LeaveTypeDetail />} />
             <Route path="/hrms/leave/type/edit/:id" element={<LeaveTypeForm />} />
+            <Route path="/hrms/leave/policy/new" element={<LeavePolicyForm />} />
             <Route path="/hrms/leave/policy" element={<LeavePolicy />} />
+            <Route path="/hrms/leave/policy/assign" element={<LeavePolicyAssign />} />
+            <Route path="/hrms/leave/policy/assign/:id" element={<LeavePolicyAssignDetail />} />
+            <Route path="/hrms/leave/policy/:id" element={<LeavePolicyDetail />} />
+            <Route path="/hrms/leave/period" element={<LeavePeriod />} />
+            <Route path="/hrms/leave/period/new" element={<LeavePeriodForm />} />
+            <Route path="/hrms/leave/period/edit/:id" element={<LeavePeriodForm />} />
+            <Route path="/hrms/leave/period/holidays/new" element={<LeaveHolidayList />} />
+            <Route path="/hrms/leave/period/:id" element={<LeavePeriodDetail />} />
+            <Route path="/hrms/leave/period/:id" element={<LeavePeriodDetail />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
