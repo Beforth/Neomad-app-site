@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -18,6 +18,8 @@ export default function InvoiceConfirmPaymentPage() {
   const id = parseInvoiceRouteId(idParam);
   const { token, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const currentPage = new URLSearchParams(location.search).get('page') || '1';
   const dispatch = useAppDispatch();
   const sliceError = useAppSelector((s) => s.invoices.error);
   const { invoice, loading, error } = useInvoiceLoader(token, id);
@@ -69,7 +71,7 @@ export default function InvoiceConfirmPaymentPage() {
       await dispatch(confirmPaymentThunk({ token, invoice })).unwrap();
       setSuccessMsg('Payment confirmed successfully.');
       setTimeout(() => {
-        navigate(`/invoices/${invoice.id}`, { state: { paymentConfirmed: true } });
+        navigate(`/invoices/${invoice.id}?page=${currentPage}`, { state: { paymentConfirmed: true } });
       }, 700);
     } catch {
       /* slice */
@@ -85,7 +87,7 @@ export default function InvoiceConfirmPaymentPage() {
         <div className="flex flex-wrap items-center gap-2 justify-end">
           <button
             type="button"
-            onClick={() => navigate(`/invoices/${invoice.id}`)}
+            onClick={() => navigate(`/invoices/${invoice.id}?page=${currentPage}`)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
           >
             Cancel

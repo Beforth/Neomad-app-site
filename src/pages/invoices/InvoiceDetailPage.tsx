@@ -21,6 +21,7 @@ export default function InvoiceDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
+  const currentPage = new URLSearchParams(location.search).get('page') || '1';
   const deleteError = useAppSelector((s) => s.invoices.error);
   const { invoice, loading, error } = useInvoiceLoader(token, id);
   const [deliveryUsers, setDeliveryUsers] = useState<{ id: number; name: string }[]>([]);
@@ -52,17 +53,17 @@ export default function InvoiceDetailPage() {
     if (!s?.openInvoiceDeleteConfirm) return;
     dispatch(clearInvoicesError());
     setShowDeleteModal(true);
-    navigate(`/invoices/${invoice.id}`, { replace: true, state: {} });
-  }, [invoice, user?.role, location.state, navigate, dispatch]);
+    navigate(`/invoices/${invoice.id}?page=${currentPage}`, { replace: true, state: {} });
+  }, [invoice, user?.role, location.state, navigate, dispatch, currentPage]);
 
   useEffect(() => {
     const s = location.state as { paymentConfirmed?: boolean } | undefined;
     if (!s?.paymentConfirmed) return;
     setPageNotice('Payment confirmed successfully.');
-    navigate(`/invoices/${id}`, { replace: true, state: {} });
+    navigate(`/invoices/${id}?page=${currentPage}`, { replace: true, state: {} });
     const t = setTimeout(() => setPageNotice(''), 2500);
     return () => clearTimeout(t);
-  }, [location.state, navigate, id]);
+  }, [location.state, navigate, id, currentPage]);
 
   useEffect(() => {
     if (!showDeleteModal || deleteBusy) return;
@@ -209,7 +210,7 @@ export default function InvoiceDetailPage() {
         <div className="flex flex-wrap items-center gap-2 justify-end">
           {showConfirmPayment ? (
             <Link
-              to={`/invoices/${invoice.id}/confirm-payment`}
+              to={`/invoices/${invoice.id}/confirm-payment?page=${currentPage}`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors shadow-sm shadow-emerald-100"
             >
               <CheckCircle2 size={16} /> Confirm payment
@@ -218,13 +219,13 @@ export default function InvoiceDetailPage() {
           {showAssignAndVoid ? (
             <>
               <Link
-                to={`/invoices/${invoice.id}/assign`}
+                to={`/invoices/${invoice.id}/assign?page=${currentPage}`}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
               >
                 <UserPlus size={16} /> {invoice.status === 'assigned' ? 'Reassign' : 'Fulfill'}
               </Link>
               <Link
-                to={`/invoices/${invoice.id}/void`}
+                to={`/invoices/${invoice.id}/void?page=${currentPage}`}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-red-700 hover:bg-red-50"
               >
                 <XCircle size={16} /> Void
@@ -233,7 +234,7 @@ export default function InvoiceDetailPage() {
           ) : null}
           {showRestore ? (
             <Link
-              to={`/invoices/${invoice.id}/restore`}
+              to={`/invoices/${invoice.id}/restore?page=${currentPage}`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
             >
               <RotateCcw size={16} /> Restore to pending
@@ -405,7 +406,7 @@ export default function InvoiceDetailPage() {
                       <FileImage size={12} /> Signed document
                     </label>
                     <Link
-                      to={`/invoices/${invoice.id}/signed-preview`}
+                      to={`/invoices/${invoice.id}/signed-preview?page=${currentPage}`}
                       className="text-[10px] font-bold text-emerald-600 hover:underline uppercase tracking-wider"
                     >
                       Full view

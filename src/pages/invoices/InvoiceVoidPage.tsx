@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { XCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -13,6 +13,8 @@ export default function InvoiceVoidPage() {
   const id = parseInvoiceRouteId(idParam);
   const { token, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const currentPage = new URLSearchParams(location.search).get('page') || '1';
   const dispatch = useAppDispatch();
   const sliceError = useAppSelector((s) => s.invoices.error);
   const { invoice, loading, error } = useInvoiceLoader(token, id);
@@ -58,7 +60,7 @@ export default function InvoiceVoidPage() {
     dispatch(clearInvoicesError());
     try {
       await dispatch(cancelInvoiceThunk({ token, id: invoice.id })).unwrap();
-      navigate(`/invoices/${invoice.id}`);
+      navigate(`/invoices/${invoice.id}?page=${currentPage}`);
     } catch {
       /* slice */
     } finally {
@@ -74,7 +76,7 @@ export default function InvoiceVoidPage() {
           <button
             type="button"
             disabled={busy}
-            onClick={() => navigate(`/invoices/${invoice.id}`)}
+            onClick={() => navigate(`/invoices/${invoice.id}?page=${currentPage}`)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
           >
             Keep invoice
