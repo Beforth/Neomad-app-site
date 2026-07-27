@@ -1662,3 +1662,28 @@ export async function testImapConnection(
   }
   return res.json();
 }
+
+export interface ImapSyncResponse {
+  success: boolean;
+  emails_synced: number;
+  invoices_imported: number;
+  message: string;
+}
+
+export async function syncImap(
+  token: string,
+  since: string,
+): Promise<ImapSyncResponse> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/sync`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ since }),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to sync IMAP emails'));
+  }
+  return res.json();
+}

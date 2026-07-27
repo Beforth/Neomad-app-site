@@ -22,6 +22,7 @@ import {
   listWorkingLocations,
   markGmailEmailRead,
   saveImapConfig,
+  syncImap,
   syncRecentGmailEmails,
   testImapConnection,
   toggleGmailEmailStar,
@@ -71,6 +72,9 @@ export default function Profile() {
   const [imapTesting, setImapTesting] = useState(false);
   const [imapTestResult, setImapTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [imapMsg, setImapMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [imapSyncing, setImapSyncing] = useState(false);
+  const [imapSyncDate, setImapSyncDate] = useState('');
+  const [imapSyncResult, setImapSyncResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
   const [pwMsg, setPwMsg] = useState('');
@@ -175,6 +179,25 @@ export default function Profile() {
       setImapMsg({ type: 'success', text: 'IMAP disconnected' });
     } catch (err) {
       setImapMsg({ type: 'error', text: err instanceof Error ? err.message : 'Disconnect failed' });
+    }
+  };
+
+  const handleSyncImap = async () => {
+    if (!token || !imapSyncDate) return;
+    setImapSyncing(true);
+    setImapSyncResult(null);
+    try {
+      const res = await syncImap(token, imapSyncDate);
+      setImapSyncResult({ type: res.success ? 'success' : 'error', text: res.message });
+      if (res.success) {
+        const s = await getImapStatus(token);
+        setImapStatus(s);
+      }
+    } catch (err) {
+      setImapSyncResult({ type: 'error', text: err instanceof Error ? err.message : 'Sync failed' });
+    } finally {
+      setImapSyncing(false);
+      setTimeout(() => setImapSyncResult(null), 5000);
     }
   };
 
@@ -968,6 +991,35 @@ export default function Profile() {
                         )}
                       </div>
                     )}
+
+                    <div className="bg-zinc-50 rounded-lg p-4 space-y-3">
+                      <p className="text-xs font-bold text-zinc-600 uppercase tracking-wider">Sync Past Emails</p>
+                      <p className="text-xs text-zinc-500">Backfill emails from a specific time. New emails since IMAP connected are already imported automatically.</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="datetime-local"
+                          value={imapSyncDate}
+                          onChange={(e) => setImapSyncDate(e.target.value)}
+                          className="flex-1 px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                        />
+                        <button
+                          onClick={handleSyncImap}
+                          disabled={imapSyncing || !imapSyncDate}
+                          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <RefreshCw size={14} className={imapSyncing ? 'animate-spin' : ''} />
+                          {imapSyncing ? 'Syncing...' : 'Sync'}
+                        </button>
+                      </div>
+                      {imapSyncResult && (
+                        <div className={`text-xs font-medium rounded-lg p-2 ${
+                          imapSyncResult.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                        }`}>
+                          {imapSyncResult.text}
+                        </div>
+                      )}
+                    </div>
+
                     <button onClick={handleDisconnectImap}
                       className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-lg font-bold text-sm hover:bg-red-100 transition-colors">
                       <XCircle size={15} />
