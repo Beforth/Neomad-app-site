@@ -8,13 +8,16 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getUsers, mapBackendRoleToFrontend } from '../../lib/api';
+import type { ShiftSettings, ShiftType } from '../../lib/api';
+import { DEFAULT_SHIFT_SETTINGS } from '../../lib/api';
 import SearchableSelect from '../../components/SearchableSelect';
 
 const STATUS_STYLES: Record<string, string> = {
-  present: 'bg-emerald-50 text-emerald-600',
-  absent: 'bg-red-50 text-red-600',
-  late: 'bg-amber-50 text-amber-600',
-  half_day: 'bg-blue-50 text-blue-600',
+  present: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  absent: 'bg-red-50 text-red-700 border-red-100',
+  late: 'bg-amber-50 text-amber-700 border-amber-100',
+  half_day: 'bg-blue-50 text-blue-700 border-blue-100',
+  overtime: 'bg-violet-50 text-violet-700 border-violet-100',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -22,6 +25,7 @@ const STATUS_LABELS: Record<string, string> = {
   absent: 'Absent',
   late: 'Late',
   half_day: 'Half Day',
+  overtime: 'Overtime',
 };
 
 const STATUS_OPTIONS = [
@@ -43,17 +47,42 @@ function formatHours(h: number) {
   return hrs > 0 || mins > 0 ? `${hrs}h ${mins}m` : '\u2014';
 }
 
-function getStatus(checkIn: string | null, checkOut: string | null): 'present' | 'absent' | 'late' | 'half_day' {
+function getStatus(checkIn: string | null, checkOut: string | null, shiftSettings: ShiftSettings, shiftType?: { start_time: string; end_time: string }): 'present' | 'absent' | 'late' | 'half_day' | 'overtime' {
   if (!checkIn) return 'absent';
-  const hour = parseInt(checkIn.split(':')[0], 10);
-  if (hour > 9) return 'late';
+
+  const shiftStart = shiftType?.start_time || '09:00';
+  const shiftEnd = shiftType?.end_time || '17:00';
+
+  const lateThresholdMin = timeToMinutes(shiftStart) + shiftSettings.lateEntryGraceMinutes;
+  const checkInMin = timeToMinutes(checkIn);
+
+  if (checkInMin > lateThresholdMin) return 'late';
+
   if (checkOut) {
-    const [outH, outM] = checkOut.split(':').map(Number);
-    const [inH, inM] = checkIn.split(':').map(Number);
-    const totalMins = (outH - inH) * 60 + (outM - inM);
-    if (totalMins < 240) return 'half_day';
+    const totalMins = timeToMinutes(checkOut) - timeToMinutes(checkIn);
+    const absMins = Math.abs(totalMins);
+    if (absMins < shiftSettings.absentThresholdHours * 60) return 'absent';
+    if (absMins < shiftSettings.halfDayThresholdHours * 60) return 'half_day';
+
+    if (shiftSettings.overtimeCalculation) {
+      const shiftEndMin = timeToMinutes(shiftEnd);
+      const checkOutMin = timeToMinutes(checkOut);
+      if (checkOutMin > shiftEndMin) return 'overtime';
+    }
   }
   return 'present';
+}
+
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function calcOvertime(checkOut: string, shiftEnd: string): number {
+  const outMin = timeToMinutes(checkOut);
+  const endMin = timeToMinutes(shiftEnd);
+  const diff = outMin - endMin;
+  return diff > 0 ? Math.round((diff / 60) * 10) / 10 : 0;
 }
 
 function calcHours(checkIn: string, checkOut: string): number {
@@ -154,6 +183,15 @@ export default function Attendance() {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
 
+  const [shiftSettings, setShiftSettings] = useState<ShiftSettings>(() => {
+    try { const raw = localStorage.getItem('hrms_shift_settings'); return raw ? JSON.parse(raw) : DEFAULT_SHIFT_SETTINGS; }
+    catch { return DEFAULT_SHIFT_SETTINGS; }
+  });
+  const [shiftTypes, setShiftTypes] = useState<ShiftType[]>(() => {
+    try { const raw = localStorage.getItem('hrms_shift_types'); return raw ? JSON.parse(raw) : []; }
+    catch { return []; }
+  });
+
   const canManage = currentUser?.role === 'admin' || currentUser?.role === 'manager';
 
   const isPunchingSelf = String(punchStaffId) === String(currentUser?.id);
@@ -163,6 +201,23 @@ export default function Attendance() {
   useEffect(() => {
     fetchData();
   }, [token]);
+
+  useEffect(() => {
+    const refreshShiftData = () => {
+      try {
+        const rawSettings = localStorage.getItem('hrms_shift_settings');
+        if (rawSettings) setShiftSettings(JSON.parse(rawSettings));
+        const rawTypes = localStorage.getItem('hrms_shift_types');
+        if (rawTypes) setShiftTypes(JSON.parse(rawTypes));
+      } catch {}
+    };
+    window.addEventListener('focus', refreshShiftData);
+    document.addEventListener('visibilitychange', refreshShiftData);
+    return () => {
+      window.removeEventListener('focus', refreshShiftData);
+      document.removeEventListener('visibilitychange', refreshShiftData);
+    };
+  }, []);
 
   useEffect(() => {
     if (showPunchModal && isPunchingSelf) {
@@ -201,6 +256,7 @@ export default function Attendance() {
   const generateMockRecords = (users: any[]) => {
     const today = new Date();
     const mockRecords: any[] = [];
+    const defaultShift = shiftTypes[0] || { start_time: '09:00', end_time: '17:00' };
     users.forEach((u: any) => {
       for (let d = 0; d < 15; d++) {
         const date = new Date(today);
@@ -213,31 +269,35 @@ export default function Attendance() {
             id: generateId() + d * 100 + u.id,
             staffId: u.id, staffName: u.name, staffEmail: u.email,
             date: dateStr, checkIn: null, checkOut: null,
-            status: 'absent', hoursWorked: 0, markedBy: 'self',
+            status: 'absent', hoursWorked: 0, overtime: 0, markedBy: 'self',
             punchInLocation: null, distanceFromOffice: null,
           });
           continue;
         }
         const lateChance = Math.random();
-        const checkInH = lateChance > 0.8 ? 9 + Math.floor(Math.random() * 2) : 8 + Math.floor(Math.random() * 2);
+        const shiftStartH = parseInt(defaultShift.start_time.split(':')[0], 10);
+        const checkInH = lateChance > 0.8 ? shiftStartH + Math.floor(Math.random() * 2) : shiftStartH - 1 + Math.floor(Math.random() * 2);
         const checkInM = Math.floor(Math.random() * 60);
         const checkIn = `${String(checkInH).padStart(2, '0')}:${String(checkInM).padStart(2, '0')}`;
         const shouldCheckout = Math.random() > 0.1;
         let checkOut = null;
         let hoursWorked = 0;
+        let overtime = 0;
         if (shouldCheckout) {
-          const outH = checkInH + 7 + Math.floor(Math.random() * 3);
+          const shiftEndH = parseInt(defaultShift.end_time.split(':')[0], 10);
+          const outH = shiftEndH - shiftStartH + checkInH + Math.floor(Math.random() * 3);
           const outM = Math.floor(Math.random() * 60);
-          checkOut = `${String(Math.min(outH, 18)).padStart(2, '0')}:${String(outM).padStart(2, '0')}`;
+          checkOut = `${String(Math.min(outH, 22)).padStart(2, '0')}:${String(outM).padStart(2, '0')}`;
           hoursWorked = calcHours(checkIn, checkOut);
+          overtime = calcOvertime(checkOut, defaultShift.end_time);
         }
-        const status = getStatus(checkIn, checkOut);
+        const status = getStatus(checkIn, checkOut, shiftSettings, defaultShift);
         const isManual = Math.random() > 0.85;
         const dist = Math.round(Math.random() * 300);
         mockRecords.push({
           id: generateId() + d * 100 + u.id,
           staffId: u.id, staffName: u.name, staffEmail: u.email,
-          date: dateStr, checkIn, checkOut, status, hoursWorked,
+          date: dateStr, checkIn, checkOut, status, hoursWorked, overtime,
           markedBy: isManual ? 'Admin' : 'self',
           punchInLocation: isManual ? null : { lat: settings.latitude + (Math.random() - 0.5) * 0.002, lng: settings.longitude + (Math.random() - 0.5) * 0.002 },
           distanceFromOffice: isManual ? null : dist,
@@ -331,7 +391,7 @@ export default function Attendance() {
           updated[absIdx] = {
             ...updated[absIdx],
             checkIn: punchTime,
-            status: getStatus(punchTime, null),
+            status: getStatus(punchTime, null, shiftSettings),
             markedBy: canPunch && !isPunchingSelf ? (currentUser?.username || 'Admin') : 'self',
             punchInLocation: geoPosition,
             distanceFromOffice: geoDistance !== null ? Math.round(geoDistance) : null,
@@ -341,7 +401,7 @@ export default function Attendance() {
         return [...prev, {
           id: generateId(), staffId, staffName: staff?.name || '', staffEmail: staff?.email || '',
           date: dateStr, checkIn: punchTime, checkOut: null,
-          status: getStatus(punchTime, null), hoursWorked: 0,
+          status: getStatus(punchTime, null, shiftSettings), hoursWorked: 0, overtime: 0,
           markedBy: canPunch && !isPunchingSelf ? (currentUser?.username || 'Admin') : 'self',
           punchInLocation: geoPosition,
           distanceFromOffice: geoDistance !== null ? Math.round(geoDistance) : null,
@@ -354,7 +414,8 @@ export default function Attendance() {
 
       setRecords(prev => prev.map(r => {
         if (r.staffId === staffId && r.date === dateStr && r.checkIn && !r.checkOut) {
-          return { ...r, checkOut: punchTime, hoursWorked: calcHours(r.checkIn, punchTime), status: getStatus(r.checkIn, punchTime) };
+          const defaultShift = shiftTypes[0] || { start_time: '09:00', end_time: '17:00' };
+          return { ...r, checkOut: punchTime, hoursWorked: calcHours(r.checkIn, punchTime), overtime: calcOvertime(punchTime, defaultShift.end_time), status: getStatus(r.checkIn, punchTime, shiftSettings, defaultShift) };
         }
         return r;
       }));
@@ -431,10 +492,11 @@ export default function Attendance() {
   }, [records, allStaff, settings.absentAfterTime]);
 
   const handleExport = () => {
-    const headers = ['Date', 'Staff', 'Email', 'Check In', 'Check Out', 'Hours', 'Status', 'Distance (m)', 'Marked By'];
+    const headers = ['Date', 'Staff', 'Email', 'Check In', 'Check Out', 'Hours', 'Overtime', 'Status', 'Distance (m)', 'Marked By'];
     const rows = filtered.map(r => [
       r.date, r.staffName, r.staffEmail, r.checkIn || '', r.checkOut || '',
-      r.hoursWorked ? String(r.hoursWorked) : '', STATUS_LABELS[r.status] || r.status,
+      r.hoursWorked ? String(r.hoursWorked) : '', r.overtime ? `+${r.overtime}h` : '',
+      STATUS_LABELS[r.status] || r.status,
       r.distanceFromOffice !== null ? String(r.distanceFromOffice) : 'Manual',
       r.markedBy || '',
     ]);
@@ -597,17 +659,18 @@ export default function Attendance() {
         ) : (
           <>
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-zinc-50/50 border-b border-zinc-100">
-                  <tr>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Staff</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Date</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Check In</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Check Out</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Hours</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Location</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Status</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Marked By</th>
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-zinc-100">
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Staff</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Date</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Check In</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Check Out</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Hours</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Overtime</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Location</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Status</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wide">Marked By</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-50">
@@ -630,11 +693,18 @@ export default function Attendance() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-xs text-zinc-600">{r.date}</td>
-                      <td className="px-4 py-3 text-xs text-zinc-900 font-semibold">{r.checkIn || '\u2014'}</td>
-                      <td className="px-4 py-3 text-xs text-zinc-900 font-semibold">{r.checkOut || '\u2014'}</td>
-                      <td className="px-4 py-3 text-xs text-zinc-500">{formatHours(r.hoursWorked)}</td>
-                      <td className="px-4 py-3">
+                      <td className="py-3 px-4 text-sm text-zinc-600">{r.date}</td>
+                      <td className="py-3 px-4 text-sm text-zinc-900 font-medium">{r.checkIn || '—'}</td>
+                      <td className="py-3 px-4 text-sm text-zinc-900 font-medium">{r.checkOut || '—'}</td>
+                      <td className="py-3 px-4 text-sm text-zinc-600">{formatHours(r.hoursWorked)}</td>
+                      <td className="py-3 px-4">
+                        {r.overtime > 0 ? (
+                          <span className="text-sm font-medium text-violet-600">+{r.overtime}h</span>
+                        ) : (
+                          <span className="text-sm text-zinc-300">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
                         {r.distanceFromOffice !== null ? (
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium ${r.distanceFromOffice <= settings.radiusMeters ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                             <MapPin size={10} />
@@ -682,10 +752,11 @@ export default function Attendance() {
                       {STATUS_LABELS[r.status] || r.status}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    <div><span className="text-zinc-400">In:</span> <span className="font-semibold text-zinc-800 ml-1">{r.checkIn || '\u2014'}</span></div>
-                    <div><span className="text-zinc-400">Out:</span> <span className="font-semibold text-zinc-800 ml-1">{r.checkOut || '\u2014'}</span></div>
-                    <div><span className="text-zinc-400">Hours:</span> <span className="font-semibold text-zinc-800 ml-1">{formatHours(r.hoursWorked)}</span></div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><span className="text-zinc-500">In:</span> <span className="font-medium text-zinc-900 ml-1">{r.checkIn || '—'}</span></div>
+                    <div><span className="text-zinc-500">Out:</span> <span className="font-medium text-zinc-900 ml-1">{r.checkOut || '—'}</span></div>
+                    <div><span className="text-zinc-500">Hours:</span> <span className="font-medium text-zinc-900 ml-1">{formatHours(r.hoursWorked)}</span></div>
+                    {r.overtime > 0 && <div><span className="text-zinc-500">OT:</span> <span className="font-medium text-violet-600 ml-1">+{r.overtime}h</span></div>}
                     <div className="flex items-center gap-1">
                       <span className="text-zinc-400">Loc:</span>
                       {r.distanceFromOffice !== null ? (

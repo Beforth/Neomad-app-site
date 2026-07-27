@@ -1556,4 +1556,82 @@ export async function clearGmailDelayRecords(token: string): Promise<void> {
   }
 }
 
+// ── HRMS Shifts ───────────────────────────────────────────────────────────
+
+export interface ShiftType {
+  id: number;
+  name: string;
+  start_time: string;
+  end_time: string;
+  break_start: string;
+  break_end: string;
+  color?: string;
+  is_active: boolean;
+}
+
+export interface ShiftAssignment {
+  id: number;
+  staff_id: number;
+  staff_name: string;
+  shift_type_id: number;
+  shift_type_name: string;
+  location: string;
+  status: 'active' | 'pending' | 'cancelled';
+  schedule_type: 'alternate_day' | 'alternate_week' | 'fixed';
+  frequency_weeks: number;
+  working_days: string[];
+  effective_from: string;
+  effective_to: string | null;
+}
+
+export interface ShiftSettings {
+  lateEntryGraceMinutes: number;
+  earlyExitGraceMinutes: number;
+  halfDayThresholdHours: number;
+  absentThresholdHours: number;
+  autoAttendanceOnHolidays: boolean;
+  overtimeCalculation: boolean;
+  beginCheckInBeforeShiftStart: boolean;
+  holidayDates: string[];
+}
+
+export const DEFAULT_SHIFT_SETTINGS: ShiftSettings = {
+  lateEntryGraceMinutes: 30,
+  earlyExitGraceMinutes: 30,
+  halfDayThresholdHours: 4,
+  absentThresholdHours: 2,
+  autoAttendanceOnHolidays: false,
+  overtimeCalculation: true,
+  beginCheckInBeforeShiftStart: true,
+  holidayDates: [],
+};
+
+export const SHIFT_COLORS: readonly string[] = [] as const;
+
+export const SHIFT_COLOR_CLASSES: Record<string, string> = {};
+
+export const SHIFT_COLOR_DOT: Record<string, string> = {};
+
+export const DAY_LABELS: Record<string, string> = {
+  mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
+};
+
+export const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+export const WORKING_DAYS_DEFAULT = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+export const LOCATION_OPTIONS = ['Office', 'Remote', 'Field', 'Warehouse'];
+
+export const STATUS_COLORS: Record<string, string> = {
+  active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  pending: 'bg-amber-50 text-amber-700 border-amber-200',
+  cancelled: 'bg-zinc-100 text-zinc-500 border-zinc-200',
+};
+
+export const SCHEDULE_TYPE_LABELS: Record<string, string> = {
+  alternate_day: 'Alternate Day',
+  alternate_week: 'Alternate Week',
+  fixed: 'Fixed',
+};
+
 export { getBaseUrl };
