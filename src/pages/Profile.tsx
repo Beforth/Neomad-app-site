@@ -24,6 +24,7 @@ import {
   saveImapConfig,
   syncImap,
   syncRecentGmailEmails,
+  resetImapWatermark,
   testImapConnection,
   toggleGmailEmailStar,
   updateGmailMonitorSettings,
@@ -198,6 +199,18 @@ export default function Profile() {
     } finally {
       setImapSyncing(false);
       setTimeout(() => setImapSyncResult(null), 5000);
+    }
+  };
+
+  const handleResetImapWatermark = async () => {
+    if (!token) return;
+    try {
+      await resetImapWatermark(token);
+      const s = await getImapStatus(token);
+      setImapStatus(s);
+      setImapMsg({ type: 'success', text: 'Watermark reset. IDLE listener will re-scan all emails on next cycle.' });
+    } catch (err) {
+      setImapMsg({ type: 'error', text: err instanceof Error ? err.message : 'Reset failed' });
     }
   };
 
@@ -983,6 +996,11 @@ export default function Profile() {
                             <span>Last idle: {new Date(imapStatus.last_idle_at).toLocaleString()}</span>
                           </div>
                         )}
+                        {imapStatus.last_uid != null && imapStatus.last_uid > 0 && (
+                          <div className="flex items-center gap-2 text-xs text-zinc-400">
+                            <span>Watermark UID: <strong className="text-zinc-600">{imapStatus.last_uid}</strong></span>
+                          </div>
+                        )}
                         {imapStatus.last_error && (
                           <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
                             <AlertTriangle size={14} />
@@ -1020,11 +1038,18 @@ export default function Profile() {
                       )}
                     </div>
 
-                    <button onClick={handleDisconnectImap}
-                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-lg font-bold text-sm hover:bg-red-100 transition-colors">
-                      <XCircle size={15} />
-                      Disconnect
-                    </button>
+                    <div className="flex gap-2">
+                      <button onClick={handleResetImapWatermark}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 rounded-lg font-bold text-sm hover:bg-amber-100 transition-colors">
+                        <RefreshCw size={15} />
+                        Reset Watermark
+                      </button>
+                      <button onClick={handleDisconnectImap}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-lg font-bold text-sm hover:bg-red-100 transition-colors">
+                        <XCircle size={15} />
+                        Disconnect
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <>

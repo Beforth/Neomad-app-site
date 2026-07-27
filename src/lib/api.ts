@@ -1579,6 +1579,7 @@ export interface ImapStatusResponse {
   last_error: string | null;
   emails_detected_total: number;
   invoices_imported_total: number;
+  last_uid: number | null;
 }
 
 export interface ImapTestResponse {
@@ -1641,6 +1642,20 @@ export async function getImapStatus(token: string): Promise<ImapStatusResponse> 
     notifyIfUnauthorized(res, true);
     const err = await res.json().catch(() => ({})) as { detail?: string };
     throw new Error(getApiError(err, res.statusText || 'Failed to load IMAP status'));
+  }
+  return res.json();
+}
+
+export async function resetImapWatermark(token: string): Promise<{ ok: boolean; message: string }> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/reset-watermark`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to reset watermark'));
   }
   return res.json();
 }
