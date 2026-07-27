@@ -28,7 +28,7 @@ import TaskCreatePage from './pages/tasks/TaskCreatePage';
 import TaskEditPage from './pages/tasks/TaskEditPage';
 import TaskDeletePage from './pages/tasks/TaskDeletePage';
 import { useNotifications } from './hooks/useNotifications';
-import { useStaffInvoiceAlerts } from './hooks/useSocket';
+import { useTrackingSocket } from './hooks/useSocket';
 import { useWebPush } from './hooks/useWebPush';
 import BottomNav from './components/BottomNav';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -92,7 +92,7 @@ function AppRoutes() {
 
   useNotifications();
   useWebPush();
-  useStaffInvoiceAlerts(Boolean(user && (user.role === 'admin' || user.role === 'manager')));
+  useTrackingSocket(Boolean(user && (user.role === 'admin' || user.role === 'manager')));
 
   if (loading) return <div className="min-h-[100dvh] flex items-center justify-center bg-white font-bold text-zinc-400 animate-pulse">Loading...</div>;
 
