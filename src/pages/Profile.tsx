@@ -10,21 +10,28 @@ import {
   deleteStoreGeoSetting,
   deleteWorkingLocation,
   disconnectGmail,
+  disconnectImap,
   getGmailAuthUrl,
   getGmailDelayRecords,
   getGmailMonitorSettings,
   getGmailStatus,
+  getImapConfig,
+  getImapStatus,
   listGmailEmails,
   listStoreGeoSettings,
   listWorkingLocations,
   markGmailEmailRead,
+  saveImapConfig,
   syncRecentGmailEmails,
+  testImapConnection,
   toggleGmailEmailStar,
   updateGmailMonitorSettings,
   updateStoreGeoSetting,
   updateWorkingLocation,
   type GmailDelayRecord,
   type GmailEmail,
+  type ImapConfig,
+  type ImapStatusResponse,
   type StoreGeoSetting,
   type WorkingLocation,
 } from '../lib/api';
@@ -57,6 +64,13 @@ export default function Profile() {
 
   const [syncResult, setSyncResult] = useState<'success' | 'error' | null>(null);
   const [syncMessage, setSyncMessage] = useState('');
+  const [imapConfig, setImapConfig] = useState<ImapConfig | null>(null);
+  const [imapStatus, setImapStatus] = useState<ImapStatusResponse | null>(null);
+  const [imapForm, setImapForm] = useState({ email: '', app_password: '', imap_host: 'imap.gmail.com', imap_port: '993' });
+  const [imapSaving, setImapSaving] = useState(false);
+  const [imapTesting, setImapTesting] = useState(false);
+  const [imapTestResult, setImapTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [imapMsg, setImapMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
   const [pwMsg, setPwMsg] = useState('');
@@ -94,6 +108,76 @@ export default function Profile() {
     }
   };
 
+  const loadImap = async () => {
+    if (!token) return;
+    try {
+      const [cfg, status] = await Promise.all([getImapConfig(token), getImapStatus(token)]);
+      setImapConfig(cfg);
+      setImapStatus(status);
+      if (cfg) {
+        setImapForm({
+          email: cfg.email || '',
+          app_password: '',
+          imap_host: cfg.imap_host || 'imap.gmail.com',
+          imap_port: String(cfg.imap_port || 993),
+        });
+      }
+    } catch {
+      // silent
+    }
+  };
+
+  const handleSaveImap = async () => {
+    if (!token) return;
+    setImapSaving(true);
+    setImapMsg(null);
+    try {
+      await saveImapConfig(token, {
+        email: imapForm.email,
+        app_password: imapForm.app_password,
+        imap_host: imapForm.imap_host,
+        imap_port: parseInt(imapForm.imap_port) || 993,
+      });
+      setImapMsg({ type: 'success', text: 'IMAP config saved. The listener will connect on next cycle.' });
+      await loadImap();
+    } catch (err) {
+      setImapMsg({ type: 'error', text: err instanceof Error ? err.message : 'Failed to save' });
+    } finally {
+      setImapSaving(false);
+    }
+  };
+
+  const handleTestImap = async () => {
+    if (!token) return;
+    setImapTesting(true);
+    setImapTestResult(null);
+    try {
+      const res = await testImapConnection(token, {
+        email: imapForm.email,
+        app_password: imapForm.app_password,
+        imap_host: imapForm.imap_host,
+        imap_port: parseInt(imapForm.imap_port) || 993,
+      });
+      setImapTestResult(res);
+    } catch (err) {
+      setImapTestResult({ success: false, message: err instanceof Error ? err.message : 'Test failed' });
+    } finally {
+      setImapTesting(false);
+    }
+  };
+
+  const handleDisconnectImap = async () => {
+    if (!token) return;
+    try {
+      await disconnectImap(token);
+      setImapConfig(null);
+      setImapStatus(null);
+      setImapMsg({ type: 'success', text: 'IMAP disconnected' });
+    } catch (err) {
+      setImapMsg({ type: 'error', text: err instanceof Error ? err.message : 'Disconnect failed' });
+    }
+  };
+
   const loadEmails = async () => {
     if (!token || !gmailConnected) {
       setEmails([]);
@@ -119,6 +203,7 @@ export default function Profile() {
 
   useEffect(() => {
     loadGmail();
+    loadImap();
   }, [token]);
 
   useEffect(() => {
@@ -176,6 +261,7 @@ export default function Profile() {
         setSyncResult('success');
         setSyncMessage('Gmail connected successfully. Initial email sync completed.');
         loadGmail();
+        loadImap();
         loadEmails();
       })
       .catch((err) => {
@@ -818,204 +904,123 @@ export default function Profile() {
             <div className="px-6 py-5 border-b border-zinc-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-zinc-900">Gmail Emails</h2>
-                  <p className="text-sm text-zinc-500 mt-0.5">Import invoices from your Gmail inbox</p>
+                  <h2 className="text-lg font-bold text-zinc-900">Invoice Inbox (IMAP)</h2>
+                  <p className="text-sm text-zinc-500 mt-0.5">Auto-import invoices from shared inbox via IMAP IDLE</p>
                 </div>
                 <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
-                  gmailConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-500'
+                  imapConfig?.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-500'
                 }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${gmailConnected ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
-                  {gmailConnected ? 'Connected' : 'Not Connected'}
+                  <span className={`w-1.5 h-1.5 rounded-full ${imapStatus?.connected ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                  {imapStatus?.connected ? 'Connected' : imapConfig?.is_active ? 'Reconnecting...' : 'Not Configured'}
                 </span>
               </div>
             </div>
             <div className="px-6 py-5">
               <AnimatePresence>
-                {syncResult && (
+                {imapMsg && (
                   <motion.div
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     className={`mb-4 rounded-lg p-3 flex items-center gap-3 text-sm font-medium ${
-                      syncResult === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                      imapMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
                     }`}
                   >
-                    {syncResult === 'success' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-                    {syncResult === 'success' ? syncMessage : (syncMessage || 'Sync failed. Please try again.')}
+                    {imapMsg.type === 'success' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                    {imapMsg.text}
                   </motion.div>
                 )}
               </AnimatePresence>
               <div className="space-y-4">
                 <p className="text-sm text-zinc-500 leading-relaxed">
-                  Invoices are created from <strong className="text-zinc-700">inbox emails with PDF attachments</strong> (text must be readable in the PDF).
-                  Connect Gmail as an <strong className="text-zinc-700">admin or manager</strong> user, then use Sync.
+                  Connect a <strong className="text-zinc-700">shared Gmail inbox</strong> via IMAP. New emails with PDF attachments are detected instantly (no polling delay) and automatically imported as invoices.
                 </p>
-                {gmailConnected ? (
+                <p className="text-xs text-zinc-400">
+                  Generate a Gmail App Password at <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">myaccount.google.com/apppasswords</a> (requires 2FA enabled).
+                </p>
+
+                {imapConfig?.is_active ? (
                   <>
-                    <div className="bg-zinc-50 rounded-lg p-4 space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-red-100 rounded-full flex items-center justify-center text-red-600 font-bold text-sm">G</div>
-                        <div>
-                          <p className="text-sm font-bold text-zinc-900">{gmailEmail}</p>
-                          <p className="text-xs text-zinc-500">Connected Gmail account</p>
-                        </div>
-                      </div>
-                      {gmailLastSyncAt && (
-                        <div className="flex items-center gap-2 text-xs text-zinc-500 border-t border-zinc-100 pt-3">
-                          <Clock size={12} />
-                          <span>Last synced: {new Date(gmailLastSyncAt).toLocaleString()}</span>
-                        </div>
-                      )}
-                      {gmailError && (
-                        <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
-                          <AlertTriangle size={14} />
-                          <span>{gmailError}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-3">
-                      <button onClick={handleFetch} disabled={syncing}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-500 text-white rounded-lg font-bold text-sm hover:bg-emerald-600 transition-colors disabled:opacity-60">
-                        <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
-                        {syncing ? 'Fetching...' : 'Sync Recent Emails'}
-                      </button>
-                      <button onClick={handleDisconnect}
-                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-lg font-bold text-sm hover:bg-red-100 transition-colors">
-                        <XCircle size={15} />
-                        Disconnect
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3 border-t border-zinc-100 pt-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-zinc-500">Check every:</span>
-                        <input
-                          type="number"
-                          min={10}
-                          max={3600}
-                          value={pollInterval}
-                          onChange={(e) => setPollInterval(Math.max(10, Math.min(3600, Number(e.target.value))))}
-                          className="w-16 px-2 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-bold text-zinc-700 text-center outline-none focus:ring-2 focus:ring-emerald-500/20"
-                        />
-                        <span className="text-xs text-zinc-500">sec</span>
-                      </div>
-                      <button onClick={saveMonitorSettings} disabled={settingsSaving}
-                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50">
-                        {settingsSaving ? 'Saving...' : 'Save'}
-                      </button>
-                      <span className="text-xs text-zinc-400">
-                        Background scheduler checks Gmail every N seconds for new invoice emails.
-                      </span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <div className="flex-1 relative">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                        <input type="text" value={emailQuery} onChange={(e) => setEmailQuery(e.target.value)}
-                          placeholder="Search subject/sender/snippet..."
-                          className="w-full pl-9 pr-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setShowUnreadOnly((v) => !v)}
-                          className={`px-3 py-2 rounded-lg text-xs font-bold border ${showUnreadOnly ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-zinc-500 border-zinc-200'}`}>Unread</button>
-                        <button onClick={() => setShowStarredOnly((v) => !v)}
-                          className={`px-3 py-2 rounded-lg text-xs font-bold border ${showStarredOnly ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white text-zinc-500 border-zinc-200'}`}>Starred</button>
-                      </div>
-                    </div>
-                    <div className="text-xs text-zinc-500 flex items-center justify-between">
-                      <span>{emails.length} emails</span>
-                      <span>{unreadCount} unread</span>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto border border-zinc-100 rounded-lg divide-y divide-zinc-100">
-                      {emailsLoading ? (
-                        <div className="p-4 text-sm text-zinc-500">Loading emails...</div>
-                      ) : emails.length === 0 ? (
-                        <div className="p-4 text-sm text-zinc-500">No emails found.</div>
-                      ) : (
-                        emails.map((email) => (
-                          <div key={email.id} className="p-3 hover:bg-zinc-50">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className={`text-sm truncate ${email.is_read ? 'text-zinc-600' : 'text-zinc-900 font-semibold'}`}>
-                                  {email.subject || '(No subject)'}
-                                </p>
-                                <p className="text-xs text-zinc-500 truncate">{email.sender}</p>
-                                <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{email.snippet}</p>
-                                {email.import_status ? (
-                                  <p className={`text-[10px] mt-1 font-semibold ${
-                                    email.import_status === 'imported' ? 'text-emerald-600' : email.import_status === 'error' ? 'text-red-600' : 'text-amber-600'
-                                  }`} title={email.import_error || undefined}>
-                                    Invoice: {email.import_status.replace(/_/g, ' ')}
-                                    {email.imported_invoice_id ? ` (#${email.imported_invoice_id})` : ''}
-                                    {email.import_error ? ` — ${email.import_error}` : ''}
-                                  </p>
-                                ) : (
-                                  <p className="text-[10px] text-zinc-400 mt-1">Invoice: pending scan</p>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <button onClick={() => toggleRead(email)}
-                                  className="px-2 py-1 text-[10px] rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100">
-                                  {email.is_read ? 'Mark unread' : 'Mark read'}
-                                </button>
-                                <button onClick={() => toggleStar(email)}
-                                  className={`p-1.5 rounded-lg border ${email.is_starred ? 'bg-amber-50 border-amber-200 text-amber-600' : 'border-zinc-200 text-zinc-400 hover:bg-zinc-100'}`}>
-                                  <Star size={13} />
-                                </button>
-                              </div>
-                            </div>
-                            <p className="text-[10px] text-zinc-400 mt-2">{new Date(email.sent_at).toLocaleString()}</p>
+                    {imapStatus && (
+                      <div className="bg-zinc-50 rounded-lg p-4 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm">@</div>
+                          <div>
+                            <p className="text-sm font-bold text-zinc-900">{imapConfig.email}</p>
+                            <p className="text-xs text-zinc-500">{imapConfig.imap_host}:{imapConfig.imap_port}</p>
                           </div>
-                        ))
-                      )}
-                    </div>
-                    {delayRecords.length > 0 && (
-                      <div className="border-t border-zinc-100 pt-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-sm font-bold text-zinc-900">Invoice Delivery Delays</h3>
-                          <button onClick={() => setDelayRecords([])} className="text-xs font-bold text-zinc-400 hover:text-red-500 transition-colors">
-                            Clear Log
-                          </button>
                         </div>
-                        <div className="max-h-64 overflow-y-auto border border-zinc-100 rounded-lg divide-y divide-zinc-100">
-                          <div className="sticky top-0 bg-zinc-50 px-3 py-2 flex items-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                            <span className="w-2/5">Subject</span>
-                            <span className="w-1/5">Sent At</span>
-                            <span className="w-1/5">Detected At</span>
-                            <span className="w-1/5 text-right">Delay</span>
+                        <div className="flex items-center gap-4 text-xs text-zinc-500 border-t border-zinc-100 pt-3">
+                          <span>Emails detected: <strong className="text-zinc-700">{imapStatus.emails_detected_total}</strong></span>
+                          <span>Invoices imported: <strong className="text-zinc-700">{imapStatus.invoices_imported_total}</strong></span>
+                        </div>
+                        {imapStatus.last_idle_at && (
+                          <div className="flex items-center gap-2 text-xs text-zinc-500">
+                            <Clock size={12} />
+                            <span>Last idle: {new Date(imapStatus.last_idle_at).toLocaleString()}</span>
                           </div>
-                          {delayRecords.map((r, i) => (
-                            <div key={i} className="px-3 py-2 flex items-center text-xs text-zinc-700 hover:bg-zinc-50">
-                              <span className="w-2/5 truncate font-medium">{r.email_subject}</span>
-                              <span className="w-1/5 text-zinc-500">{new Date(r.sent_at).toLocaleTimeString()}</span>
-                              <span className="w-1/5 text-zinc-500">{new Date(r.detected_at).toLocaleTimeString()}</span>
-                              <span className="w-1/5 text-right font-bold text-zinc-900">
-                                {r.delay_sec < 60 ? `${r.delay_sec}s` : `${Math.floor(r.delay_sec / 60)}m ${r.delay_sec % 60}s`}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="mt-2 flex items-center gap-4 text-xs text-zinc-500">
-                          <span>Records: {delayRecords.length}</span>
-                          {delayRecords.length > 0 && (
-                            <>
-                              <span>Avg: {Math.round(delayRecords.reduce((a, r) => a + r.delay_sec, 0) / delayRecords.length)}s</span>
-                              <span>Max: {Math.max(...delayRecords.map((r) => r.delay_sec))}s</span>
-                              <span>Min: {Math.min(...delayRecords.map((r) => r.delay_sec))}s</span>
-                            </>
-                          )}
-                        </div>
+                        )}
+                        {imapStatus.last_error && (
+                          <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+                            <AlertTriangle size={14} />
+                            <span>{imapStatus.last_error}</span>
+                          </div>
+                        )}
                       </div>
                     )}
+                    <button onClick={handleDisconnectImap}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-lg font-bold text-sm hover:bg-red-100 transition-colors">
+                      <XCircle size={15} />
+                      Disconnect
+                    </button>
                   </>
                 ) : (
                   <>
-                    <p className="text-sm text-zinc-500 leading-relaxed">
-                      Connect your Gmail account, scrape recent emails, and view them directly in this Profile section.
-                    </p>
-                    <button onClick={handleConnect} disabled={oauthHandling || gmailLoading}
-                      className="w-full flex items-center justify-center gap-3 py-3 border-2 border-zinc-200 rounded-lg font-bold text-sm text-zinc-900 hover:border-zinc-400 hover:bg-zinc-50 transition-all">
-                      <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-white text-[10px] font-black">G</div>
-                      {oauthHandling ? 'Completing OAuth...' : 'Connect with Google'}
-                    </button>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Email address</label>
+                        <input type="email" value={imapForm.email} onChange={(e) => setImapForm({ ...imapForm, email: e.target.value })}
+                          placeholder="neomedsoftware@gmail.com"
+                          className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">App Password</label>
+                        <input type="password" value={imapForm.app_password} onChange={(e) => setImapForm({ ...imapForm, app_password: e.target.value })}
+                          placeholder="xxxx xxxx xxxx xxxx"
+                          className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">IMAP Host</label>
+                          <input type="text" value={imapForm.imap_host} onChange={(e) => setImapForm({ ...imapForm, imap_host: e.target.value })}
+                            className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                        </div>
+                        <div className="w-24">
+                          <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Port</label>
+                          <input type="number" value={imapForm.imap_port} onChange={(e) => setImapForm({ ...imapForm, imap_port: e.target.value })}
+                            className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={handleTestImap} disabled={imapTesting || !imapForm.email || !imapForm.app_password}
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-100 text-zinc-700 rounded-lg font-bold text-sm hover:bg-zinc-200 transition-colors disabled:opacity-60">
+                        <RefreshCw size={15} className={imapTesting ? 'animate-spin' : ''} />
+                        {imapTesting ? 'Testing...' : 'Test Connection'}
+                      </button>
+                      <button onClick={handleSaveImap} disabled={imapSaving || !imapForm.email || !imapForm.app_password}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-500 text-white rounded-lg font-bold text-sm hover:bg-emerald-600 transition-colors disabled:opacity-60">
+                        {imapSaving ? 'Saving...' : 'Connect'}
+                      </button>
+                    </div>
+                    {imapTestResult && (
+                      <div className={`rounded-lg p-3 text-sm font-medium ${
+                        imapTestResult.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                      }`}>
+                        {imapTestResult.success ? <CheckCircle2 size={14} className="inline mr-2" /> : <XCircle size={14} className="inline mr-2" />}
+                        {imapTestResult.message}
+                      </div>
+                    )}
                   </>
                 )}
               </div>

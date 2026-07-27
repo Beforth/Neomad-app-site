@@ -1557,3 +1557,108 @@ export async function clearGmailDelayRecords(token: string): Promise<void> {
 }
 
 export { getBaseUrl };
+
+// ---------------------------------------------------------------------------
+// IMAP IDLE
+// ---------------------------------------------------------------------------
+
+export interface ImapConfig {
+  id: number;
+  email: string;
+  imap_host: string;
+  imap_port: number;
+  is_active: boolean;
+  last_idle_at: string | null;
+  error_message: string | null;
+}
+
+export interface ImapStatusResponse {
+  running: boolean;
+  connected: boolean;
+  last_idle_at: string | null;
+  last_error: string | null;
+  emails_detected_total: number;
+  invoices_imported_total: number;
+}
+
+export interface ImapTestResponse {
+  success: boolean;
+  message: string;
+  email_count: number | null;
+}
+
+export async function getImapConfig(token: string): Promise<ImapConfig | null> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/config`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to load IMAP config'));
+  }
+  return res.json();
+}
+
+export async function saveImapConfig(
+  token: string,
+  body: { email: string; app_password: string; imap_host?: string; imap_port?: number },
+): Promise<ImapConfig> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/config`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to save IMAP config'));
+  }
+  return res.json();
+}
+
+export async function disconnectImap(token: string): Promise<void> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/config`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to disconnect IMAP'));
+  }
+}
+
+export async function getImapStatus(token: string): Promise<ImapStatusResponse> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/status`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to load IMAP status'));
+  }
+  return res.json();
+}
+
+export async function testImapConnection(
+  token: string,
+  body: { email: string; app_password: string; imap_host?: string; imap_port?: number },
+): Promise<ImapTestResponse> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/test`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to test IMAP connection'));
+  }
+  return res.json();
+}
