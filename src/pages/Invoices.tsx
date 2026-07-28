@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Search, XCircle, ChevronLeft, ChevronRight,
-  Download, RefreshCw, AlertCircle, Plus, CheckCircle2,
+  Download, RefreshCw, AlertCircle, Plus, CheckCircle2, X,
 } from 'lucide-react';
 import { getUsers, createInvoice, updateInvoice, uploadSignedCopy } from '../lib/api';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -75,6 +75,9 @@ export default function Invoices() {
   const [completeUploadedUrl, setCompleteUploadedUrl] = useState('');
   const [completeBusy, setCompleteBusy] = useState(false);
   const [completeError, setCompleteError] = useState('');
+  const [completeReplace, setCompleteReplace] = useState(false);
+
+  const [previewImage, setPreviewImage] = useState<{ url: string; number: string } | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300);
@@ -216,10 +219,10 @@ export default function Invoices() {
   );
 
   const openSignedPreview = useCallback(
-    (invId: number) => {
-      navigate(`/invoices/${invId}/signed-preview?page=${page}`);
+    (imageUrl: string, invoiceNumber: string) => {
+      setPreviewImage({ url: imageUrl, number: invoiceNumber });
     },
-    [navigate, page]
+    []
   );
 
   const downloadInvoice = useCallback((inv: ApiInvoice) => {
@@ -308,6 +311,18 @@ export default function Invoices() {
       setCompleteFile(null);
       setCompleteUploadedUrl('');
       setCompleteError('');
+      setCompleteReplace(false);
+    },
+    []
+  );
+
+  const openReupload = useCallback(
+    (inv: ApiInvoice) => {
+      setCompleteTarget(inv);
+      setCompleteFile(null);
+      setCompleteUploadedUrl('');
+      setCompleteError('');
+      setCompleteReplace(true);
     },
     []
   );
@@ -668,6 +683,7 @@ export default function Invoices() {
                       onRequestDelete={openDelete}
                       onRequestRecoverDeleted={invoiceTab === 'deleted' ? openRecoverDeleted : undefined}
                       onMarkComplete={openMarkComplete}
+                      onReupload={invoice.signed_copy_url ? openReupload : undefined}
                     />
                   );
                 })
@@ -877,17 +893,26 @@ export default function Invoices() {
 
               {(() => {
                 const existingCopy = completeTarget.signed_copy_url;
-                if (existingCopy) {
+                if (existingCopy && !completeReplace && !completeUploadedUrl) {
                   return (
-                    <p className="text-xs text-emerald-600 flex items-center gap-1">
-                      <CheckCircle2 size={14} /> Signed copy already uploaded
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-xs text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 size={14} /> Signed copy already uploaded
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setCompleteReplace(true)}
+                        className="text-xs font-bold text-amber-600 hover:text-amber-700 underline"
+                      >
+                        Replace with a different image
+                      </button>
+                    </div>
                   );
                 }
                 if (completeUploadedUrl) {
                   return (
                     <p className="text-xs text-emerald-600 flex items-center gap-1">
-                      <CheckCircle2 size={14} /> Signed copy uploaded
+                      <CheckCircle2 size={14} /> New signed copy uploaded
                     </p>
                   );
                 }
@@ -909,7 +934,7 @@ export default function Invoices() {
                   Cancel
                 </button>
                 <button
-                  disabled={completeBusy || (!completeFile && !completeUploadedUrl && !completeTarget.signed_copy_url)}
+                  disabled={completeBusy || (!completeFile && !completeUploadedUrl && (!completeTarget.signed_copy_url || completeReplace))}
                   onClick={async () => {
                     if (!token) return;
                     setCompleteBusy(true);
@@ -949,6 +974,39 @@ export default function Invoices() {
                   {completeBusy ? 'Completing…' : <><CheckCircle2 size={14} /> Complete</>}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/60 backdrop-blur-sm"
+          onClick={() => setPreviewImage(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="bg-white rounded-2xl border border-zinc-200 shadow-2xl w-full max-w-3xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/40">
+              <span className="text-xs font-bold text-zinc-600">Signed copy — {previewImage.number}</span>
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+                aria-label="Close preview"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-4 flex justify-center bg-zinc-50/30 max-h-[80vh] overflow-auto">
+              <img
+                src={previewImage.url}
+                alt={`Signed copy — ${previewImage.number}`}
+                className="max-w-full h-auto object-contain rounded-lg"
+              />
             </div>
           </div>
         </div>

@@ -72,9 +72,7 @@ function TopBar() {
             <ChevronLeft size={20} />
           </button>
         )}
-        <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-4 ring-emerald-50">
-          M
-        </div>
+        <img src="/app_icon.png" alt="Neomed" className="w-8 h-8 rounded-lg shadow-sm ring-4 ring-emerald-50" />
         <h2 className="text-base font-extrabold text-zinc-900 tracking-tight">{title}</h2>
       </div>
       <div className="flex items-center gap-2">
