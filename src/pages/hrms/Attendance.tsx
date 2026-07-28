@@ -47,7 +47,7 @@ function formatHours(h: number) {
   return hrs > 0 || mins > 0 ? `${hrs}h ${mins}m` : '\u2014';
 }
 
-function getStatus(checkIn: string | null, checkOut: string | null, shiftSettings: ShiftSettings, shiftType?: { start_time: string; end_time: string }): 'present' | 'absent' | 'late' | 'half_day' | 'overtime' {
+function getStatus(checkIn: string | null, checkOut: string | null, shiftSettings: ShiftSettings, shiftType?: { id?: number; start_time: string; end_time: string }): 'present' | 'absent' | 'late' | 'half_day' | 'overtime' {
   if (!checkIn) return 'absent';
 
   const shiftStart = shiftType?.start_time || '09:00';
@@ -65,9 +65,13 @@ function getStatus(checkIn: string | null, checkOut: string | null, shiftSetting
     if (absMins < shiftSettings.halfDayThresholdHours * 60) return 'half_day';
 
     if (shiftSettings.overtimeCalculation) {
-      const shiftEndMin = timeToMinutes(shiftEnd);
-      const checkOutMin = timeToMinutes(checkOut);
-      if (checkOutMin > shiftEndMin) return 'overtime';
+      const shiftId = shiftType?.id;
+      const hasOvertime = !shiftId || shiftSettings.overtimeShiftTypeIds.includes(shiftId);
+      if (hasOvertime) {
+        const shiftEndMin = timeToMinutes(shiftEnd);
+        const checkOutMin = timeToMinutes(checkOut);
+        if (checkOutMin > shiftEndMin) return 'overtime';
+      }
     }
   }
   return 'present';
@@ -290,6 +294,9 @@ export default function Attendance() {
           checkOut = `${String(Math.min(outH, 22)).padStart(2, '0')}:${String(outM).padStart(2, '0')}`;
           hoursWorked = calcHours(checkIn, checkOut);
           overtime = calcOvertime(checkOut, defaultShift.end_time);
+          const shiftId = 'id' in defaultShift ? defaultShift.id : undefined;
+          const hasOvertime = !shiftId || shiftSettings.overtimeShiftTypeIds.includes(shiftId);
+          if (!hasOvertime) overtime = 0;
         }
         const status = getStatus(checkIn, checkOut, shiftSettings, defaultShift);
         const isManual = Math.random() > 0.85;
@@ -415,7 +422,11 @@ export default function Attendance() {
       setRecords(prev => prev.map(r => {
         if (r.staffId === staffId && r.date === dateStr && r.checkIn && !r.checkOut) {
           const defaultShift = shiftTypes[0] || { start_time: '09:00', end_time: '17:00' };
-          return { ...r, checkOut: punchTime, hoursWorked: calcHours(r.checkIn, punchTime), overtime: calcOvertime(punchTime, defaultShift.end_time), status: getStatus(r.checkIn, punchTime, shiftSettings, defaultShift) };
+          let ot = calcOvertime(punchTime, defaultShift.end_time);
+          const shiftId = 'id' in defaultShift ? defaultShift.id : undefined;
+          const hasOvertime = !shiftId || shiftSettings.overtimeShiftTypeIds.includes(shiftId);
+          if (!hasOvertime) ot = 0;
+          return { ...r, checkOut: punchTime, hoursWorked: calcHours(r.checkIn, punchTime), overtime: ot, status: getStatus(r.checkIn, punchTime, shiftSettings, defaultShift) };
         }
         return r;
       }));

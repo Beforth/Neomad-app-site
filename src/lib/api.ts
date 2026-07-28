@@ -1589,10 +1589,9 @@ export interface ShiftSettings {
   earlyExitGraceMinutes: number;
   halfDayThresholdHours: number;
   absentThresholdHours: number;
-  autoAttendanceOnHolidays: boolean;
   overtimeCalculation: boolean;
+  overtimeShiftTypeIds: number[];
   beginCheckInBeforeShiftStart: boolean;
-  holidayDates: string[];
 }
 
 export const DEFAULT_SHIFT_SETTINGS: ShiftSettings = {
@@ -1600,10 +1599,9 @@ export const DEFAULT_SHIFT_SETTINGS: ShiftSettings = {
   earlyExitGraceMinutes: 30,
   halfDayThresholdHours: 4,
   absentThresholdHours: 2,
-  autoAttendanceOnHolidays: false,
   overtimeCalculation: true,
+  overtimeShiftTypeIds: [],
   beginCheckInBeforeShiftStart: true,
-  holidayDates: [],
 };
 
 export const SHIFT_COLORS: readonly string[] = [] as const;

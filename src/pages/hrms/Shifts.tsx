@@ -189,7 +189,7 @@ export default function Shifts() {
         <ShiftTypesTab shiftTypes={shiftTypes} setShiftTypes={setShiftTypes} canManage={canManage} showToast={showToast} />
       )}
       {activeTab === 'settings' && (
-        <SettingsTab settings={settings} setSettings={setSettings} canManage={canManage} showToast={showToast} />
+        <SettingsTab settings={settings} setSettings={setSettings} shiftTypes={shiftTypes} canManage={canManage} showToast={showToast} />
       )}
       {activeTab === 'assignments' && (
         <AssignmentsTab assignments={assignments} setAssignments={setAssignments} shiftTypes={shiftTypes}
@@ -304,15 +304,6 @@ function ShiftTypesTab({ shiftTypes, setShiftTypes, canManage, showToast }: {
         ))}
       </div>
 
-      {canManage && (
-        <div className="flex justify-end">
-          <button onClick={openCreate}
-            className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors">
-            <Plus size={16} /> New Shift
-          </button>
-        </div>
-      )}
-
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-300" size={16} />
@@ -359,6 +350,12 @@ function ShiftTypesTab({ shiftTypes, setShiftTypes, canManage, showToast }: {
             {sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
           </button>
         </div>
+        {canManage && (
+          <button onClick={openCreate}
+            className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors">
+            <Plus size={16} /> New Shift
+          </button>
+        )}
       </div>
 
       <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
@@ -518,9 +515,10 @@ function ShiftTypesTab({ shiftTypes, setShiftTypes, canManage, showToast }: {
   );
 }
 
-function SettingsTab({ settings, setSettings, canManage, showToast }: {
+function SettingsTab({ settings, setSettings, shiftTypes, canManage, showToast }: {
   settings: ShiftSettings;
   setSettings: React.Dispatch<React.SetStateAction<ShiftSettings>>;
+  shiftTypes: ShiftType[];
   canManage: boolean;
   showToast: (msg: string) => void;
 }) {
@@ -535,61 +533,71 @@ function SettingsTab({ settings, setSettings, canManage, showToast }: {
 
   return (
     <div className="space-y-6 w-full">
-      <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-zinc-100">
-          <h3 className="font-bold text-zinc-900 flex items-center gap-2"><Clock size={18} /> Check-In / Check-Out Rules</h3>
-          <p className="text-xs text-zinc-400 mt-1">Configure how attendance is determined from biometric scans</p>
-        </div>
-        <div className="p-5 space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Late Entry Grace Period (min)" hint="Minutes after shift start before marking late">
-              <input type="number" min="0" max="180" value={settings.lateEntryGraceMinutes}
-                onChange={e => setSettings(s => ({ ...s, lateEntryGraceMinutes: parseInt(e.target.value) || 0 }))}
-                disabled={!canManage} className={inputClassName} />
-            </Field>
-            <Field label="Early Exit Grace Period (min)" hint="Minutes before shift end that still count as full day">
-              <input type="number" min="0" max="180" value={settings.earlyExitGraceMinutes}
-                onChange={e => setSettings(s => ({ ...s, earlyExitGraceMinutes: parseInt(e.target.value) || 0 }))}
-                disabled={!canManage} className={inputClassName} />
-            </Field>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-zinc-100">
+            <h3 className="font-bold text-zinc-900 flex items-center gap-2"><Clock size={18} /> Check-In / Check-Out Rules</h3>
+            <p className="text-xs text-zinc-400 mt-1">Configure how attendance is determined from biometric scans</p>
           </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-            <p className="text-xs text-blue-700">
-              <strong>Biometric Logic:</strong> The first scan of the day is treated as check-in, and the last scan as check-out.
-              All scans in between are logged but not used for attendance determination.
-            </p>
+          <div className="p-5 space-y-5">
+            <div className="grid grid-cols-1 gap-4">
+              <Field label="Late Entry Grace Period (min)" hint="Minutes after shift start before marking late">
+                <input type="number" min="0" max="180" value={settings.lateEntryGraceMinutes}
+                  onChange={e => setSettings(s => ({ ...s, lateEntryGraceMinutes: parseInt(e.target.value) || 0 }))}
+                  disabled={!canManage} className={inputClassName} />
+              </Field>
+              <Field label="Early Exit Grace Period (min)" hint="Minutes before shift end that still count as full day">
+                <input type="number" min="0" max="180" value={settings.earlyExitGraceMinutes}
+                  onChange={e => setSettings(s => ({ ...s, earlyExitGraceMinutes: parseInt(e.target.value) || 0 }))}
+                  disabled={!canManage} className={inputClassName} />
+              </Field>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <p className="text-sm font-medium text-zinc-900">Begin Check-In Before Shift Start</p>
+                <p className="text-xs text-zinc-400">Allow employees to check in before their shift start time</p>
+              </div>
+              <ToggleSwitch enabled={settings.beginCheckInBeforeShiftStart}
+                onToggle={() => canManage && setSettings(s => ({ ...s, beginCheckInBeforeShiftStart: !s.beginCheckInBeforeShiftStart }))} disabled={!canManage} />
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+              <p className="text-xs text-blue-700">
+                <strong>Biometric Logic:</strong> The first scan of the day is treated as check-in, and the last scan as check-out.
+                All scans in between are logged but not used for attendance determination.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-zinc-100">
-          <h3 className="font-bold text-zinc-900 flex items-center gap-2"><Users size={18} /> Attendance Thresholds</h3>
-          <p className="text-xs text-zinc-400 mt-1">Define when employees are marked as half-day or absent</p>
-        </div>
-        <div className="p-5 space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Half Day Threshold (hours)" hint="Work below this many hours = half day">
-              <input type="number" min="0" max="12" step="0.5" value={settings.halfDayThresholdHours}
-                onChange={e => setSettings(s => ({ ...s, halfDayThresholdHours: parseFloat(e.target.value) || 0 }))}
-                disabled={!canManage} className={inputClassName} />
-            </Field>
-            <Field label="Absent Threshold (hours)" hint="Work below this many hours = absent">
-              <input type="number" min="0" max="12" step="0.5" value={settings.absentThresholdHours}
-                onChange={e => setSettings(s => ({ ...s, absentThresholdHours: parseFloat(e.target.value) || 0 }))}
-                disabled={!canManage} className={inputClassName} />
-            </Field>
+        <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-zinc-100">
+            <h3 className="font-bold text-zinc-900 flex items-center gap-2"><Users size={18} /> Attendance Thresholds</h3>
+            <p className="text-xs text-zinc-400 mt-1">Define when employees are marked as half-day or absent</p>
           </div>
-          <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 space-y-2">
-            <p className="text-xs text-zinc-500">
-              <strong>Status Logic:</strong>
-            </p>
-            <div className="text-xs text-zinc-500 space-y-1">
-              <p>• Worked below <strong className="text-zinc-700">{settings.absentThresholdHours}h</strong> → <span className="text-red-600 font-medium">Absent</span></p>
-              <p>• Worked below <strong className="text-zinc-700">{settings.halfDayThresholdHours}h</strong> → <span className="text-blue-600 font-medium">Half Day</span></p>
-              <p>• Checked in after shift start + <strong className="text-zinc-700">{settings.lateEntryGraceMinutes}min</strong> grace → <span className="text-amber-600 font-medium">Late</span></p>
-              <p>• Checked out before shift end − <strong className="text-zinc-700">{settings.earlyExitGraceMinutes}min</strong> grace → <span className="text-amber-600 font-medium">Early Exit</span></p>
-              <p>• Worked full required hours → <span className="text-emerald-600 font-medium">Present</span></p>
+          <div className="p-5 space-y-5">
+            <div className="grid grid-cols-1 gap-4">
+              <Field label="Half Day Threshold (hours)" hint="Work below this many hours = half day">
+                <input type="number" min="0" max="12" step="0.5" value={settings.halfDayThresholdHours}
+                  onChange={e => setSettings(s => ({ ...s, halfDayThresholdHours: parseFloat(e.target.value) || 0 }))}
+                  disabled={!canManage} className={inputClassName} />
+              </Field>
+              <Field label="Absent Threshold (hours)" hint="Work below this many hours = absent">
+                <input type="number" min="0" max="12" step="0.5" value={settings.absentThresholdHours}
+                  onChange={e => setSettings(s => ({ ...s, absentThresholdHours: parseFloat(e.target.value) || 0 }))}
+                  disabled={!canManage} className={inputClassName} />
+              </Field>
+            </div>
+            <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 space-y-2">
+              <p className="text-xs text-zinc-500">
+                <strong>Status Logic:</strong>
+              </p>
+              <div className="text-xs text-zinc-500 space-y-1">
+                <p>• Worked below <strong className="text-zinc-700">{settings.absentThresholdHours}h</strong> → <span className="text-red-600 font-medium">Absent</span></p>
+                <p>• Worked below <strong className="text-zinc-700">{settings.halfDayThresholdHours}h</strong> → <span className="text-blue-600 font-medium">Half Day</span></p>
+                <p>• Checked in after shift start + <strong className="text-zinc-700">{settings.lateEntryGraceMinutes}min</strong> grace → <span className="text-amber-600 font-medium">Late</span></p>
+                <p>• Checked out before shift end − <strong className="text-zinc-700">{settings.earlyExitGraceMinutes}min</strong> grace → <span className="text-amber-600 font-medium">Early Exit</span></p>
+                <p>• Worked full required hours → <span className="text-emerald-600 font-medium">Present</span></p>
+              </div>
             </div>
           </div>
         </div>
@@ -597,8 +605,8 @@ function SettingsTab({ settings, setSettings, canManage, showToast }: {
 
       <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
         <div className="p-5 border-b border-zinc-100">
-          <h3 className="font-bold text-zinc-900 flex items-center gap-2"><CalendarDays size={18} /> Overtime & Holidays</h3>
-          <p className="text-xs text-zinc-400 mt-1">Configure overtime calculation and holiday attendance</p>
+          <h3 className="font-bold text-zinc-900 flex items-center gap-2"><CalendarDays size={18} /> Overtime</h3>
+          <p className="text-xs text-zinc-400 mt-1">Configure overtime calculation for specific shift types</p>
         </div>
         <div className="p-5 space-y-4">
           <div className="flex items-center justify-between py-2">
@@ -609,22 +617,36 @@ function SettingsTab({ settings, setSettings, canManage, showToast }: {
             <ToggleSwitch enabled={settings.overtimeCalculation}
               onToggle={() => canManage && setSettings(s => ({ ...s, overtimeCalculation: !s.overtimeCalculation }))} disabled={!canManage} />
           </div>
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <p className="text-sm font-medium text-zinc-900">Auto Attendance on Holidays</p>
-              <p className="text-xs text-zinc-400">If enabled, holiday check-ins are auto-marked as present and overtime is counted</p>
+          {settings.overtimeCalculation && (
+            <div className="pl-0 pt-2 border-t border-zinc-100">
+              <p className="text-sm font-medium text-zinc-900 mb-1">Applicable Shift Types</p>
+              <p className="text-xs text-zinc-400 mb-3">Select which shift types have overtime tracking enabled</p>
+              <div className="flex flex-wrap gap-2">
+                {shiftTypes.filter(st => st.is_active).map(st => {
+                  const selected = settings.overtimeShiftTypeIds.includes(st.id);
+                  return (
+                    <button key={st.id}
+                      onClick={() => canManage && setSettings(s => {
+                        const ids = selected
+                          ? s.overtimeShiftTypeIds.filter(id => id !== st.id)
+                          : [...s.overtimeShiftTypeIds, st.id];
+                        return { ...s, overtimeShiftTypeIds: ids };
+                      })}
+                      disabled={!canManage}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${selected
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                        : 'bg-white border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
+                      {selected && <span className="mr-1">✓</span>}
+                      {st.name}
+                    </button>
+                  );
+                })}
+                {shiftTypes.filter(st => st.is_active).length === 0 && (
+                  <p className="text-xs text-zinc-400">No active shift types available</p>
+                )}
+              </div>
             </div>
-            <ToggleSwitch enabled={settings.autoAttendanceOnHolidays}
-              onToggle={() => canManage && setSettings(s => ({ ...s, autoAttendanceOnHolidays: !s.autoAttendanceOnHolidays }))} disabled={!canManage} />
-          </div>
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <p className="text-sm font-medium text-zinc-900">Begin Check-In Before Shift Start</p>
-              <p className="text-xs text-zinc-400">Allow employees to check in before their shift start time</p>
-            </div>
-            <ToggleSwitch enabled={settings.beginCheckInBeforeShiftStart}
-              onToggle={() => canManage && setSettings(s => ({ ...s, beginCheckInBeforeShiftStart: !s.beginCheckInBeforeShiftStart }))} disabled={!canManage} />
-          </div>
+          )}
         </div>
       </div>
 
@@ -961,23 +983,36 @@ function AssignmentsTab({ assignments, setAssignments, shiftTypes, allStaff, sta
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Field label="Location">
-                <select value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} className={inputClassName}>
-                  {LOCATION_OPTIONS.map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
+                <SearchableSelect
+                  value={form.location}
+                  onChange={v => setForm(f => ({ ...f, location: v }))}
+                  placeholder="Select location..."
+                  options={LOCATION_OPTIONS.map(l => ({ value: l, label: l }))}
+                />
               </Field>
               <Field label="Schedule Type">
-                <select value={form.schedule_type} onChange={e => setForm(f => ({ ...f, schedule_type: e.target.value as any }))} className={inputClassName}>
-                  <option value="fixed">Fixed</option>
-                  <option value="alternate_day">Alternate Day</option>
-                  <option value="alternate_week">Alternate Week</option>
-                </select>
+                <SearchableSelect
+                  value={form.schedule_type}
+                  onChange={v => setForm(f => ({ ...f, schedule_type: v as any }))}
+                  placeholder="Select schedule..."
+                  options={[
+                    { value: 'fixed', label: 'Fixed' },
+                    { value: 'alternate_day', label: 'Alternate Day' },
+                    { value: 'alternate_week', label: 'Alternate Week' },
+                  ]}
+                />
               </Field>
               <Field label="Status">
-                <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as any }))} className={inputClassName}>
-                  <option value="active">Active</option>
-                  <option value="pending">Pending</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
+                <SearchableSelect
+                  value={form.status}
+                  onChange={v => setForm(f => ({ ...f, status: v as any }))}
+                  placeholder="Select status..."
+                  options={[
+                    { value: 'active', label: 'Active' },
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'cancelled', label: 'Cancelled' },
+                  ]}
+                />
               </Field>
             </div>
             {form.schedule_type !== 'fixed' && (
