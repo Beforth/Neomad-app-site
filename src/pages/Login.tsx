@@ -45,8 +45,8 @@ export default function Login() {
       {/* Header / Logo */}
       <div className="pt-12 pb-8 px-6 flex flex-col items-center">
         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-          className="w-20 h-20 bg-linear-to-br from-emerald-500 to-emerald-600 rounded-3xl flex items-center justify-center text-white text-4xl font-extrabold shadow-2xl shadow-emerald-500/30 mb-6 rotate-3">
-          M
+          className="w-20 h-20 rounded-3xl shadow-2xl shadow-emerald-500/30 mb-6 rotate-3 overflow-hidden">
+          <img src="/app_icon.png" alt="Neomed" className="w-full h-full object-cover" />
         </motion.div>
         <h1 className="text-4xl font-black text-zinc-900 tracking-tighter">NEOMED</h1>
         <p className="text-xs font-bold text-zinc-400 mt-2 uppercase tracking-widest">Enterprise Delivery System</p>

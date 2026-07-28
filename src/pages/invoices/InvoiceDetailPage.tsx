@@ -25,6 +25,7 @@ export default function InvoiceDetailPage() {
   const deleteError = useAppSelector((s) => s.invoices.error);
   const { invoice, loading, error } = useInvoiceLoader(token, id);
   const [deliveryUsers, setDeliveryUsers] = useState<{ id: number; name: string }[]>([]);
+  const [allUsers, setAllUsers] = useState<{ id: number; name: string }[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [pageNotice, setPageNotice] = useState('');
@@ -32,6 +33,7 @@ export default function InvoiceDetailPage() {
   const [statusBusy, setStatusBusy] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadedUrl, setUploadedUrl] = useState('');
+  const [replaceMode, setReplaceMode] = useState(false);
 
   // ── Edit core fields ──
   const [editing, setEditing] = useState(false);
@@ -45,6 +47,9 @@ export default function InvoiceDetailPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditLogsLoading, setAuditLogsLoading] = useState(false);
   const [showAuditLogs, setShowAuditLogs] = useState(false);
+
+  // ── Image preview popup ──
+  const [previewImage, setPreviewImage] = useState<{ url: string; number: string } | null>(null);
 
   useEffect(() => {
     if (!invoice) return;
@@ -84,6 +89,11 @@ export default function InvoiceDetailPage() {
         setDeliveryUsers(users.map((u) => ({ id: u.id, name: u.full_name || u.email.split('@')[0] || String(u.id) })))
       )
       .catch(() => setDeliveryUsers([]));
+    getUsers(token)
+      .then((users) =>
+        setAllUsers(users.map((u) => ({ id: u.id, name: u.full_name || u.email.split('@')[0] || String(u.id) })))
+      )
+      .catch(() => setAllUsers([]));
   }, [token, user?.role]);
 
   const assigneeName = useMemo(() => {
@@ -94,6 +104,19 @@ export default function InvoiceDetailPage() {
       '—'
     );
   }, [invoice, deliveryUsers]);
+
+  const userMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const u of allUsers) map.set(u.id, u.name);
+    return map;
+  }, [allUsers]);
+
+  const resolveUserId = useCallback((value: string | null | undefined): string => {
+    if (!value) return '';
+    const num = Number(value);
+    if (!Number.isNaN(num) && userMap.has(num)) return userMap.get(num)!;
+    return value;
+  }, [userMap]);
 
   const startEditing = useMemo(() => () => {
     if (!invoice) return;
@@ -243,7 +266,7 @@ export default function InvoiceDetailPage() {
           {showMarkComplete ? (
             <button
               type="button"
-              onClick={() => { setStatusAction('completed'); setUploadFile(null); setUploadedUrl(''); }}
+              onClick={() => { setStatusAction('completed'); setUploadFile(null); setUploadedUrl(''); setReplaceMode(false); }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
             >
               <CheckCircle2 size={16} /> Mark Complete
@@ -382,6 +405,25 @@ export default function InvoiceDetailPage() {
                 </div>
               )}
 
+              {invoice.signed_copy_url && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <FileImage size={12} /> Invoice document
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewImage({ url: invoice.signed_copy_url, number: invoice.invoice_number })}
+                    className="w-full rounded-2xl overflow-hidden border border-zinc-100 bg-zinc-100 group/img cursor-pointer"
+                  >
+                    <img
+                      src={invoice.signed_copy_url}
+                      alt="Invoice signed copy"
+                      className="w-full h-48 object-cover transition-transform duration-300 group-hover/img:scale-105"
+                    />
+                  </button>
+                </div>
+              )}
+
               {fakeDuration(invoice) && (
                 <div className="grid grid-cols-3 gap-2">
                   <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-100">
@@ -395,29 +437,6 @@ export default function InvoiceDetailPage() {
                   <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-100">
                     <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">Total</p>
                     <p className="text-sm font-bold text-emerald-700">{fakeDuration(invoice)!.total}</p>
-                  </div>
-                </div>
-              )}
-
-              {invoice.status === 'delivered' && invoice.signed_copy_url && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <FileImage size={12} /> Signed document
-                    </label>
-                    <Link
-                      to={`/invoices/${invoice.id}/signed-preview?page=${currentPage}`}
-                      className="text-[10px] font-bold text-emerald-600 hover:underline uppercase tracking-wider"
-                    >
-                      Full view
-                    </Link>
-                  </div>
-                  <div className="rounded-2xl overflow-hidden border border-zinc-100 bg-zinc-100 max-h-48">
-                    <img
-                      src={invoice.signed_copy_url}
-                      alt="Signed copy"
-                      className="w-full h-full max-h-48 object-cover"
-                    />
                   </div>
                 </div>
               )}
@@ -589,10 +608,10 @@ export default function InvoiceDetailPage() {
                           </span>
                         </td>
                         <td className="px-4 py-2.5 text-[11px] text-zinc-500 max-w-[160px] truncate font-mono">
-                          {entry.old_value || <span className="text-zinc-300 italic">—</span>}
+                          {entry.old_value ? resolveUserId(entry.old_value) : <span className="text-zinc-300 italic">—</span>}
                         </td>
                         <td className="px-4 py-2.5 text-[11px] text-zinc-900 max-w-[160px] truncate font-mono font-semibold">
-                          {entry.new_value || <span className="text-zinc-300 italic">—</span>}
+                          {entry.new_value ? resolveUserId(entry.new_value) : <span className="text-zinc-300 italic">—</span>}
                         </td>
                         <td className="px-4 py-2.5 text-[11px] text-zinc-600 whitespace-nowrap">
                           {entry.changed_by_name || '—'}
@@ -681,7 +700,7 @@ export default function InvoiceDetailPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true">
           <div className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-sm overflow-hidden">
             <div className="p-6 border-b border-zinc-100 relative">
-              <button type="button" onClick={() => { setStatusAction(null); setUploadFile(null); setUploadedUrl(''); }} className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" aria-label="Close">
+              <button type="button" onClick={() => { setStatusAction(null); setUploadFile(null); setUploadedUrl(''); setReplaceMode(false); }} className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" aria-label="Close">
                 <X size={18} />
               </button>
               <h2 className="text-lg font-bold text-zinc-900">Mark as Complete</h2>
@@ -691,18 +710,24 @@ export default function InvoiceDetailPage() {
               <div className="mt-4 space-y-3">
                   {(() => {
                     const existingDoc = invoice.signed_copy_url;
-                    if (existingDoc) {
+                    if (existingDoc && !replaceMode && !uploadedUrl) {
                       return (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 space-y-2">
                           <p className="text-xs font-bold text-emerald-700">Document already uploaded</p>
-                          <p className="text-[10px] text-emerald-600 mt-1 break-all">{existingDoc}</p>
+                          <button
+                            type="button"
+                            onClick={() => setReplaceMode(true)}
+                            className="text-xs font-bold text-amber-600 hover:text-amber-700 underline"
+                          >
+                            Replace with a different image
+                          </button>
                         </div>
                       );
                     }
                     if (uploadedUrl) {
                       return (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                          <p className="text-xs font-bold text-emerald-700">Document uploaded</p>
+                          <p className="text-xs font-bold text-emerald-700">New document uploaded</p>
                           <p className="text-[10px] text-emerald-600 mt-1 break-all">{uploadedUrl}</p>
                         </div>
                       );
@@ -744,7 +769,7 @@ export default function InvoiceDetailPage() {
               <button
                 type="button"
                 disabled={statusBusy}
-                onClick={() => { setStatusAction(null); setUploadFile(null); setUploadedUrl(''); }}
+                onClick={() => { setStatusAction(null); setUploadFile(null); setUploadedUrl(''); setReplaceMode(false); }}
                 className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
               >
                 Cancel
@@ -762,6 +787,7 @@ export default function InvoiceDetailPage() {
                     setStatusAction(null);
                     setUploadFile(null);
                     setUploadedUrl('');
+                    setReplaceMode(false);
                     window.location.reload();
                   } catch (e: any) {
                     setPageNotice(e.message || 'Failed to update status');
@@ -774,6 +800,39 @@ export default function InvoiceDetailPage() {
               >
                 {statusBusy ? 'Updating…' : 'Complete'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/60 backdrop-blur-sm"
+          onClick={() => setPreviewImage(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="bg-white rounded-2xl border border-zinc-200 shadow-2xl w-full max-w-3xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/40">
+              <span className="text-xs font-bold text-zinc-600">Signed copy — {previewImage.number}</span>
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+                aria-label="Close preview"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-4 flex justify-center bg-zinc-50/30 max-h-[80vh] overflow-auto">
+              <img
+                src={previewImage.url}
+                alt={`Signed copy — ${previewImage.number}`}
+                className="max-w-full h-auto object-contain rounded-lg"
+              />
             </div>
           </div>
         </div>

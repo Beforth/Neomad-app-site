@@ -8,6 +8,7 @@ import {
   Trash2,
   Banknote,
   CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
 import type { ApiInvoice } from '../../lib/api';
 import { InvoiceIconTooltip } from './InvoiceIconTooltip';
@@ -45,8 +46,8 @@ export interface InvoiceDesktopRowProps {
   waiting: string;
   userRole: string | undefined;
   onOpenDetail: (inv: ApiInvoice) => void;
-  /** Open full-page signed document preview */
-  onOpenSignedPreview: (invoiceId: number) => void;
+  /** Open signed document preview in popup */
+  onOpenSignedPreview: (imageUrl: string, invoiceNumber: string) => void;
   onDownloadInvoice: (inv: ApiInvoice) => void;
   onConfirmPayment: (inv: ApiInvoice) => void;
   onAssign: (id: number) => void;
@@ -55,6 +56,7 @@ export interface InvoiceDesktopRowProps {
   onRequestDelete: (inv: ApiInvoice) => void;
   onRequestRecoverDeleted?: (inv: ApiInvoice) => void;
   onMarkComplete?: (inv: ApiInvoice) => void;
+  onReupload?: (inv: ApiInvoice) => void;
 }
 
 function InvoiceDesktopRowInner({
@@ -73,6 +75,7 @@ function InvoiceDesktopRowInner({
   onRequestDelete,
   onRequestRecoverDeleted,
   onMarkComplete,
+  onReupload,
 }: InvoiceDesktopRowProps) {
   const stop = useCallback((e: React.MouseEvent) => e.stopPropagation(), []);
 
@@ -109,22 +112,39 @@ function InvoiceDesktopRowInner({
       <td className="px-4 py-3 overflow-visible">
         <div className="flex items-center gap-1.5">
           {invoice.signed_copy_url ? (
-            <InvoiceIconTooltip label="View signed copy">
-              <button
-                type="button"
-                className="relative group/thumb w-10 h-10 rounded-lg overflow-hidden border border-emerald-100 shadow-sm cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenSignedPreview(invoice.id);
-                }}
-                aria-label="View signed copy"
-              >
-                <img src={invoice.signed_copy_url} className="w-full h-full object-cover transition-transform group-hover/thumb:scale-110" alt="" />
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
-                  <ClipboardCheck size={12} className="text-white" />
-                </div>
-              </button>
-            </InvoiceIconTooltip>
+            <>
+              <InvoiceIconTooltip label="View signed copy">
+                <button
+                  type="button"
+                  className="relative group/thumb w-10 h-10 rounded-lg overflow-hidden border border-emerald-100 shadow-sm cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (invoice.signed_copy_url) onOpenSignedPreview(invoice.signed_copy_url, invoice.invoice_number);
+                  }}
+                  aria-label="View signed copy"
+                >
+                  <img src={invoice.signed_copy_url} className="w-full h-full object-cover transition-transform group-hover/thumb:scale-110" alt="" />
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
+                    <ClipboardCheck size={12} className="text-white" />
+                  </div>
+                </button>
+              </InvoiceIconTooltip>
+              {onReupload && (
+                <InvoiceIconTooltip label="Replace signed copy">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onReupload(invoice);
+                    }}
+                    className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
+                    aria-label="Replace signed copy"
+                  >
+                    <RefreshCw size={12} />
+                  </button>
+                </InvoiceIconTooltip>
+              )}
+            </>
           ) : (
             <InvoiceIconTooltip label="No signed copy yet">
               <div
@@ -271,6 +291,7 @@ function propsEqual(prev: InvoiceDesktopRowProps, next: InvoiceDesktopRowProps) 
     prev.onRequestDelete === next.onRequestDelete
     && prev.onRequestRecoverDeleted === next.onRequestRecoverDeleted
     && prev.onMarkComplete === next.onMarkComplete
+    && prev.onReupload === next.onReupload
   );
 }
 
