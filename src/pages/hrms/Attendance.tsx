@@ -188,7 +188,7 @@ export default function Attendance() {
   const [settingsSaving, setSettingsSaving] = useState(false);
 
   const [shiftSettings, setShiftSettings] = useState<ShiftSettings>(() => {
-    try { const raw = localStorage.getItem('hrms_shift_settings'); return raw ? JSON.parse(raw) : DEFAULT_SHIFT_SETTINGS; }
+    try { const raw = localStorage.getItem('hrms_shift_settings'); return { ...DEFAULT_SHIFT_SETTINGS, ...(raw ? JSON.parse(raw) : {}) }; }
     catch { return DEFAULT_SHIFT_SETTINGS; }
   });
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>(() => {
@@ -210,7 +210,7 @@ export default function Attendance() {
     const refreshShiftData = () => {
       try {
         const rawSettings = localStorage.getItem('hrms_shift_settings');
-        if (rawSettings) setShiftSettings(JSON.parse(rawSettings));
+        if (rawSettings) setShiftSettings(prev => ({ ...DEFAULT_SHIFT_SETTINGS, ...JSON.parse(rawSettings) }));
         const rawTypes = localStorage.getItem('hrms_shift_types');
         if (rawTypes) setShiftTypes(JSON.parse(rawTypes));
       } catch {}

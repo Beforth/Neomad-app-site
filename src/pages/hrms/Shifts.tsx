@@ -119,7 +119,7 @@ export default function Shifts() {
 
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>(() => loadLS(LS_KEYS.shiftTypes, DEFAULT_SHIFT_TYPES));
   const [assignments, setAssignments] = useState<ShiftAssignment[]>(() => loadLS(LS_KEYS.assignments, []));
-  const [settings, setSettings] = useState<ShiftSettings>(() => loadLS(LS_KEYS.settings, DEFAULT_SHIFT_SETTINGS));
+  const [settings, setSettings] = useState<ShiftSettings>(() => ({ ...DEFAULT_SHIFT_SETTINGS, ...loadLS(LS_KEYS.settings, {}) }));
 
   const [allStaff, setAllStaff] = useState<any[]>([]);
   const [staffLoading, setStaffLoading] = useState(true);
@@ -186,7 +186,7 @@ export default function Shifts() {
       </div>
 
       {activeTab === 'shifts' && (
-        <ShiftTypesTab shiftTypes={shiftTypes} setShiftTypes={setShiftTypes} canManage={canManage} showToast={showToast} />
+        <ShiftTypesTab shiftTypes={shiftTypes} setShiftTypes={setShiftTypes} settings={settings} setSettings={setSettings} canManage={canManage} showToast={showToast} />
       )}
       {activeTab === 'settings' && (
         <SettingsTab settings={settings} setSettings={setSettings} shiftTypes={shiftTypes} canManage={canManage} showToast={showToast} />
@@ -199,16 +199,18 @@ export default function Shifts() {
   );
 }
 
-function ShiftTypesTab({ shiftTypes, setShiftTypes, canManage, showToast }: {
+function ShiftTypesTab({ shiftTypes, setShiftTypes, settings, setSettings, canManage, showToast }: {
   shiftTypes: ShiftType[];
   setShiftTypes: React.Dispatch<React.SetStateAction<ShiftType[]>>;
+  settings: ShiftSettings;
+  setSettings: React.Dispatch<React.SetStateAction<ShiftSettings>>;
   canManage: boolean;
   showToast: (msg: string) => void;
 }) {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<ShiftType | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<ShiftType | null>(null);
-  const [form, setForm] = useState({ name: '', start_time: '09:00', end_time: '17:00', break_start: '13:00', break_end: '13:30' });
+  const [form, setForm] = useState({ name: '', start_time: '09:00', end_time: '17:00', break_start: '13:00', break_end: '13:30', enableOvertime: false });
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [showStatusFilter, setShowStatusFilter] = useState(false);
@@ -246,13 +248,13 @@ function ShiftTypesTab({ shiftTypes, setShiftTypes, canManage, showToast }: {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ name: '', start_time: '09:00', end_time: '17:00', break_start: '13:00', break_end: '13:30' });
+    setForm({ name: '', start_time: '09:00', end_time: '17:00', break_start: '13:00', break_end: '13:30', enableOvertime: settings.overtimeCalculation });
     setShowModal(true);
   };
 
   const openEdit = (s: ShiftType) => {
     setEditing(s);
-    setForm({ name: s.name, start_time: s.start_time, end_time: s.end_time, break_start: s.break_start || '', break_end: s.break_end || '' });
+    setForm({ name: s.name, start_time: s.start_time, end_time: s.end_time, break_start: s.break_start || '', break_end: s.break_end || '', enableOvertime: settings.overtimeShiftTypeIds.includes(s.id) });
     setShowModal(true);
   };
 
@@ -261,9 +263,19 @@ function ShiftTypesTab({ shiftTypes, setShiftTypes, canManage, showToast }: {
     if (!form.name.trim()) { showToast('Shift name is required'); return; }
     if (editing) {
       setShiftTypes(prev => prev.map(s => s.id === editing.id ? { ...s, name: form.name, start_time: form.start_time, end_time: form.end_time, break_start: form.break_start, break_end: form.break_end } : s));
+      setSettings(prev => ({
+        ...prev,
+        overtimeShiftTypeIds: form.enableOvertime
+          ? (prev.overtimeShiftTypeIds.includes(editing.id) ? prev.overtimeShiftTypeIds : [...prev.overtimeShiftTypeIds, editing.id])
+          : prev.overtimeShiftTypeIds.filter(id => id !== editing.id),
+      }));
       showToast('Shift type updated');
     } else {
-      setShiftTypes(prev => [...prev, { id: nextId(), ...form, color: '', is_active: true }]);
+      const newId = nextId();
+      setShiftTypes(prev => [...prev, { id: newId, name: form.name, start_time: form.start_time, end_time: form.end_time, break_start: form.break_start, break_end: form.break_end, color: '', is_active: true }]);
+      if (form.enableOvertime) {
+        setSettings(prev => ({ ...prev, overtimeShiftTypeIds: [...prev.overtimeShiftTypeIds, newId] }));
+      }
       showToast('Shift type created');
     }
     setShowModal(false);
@@ -271,6 +283,7 @@ function ShiftTypesTab({ shiftTypes, setShiftTypes, canManage, showToast }: {
 
   const handleDelete = (s: ShiftType) => {
     setShiftTypes(prev => prev.filter(x => x.id !== s.id));
+    setSettings(prev => ({ ...prev, overtimeShiftTypeIds: prev.overtimeShiftTypeIds.filter(id => id !== s.id) }));
     setDeleteConfirm(null);
     showToast('Shift type deleted');
   };
@@ -280,28 +293,40 @@ function ShiftTypesTab({ shiftTypes, setShiftTypes, canManage, showToast }: {
   };
 
   const handleDuplicate = (s: ShiftType) => {
-    setShiftTypes(prev => [...prev, { ...s, id: nextId(), name: `${s.name} (Copy)` }]);
+    const newId = nextId();
+    setShiftTypes(prev => [...prev, { ...s, id: newId, name: `${s.name} (Copy)` }]);
+    if (settings.overtimeShiftTypeIds.includes(s.id)) {
+      setSettings(prev => ({ ...prev, overtimeShiftTypeIds: [...prev.overtimeShiftTypeIds, newId] }));
+    }
     showToast('Shift duplicated');
   };
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: 'Total Shifts', value: shiftTypes.length, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Active', value: activeCount, color: 'bg-emerald-50 text-emerald-600' },
-          { label: 'Inactive', value: shiftTypes.length - activeCount, color: 'bg-zinc-100 text-zinc-500' },
-        ].map(stat => (
-          <div key={stat.label} className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${stat.color}`}>
-              <Clock size={18} />
+      <div className="flex items-start gap-4">
+        <div className="grid grid-cols-3 gap-3 flex-1">
+          {[
+            { label: 'Total Shifts', value: shiftTypes.length, color: 'bg-blue-50 text-blue-600' },
+            { label: 'Active', value: activeCount, color: 'bg-emerald-50 text-emerald-600' },
+            { label: 'Inactive', value: shiftTypes.length - activeCount, color: 'bg-zinc-100 text-zinc-500' },
+          ].map(stat => (
+            <div key={stat.label} className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${stat.color}`}>
+                <Clock size={18} />
+              </div>
+              <div>
+                <p className="text-lg font-extrabold text-zinc-900 leading-none">{stat.value}</p>
+                <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-0.5">{stat.label}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-lg font-extrabold text-zinc-900 leading-none">{stat.value}</p>
-              <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-0.5">{stat.label}</p>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
+        {canManage && (
+          <button onClick={openCreate}
+            className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors shrink-0 mt-1">
+            <Plus size={16} /> New Shift
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -350,12 +375,6 @@ function ShiftTypesTab({ shiftTypes, setShiftTypes, canManage, showToast }: {
             {sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
           </button>
         </div>
-        {canManage && (
-          <button onClick={openCreate}
-            className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors">
-            <Plus size={16} /> New Shift
-          </button>
-        )}
       </div>
 
       <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
@@ -375,7 +394,12 @@ function ShiftTypesTab({ shiftTypes, setShiftTypes, canManage, showToast }: {
               {paginated.map(s => (
                 <tr key={s.id} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50/50 transition-colors">
                   <td className="px-5 py-3.5">
-                    <span className="text-sm font-semibold text-zinc-900">{s.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-zinc-900">{s.name}</span>
+                      {settings.overtimeShiftTypeIds.includes(s.id) && (
+                        <span className="text-[10px] font-bold text-violet-600 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded">OT</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-5 py-3.5 text-sm text-zinc-600">{s.start_time} — {s.end_time}</td>
                   <td className="px-5 py-3.5 text-sm text-zinc-600">{s.break_start && s.break_end ? `${s.break_start} — ${s.break_end}` : '—'}</td>
@@ -412,7 +436,12 @@ function ShiftTypesTab({ shiftTypes, setShiftTypes, canManage, showToast }: {
             <div key={s.id} className="p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-zinc-900">{s.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-zinc-900">{s.name}</p>
+                    {settings.overtimeShiftTypeIds.includes(s.id) && (
+                      <span className="text-[10px] font-bold text-violet-600 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded">OT</span>
+                    )}
+                  </div>
                   <p className="text-xs text-zinc-500">{s.start_time} — {s.end_time}</p>
                 </div>
                 {canManage && (
@@ -433,29 +462,29 @@ function ShiftTypesTab({ shiftTypes, setShiftTypes, canManage, showToast }: {
         </div>
       </div>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between bg-white border border-zinc-100 rounded-xl px-4 py-3 shadow-sm">
-          <p className="text-xs text-zinc-500">
-            Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
-          </p>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-              <ChevronLeft size={16} />
+      <div className="flex items-center justify-between bg-white border border-zinc-100 rounded-xl px-4 py-3 shadow-sm">
+        <p className="text-xs text-zinc-500">
+          {filtered.length > 0
+            ? `Showing ${((page - 1) * PAGE_SIZE) + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} of ${filtered.length}`
+            : 'No results'}
+        </p>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+            <button key={p} onClick={() => setPage(p)}
+              className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${p === page ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100'}`}>
+              {p}
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-              <button key={p} onClick={() => setPage(p)}
-                className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${p === page ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100'}`}>
-                {p}
-              </button>
-            ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-              <ChevronRight size={16} />
-            </button>
-          </div>
+          ))}
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+            <ChevronRight size={16} />
+          </button>
         </div>
-      )}
+      </div>
 
       {showModal && (
         <Modal title={editing ? 'Edit Shift Type' : 'New Shift Type'} onClose={() => setShowModal(false)}>
@@ -486,6 +515,19 @@ function ShiftTypesTab({ shiftTypes, setShiftTypes, canManage, showToast }: {
                 {formatTimeDiff(form.start_time, form.end_time)}
               </span>
             </div>
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <p className="text-sm font-medium text-zinc-900">Enable Overtime</p>
+                <p className="text-xs text-zinc-400">Track overtime hours for this shift type</p>
+              </div>
+              <ToggleSwitch enabled={form.enableOvertime}
+                onToggle={() => canManage && setForm(f => ({ ...f, enableOvertime: !f.enableOvertime }))} disabled={!canManage || !settings.overtimeCalculation} />
+            </div>
+            {!settings.overtimeCalculation && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <p className="text-xs text-amber-700">Overtime is disabled globally. Enable it in <strong>Settings → Overtime</strong> first.</p>
+              </div>
+            )}
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setShowModal(false)}
                 className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">Cancel</button>
@@ -862,7 +904,7 @@ function AssignmentsTab({ assignments, setAssignments, shiftTypes, allStaff, sta
       </div>
 
       {viewMode === 'list' ? (
-        <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
+        <><div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -956,6 +998,31 @@ function AssignmentsTab({ assignments, setAssignments, shiftTypes, allStaff, sta
             ))}
           </div>
         </div>
+
+        <div className="flex items-center justify-between bg-white border border-zinc-100 rounded-xl px-4 py-3 shadow-sm">
+          <p className="text-xs text-zinc-500">
+            {filtered.length > 0
+              ? `Showing ${((page - 1) * PAGE_SIZE) + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} of ${filtered.length}`
+              : 'No results'}
+          </p>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+              <ChevronLeft size={16} />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <button key={p} onClick={() => setPage(p)}
+                className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${p === page ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100'}`}>
+                {p}
+              </button>
+            ))}
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      </>
       ) : (
         <CalendarView assignments={filtered} shiftTypes={shiftTypes} />
       )}
