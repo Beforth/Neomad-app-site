@@ -117,7 +117,7 @@ function AppRoutes() {
       </div>
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <TopBar />
-        <main className="flex-1 p-4 md:p-8 lg:p-10 overflow-y-auto pb-20 lg:pb-10">
+        <main className="flex-1 min-h-0 p-4 md:p-8 lg:p-10 overflow-y-auto pb-20 lg:pb-10">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/tasks/new" element={<TaskCreatePage />} />
