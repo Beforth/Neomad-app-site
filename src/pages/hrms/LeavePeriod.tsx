@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Calendar, Plus, Search, XCircle, ToggleLeft, ToggleRight,
+  Pencil, Trash2, X, CheckCircle2,
 } from 'lucide-react';
 
 interface LeavePeriodItem {
@@ -30,6 +31,7 @@ export default function LeavePeriod() {
       return initialPeriods;
     }
   });
+  const [deleteTarget, setDeleteTarget] = useState<LeavePeriodItem | null>(null);
 
   useEffect(() => {
     localStorage.setItem('leavePeriods', JSON.stringify(periods));
@@ -52,6 +54,12 @@ export default function LeavePeriod() {
     setPeriods((prev) =>
       prev.map((p) => ({ ...p, isActive: p.id === id }))
     );
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    setPeriods((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+    setDeleteTarget(null);
   }
 
   const statCards = [
@@ -166,15 +174,32 @@ export default function LeavePeriod() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    {!p.isActive && (
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1">
                       <button
-                        onClick={() => toggleActive(p.id)}
-                        className="text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded-lg transition-colors"
+                        onClick={() => navigate(`/hrms/leave/period/edit/${p.id}`)}
+                        className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                        title="Edit"
                       >
-                        Set Active
+                        <Pencil size={14} />
                       </button>
-                    )}
+                      <button
+                        onClick={() => setDeleteTarget(p)}
+                        className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      {!p.isActive && (
+                        <button
+                          onClick={() => toggleActive(p.id)}
+                          className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                          title="Set Active"
+                        >
+                          <CheckCircle2 size={14} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </motion.tr>
               ))}
@@ -209,18 +234,69 @@ export default function LeavePeriod() {
                 <span>→</span>
                 <span>{p.endDate}</span>
               </div>
-              {!p.isActive && (
+              <div className="flex items-center gap-1 pt-1">
                 <button
-                  onClick={() => toggleActive(p.id)}
-                  className="text-xs font-bold text-emerald-600 hover:text-emerald-700"
+                  onClick={() => navigate(`/hrms/leave/period/edit/${p.id}`)}
+                  className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                  title="Edit"
                 >
-                  Set Active
+                  <Pencil size={14} />
                 </button>
-              )}
+                <button
+                  onClick={() => setDeleteTarget(p)}
+                  className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 size={14} />
+                </button>
+                {!p.isActive && (
+                  <button
+                    onClick={() => toggleActive(p.id)}
+                    className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                    title="Set Active"
+                  >
+                    <CheckCircle2 size={14} />
+                  </button>
+                )}
+              </div>
             </motion.div>
           ))}
         </div>
       </motion.div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
+          onClick={() => setDeleteTarget(null)} role="dialog" aria-modal="true">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden"
+          >
+            <div className="p-6 border-b border-zinc-100 relative">
+              <button type="button" onClick={() => setDeleteTarget(null)}
+                className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+                <X size={18} />
+              </button>
+              <h3 className="text-lg font-bold text-zinc-900">Delete leave period?</h3>
+              <p className="text-sm text-zinc-600 mt-2">
+                <span className="font-semibold text-zinc-800">{deleteTarget.label}</span>
+              </p>
+              <p className="text-xs text-red-600 font-medium mt-2">This action cannot be undone.</p>
+            </div>
+            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
+              <button type="button" onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
+                Cancel
+              </button>
+              <button type="button" onClick={confirmDelete}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors">
+                <Trash2 size={16} /> Delete
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowLeft, Calendar, Tag } from 'lucide-react';
+import { ArrowLeft, Calendar } from 'lucide-react';
 
 interface LeaveTypeFull {
   id: number;
@@ -24,14 +24,13 @@ interface LeaveTypeFull {
   expiryDays: number;
   allowEncashment: boolean;
   maxEncashableDays: number;
-  nonEncashableLeaves: number;
   encashmentRatePercent: number;
   enableEarnedLeave: boolean;
   creditFrequency: string;
   allocateOnDate: string;
+  allocateOnCustomDate?: string;
   description: string;
   status: 'active' | 'inactive';
-  leaveCategory: 'paid' | 'unpaid';
 }
 
 function loadTypes(): LeaveTypeFull[] {
@@ -58,12 +57,11 @@ function loadTypes(): LeaveTypeFull[] {
         expiryDays: item.expiryDays ?? 0,
         allowEncashment: item.allowEncashment ?? false,
         maxEncashableDays: item.maxEncashableDays ?? 0,
-        nonEncashableLeaves: item.nonEncashableLeaves ?? 0,
         encashmentRatePercent: item.encashmentRatePercent ?? 100,
         enableEarnedLeave: item.enableEarnedLeave ?? false,
         creditFrequency: item.creditFrequency ?? '',
         allocateOnDate: item.allocateOnDate ?? '',
-        leaveCategory: item.leaveCategory ?? 'paid',
+        allocateOnCustomDate: item.allocateOnCustomDate ?? '',
       }));
     }
   } catch {}
@@ -152,7 +150,6 @@ export default function LeaveTypeDetail() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[
           { label: 'Days Per Year', value: `${item.daysPerYear}`, icon: Calendar, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Leave Category', value: item.leaveCategory === 'paid' ? 'Paid' : 'Unpaid', icon: Tag, color: 'bg-purple-50 text-purple-600' },
         ].map((stat, i) => (
           <motion.div
             key={stat.label}
@@ -280,7 +277,6 @@ export default function LeaveTypeDetail() {
           <div className="p-4">
             <FieldsGrid fields={[
               { label: 'Max Encashable Days', value: `${item.maxEncashableDays}` },
-              { label: 'Non-Encashable Leaves', value: `${item.nonEncashableLeaves}` },
               { label: 'Encashment Rate', value: `${item.encashmentRatePercent}%` },
             ]} />
           </div>
@@ -301,7 +297,7 @@ export default function LeaveTypeDetail() {
           <div className="p-4">
             <FieldsGrid fields={[
               { label: 'Credit Frequency', value: item.creditFrequency ? item.creditFrequency.charAt(0).toUpperCase() + item.creditFrequency.slice(1) : '—' },
-              { label: 'Allocate on Date', value: item.allocateOnDate ? (item.allocateOnDate === 'first_day' ? 'First Day' : item.allocateOnDate === 'last_day' ? 'Last Day' : 'Date of Joining') : '—' },
+              { label: 'Allocate on Date', value: item.allocateOnDate ? (item.allocateOnDate === 'first_day' ? 'First Day' : item.allocateOnDate === 'last_day' ? 'Last Day' : item.allocateOnDate === 'custom_date' && item.allocateOnCustomDate ? new Date(item.allocateOnCustomDate).toLocaleDateString() : item.allocateOnDate === 'custom_date' ? 'Custom Date (not set)' : '—') : '—' },
             ]} />
           </div>
         </motion.div>

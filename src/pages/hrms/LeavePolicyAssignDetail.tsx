@@ -312,7 +312,8 @@ export default function LeavePolicyAssignDetail() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: i * 0.02 }}
-                      className="hover:bg-zinc-50/50 transition-colors"
+                      className="hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/hrms/leave/policy/assign/${id}/entitlement/${r.id}`)}
                     >
                       <td className="px-4 py-3 text-xs font-bold text-zinc-900">{r.type}</td>
                       <td className="px-4 py-3">
@@ -336,7 +337,8 @@ export default function LeavePolicyAssignDetail() {
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03 }}
-                  className="p-4 space-y-2"
+                  className="p-4 space-y-2 cursor-pointer hover:bg-zinc-50/50 transition-colors"
+                  onClick={() => navigate(`/hrms/leave/policy/assign/${id}/entitlement/${r.id}`)}
                 >
                   <div className="flex items-start justify-between">
                     <div>

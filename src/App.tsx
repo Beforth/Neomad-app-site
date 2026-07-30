@@ -31,6 +31,8 @@ import TaskDeletePage from './pages/tasks/TaskDeletePage';
 import Attendance from './pages/hrms/Attendance';
 import Shifts from './pages/hrms/Shifts';
 import Expenses from './pages/hrms/Expenses';
+import ExpenseForm from './pages/hrms/ExpenseForm';
+import ExpenseDetail from './pages/hrms/ExpenseDetail';
 import Incentives from './pages/hrms/Incentives';
 import Payroll from './pages/hrms/Payroll';
 // import LeaveApply from './pages/hrms/LeaveApply';
@@ -44,10 +46,12 @@ import LeavePolicyForm from './pages/hrms/LeavePolicyForm';
 import LeavePolicyDetail from './pages/hrms/LeavePolicyDetail';
 import LeavePolicyAssign from './pages/hrms/LeavePolicyAssign';
 import LeavePolicyAssignDetail from './pages/hrms/LeavePolicyAssignDetail';
+import LeaveEntitlementDetail from './pages/hrms/LeaveEntitlementDetail';
 import LeavePeriod from './pages/hrms/LeavePeriod';
 import LeavePeriodForm from './pages/hrms/LeavePeriodForm';
 import LeaveHolidayList from './pages/hrms/LeaveHolidayList';
 import LeavePeriodDetail from './pages/hrms/LeavePeriodDetail';
+import LeaveAllocation from './pages/hrms/LeaveAllocation';
 import Staff from './pages/hrms/Staff';
 import StaffDetail from './pages/hrms/StaffDetail';
 import StaffCreate from './pages/hrms/StaffCreate';
@@ -74,6 +78,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/staff': 'Staff',
   '/hrms/shifts': 'Shifts',
   '/hrms/expenses': 'Expenses',
+  '/hrms/expenses/new': 'Add Expense',
+  '/hrms/expenses/:id': 'Expense Detail',
   '/hrms/incentives': 'Incentives',
   '/hrms/payroll': 'Payroll',
   '/hrms/leave': 'Leave',
@@ -86,6 +92,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/leave/policy/new': 'New Leave Policy',
   '/hrms/leave/policy/assign': 'Assign Leave Policy',
   '/hrms/leave/policy/assign/:id': 'Assign Policy Detail',
+  '/hrms/leave/policy/assign/:id/entitlement/:entitlementId': 'Leave Entitlement',
+  '/hrms/leave/allocation': 'Leave Allocation',
   '/hrms/leave/policy/:id': 'Leave Policy',
   '/hrms/leave/period': 'Leave Period',
   '/hrms/leave/period/new': 'New Leave Period',
@@ -115,6 +123,9 @@ function TopBar() {
   }
   if (p.startsWith('/hrms/leave')) {
     title = PAGE_TITLES[p] || 'Leave';
+  }
+  if (p === '/hrms/expenses' || p.startsWith('/hrms/expenses/')) {
+    title = PAGE_TITLES[p] || 'Expenses';
   }
   const showBack = p !== '/' && p !== '/hrms/dashboard' && p !== '/hrms/attendance' && p !== '/hrms/staff';
   return (
@@ -205,6 +216,8 @@ function AppRoutes() {
             <Route path="/hrms/staff/:staffId" element={<StaffDetail />} />
             <Route path="/hrms/staff" element={<Staff />} />
             <Route path="/hrms/shifts" element={<Shifts />} />
+            <Route path="/hrms/expenses/new" element={<ExpenseForm />} />
+            <Route path="/hrms/expenses/:id" element={<ExpenseDetail />} />
             <Route path="/hrms/expenses" element={<Expenses />} />
             <Route path="/hrms/incentives" element={<Incentives />} />
             <Route path="/hrms/payroll" element={<Payroll />} />
@@ -220,7 +233,9 @@ function AppRoutes() {
             <Route path="/hrms/leave/policy" element={<LeavePolicy />} />
             <Route path="/hrms/leave/policy/assign" element={<LeavePolicyAssign />} />
             <Route path="/hrms/leave/policy/assign/:id" element={<LeavePolicyAssignDetail />} />
+            <Route path="/hrms/leave/policy/assign/:id/entitlement/:entitlementId" element={<LeaveEntitlementDetail />} />
             <Route path="/hrms/leave/policy/:id" element={<LeavePolicyDetail />} />
+            <Route path="/hrms/leave/allocation" element={<LeaveAllocation />} />
             <Route path="/hrms/leave/period" element={<LeavePeriod />} />
             <Route path="/hrms/leave/period/new" element={<LeavePeriodForm />} />
             <Route path="/hrms/leave/period/edit/:id" element={<LeavePeriodForm />} />

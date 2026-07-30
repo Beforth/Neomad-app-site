@@ -39,6 +39,24 @@ function loadAssignments(): Assignment[] {
   }
 }
 
+interface PeriodOption {
+  value: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
+function loadPeriods(): PeriodOption[] {
+  try {
+    const stored = localStorage.getItem('leavePeriods');
+    if (!stored) return [];
+    const periods = JSON.parse(stored) as { id: number; label: string; startDate: string; endDate: string }[];
+    return periods.map((p) => ({ value: String(p.id), label: p.label, startDate: p.startDate, endDate: p.endDate }));
+  } catch {
+    return [];
+  }
+}
+
 const mockEmployees = [
   { value: 'Alice Johnson', label: 'Alice Johnson' },
   { value: 'Bob Smith', label: 'Bob Smith' },
@@ -54,40 +72,48 @@ export default function LeavePolicyAssign() {
   const [selectedPolicy, setSelectedPolicy] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [assignBasis, setAssignBasis] = useState('');
+  const [periodOptions, setPeriodOptions] = useState<PeriodOption[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [carryOverUnused, setCarryOverUnused] = useState(false);
 
   useEffect(() => {
     setPolicyOptions(loadPolicies());
     setAssignments(loadAssignments());
+    setPeriodOptions(loadPeriods());
   }, []);
 
   useEffect(() => {
-    if (assignBasis === 'leave_period') {
-      try {
-        const stored = localStorage.getItem('leavePeriods');
-        if (stored) {
-          const periods = JSON.parse(stored) as { startDate: string; endDate: string; isActive: boolean }[];
-          const active = periods.find((p) => p.isActive);
-          if (active) {
-            setStartDate(active.startDate);
-            setEndDate(active.endDate);
-          } else {
-            setStartDate('');
-            setEndDate('');
-          }
-        }
-      } catch { setStartDate(''); setEndDate(''); }
-    } else if (assignBasis === 'joining_date') {
+    if (assignBasis === 'joining_date') {
+      setSelectedPeriod('');
+      setStartDate('');
+      setEndDate('');
+    } else if (assignBasis === '') {
+      setSelectedPeriod('');
       setStartDate('');
       setEndDate('');
     } else {
+      setSelectedPeriod('');
       setStartDate('');
       setEndDate('');
     }
   }, [assignBasis]);
+
+  useEffect(() => {
+    if (!selectedPeriod) {
+      setStartDate('');
+      setEndDate('');
+      return;
+    }
+    const period = periodOptions.find((p) => p.value === selectedPeriod);
+    if (period) {
+      setStartDate(period.startDate);
+      setEndDate(period.endDate);
+    }
+  }, [selectedPeriod, periodOptions]);
 
   const handleAssign = () => {
     if (!selectedPolicy || !selectedEmployee || !assignBasis || !startDate || !endDate) return;
@@ -110,6 +136,7 @@ export default function LeavePolicyAssign() {
     setSelectedPolicy('');
     setSelectedEmployee('');
     setAssignBasis('');
+    setSelectedPeriod('');
     setStartDate('');
     setEndDate('');
     setSaving(false);
@@ -193,6 +220,24 @@ export default function LeavePolicyAssign() {
               <option value="joining_date">Joining Date</option>
             </select>
           </div>
+          {assignBasis === 'leave_period' && (
+            <div>
+              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Select Leave Period *</label>
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className="w-full px-3 py-2.5 text-xs border border-zinc-200 rounded-xl bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all"
+              >
+                <option value="">Select a leave period...</option>
+                {periodOptions.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+              {periodOptions.length === 0 && (
+                <p className="text-[10px] text-zinc-400 mt-1">No leave periods available. Create one first.</p>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Start Date *</label>
@@ -215,6 +260,19 @@ export default function LeavePolicyAssign() {
               />
             </div>
           </div>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${carryOverUnused ? 'bg-zinc-900' : 'border-2 border-zinc-400 hover:border-zinc-600'}`}>
+              <input type="checkbox" checked={carryOverUnused}
+                onChange={() => setCarryOverUnused((p) => !p)}
+                className="sr-only" />
+              {carryOverUnused && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 pointer-events-none">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </span>
+            <span className="text-sm text-zinc-700">Add unused leaves from previous allocations</span>
+          </label>
           <div className="flex justify-end">
             <button
               type="button"

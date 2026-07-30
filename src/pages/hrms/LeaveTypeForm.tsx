@@ -21,7 +21,6 @@ interface FormState {
   isCompensatory: boolean;
   allowEncashment: boolean;
   maxEncashableDays: number;
-  nonEncashableLeaves: number;
   encashmentRatePercent: number;
   description: string;
   status: 'active' | 'inactive';
@@ -29,8 +28,8 @@ interface FormState {
   expiryDays: number;
   enableEarnedLeave: boolean;
   creditFrequency: '' | 'monthly' | 'quarterly' | 'yearly';
-  allocateOnDate: '' | 'first_day' | 'last_day' | 'date_of_joining';
-  leaveCategory: 'paid' | 'unpaid';
+  allocateOnDate: '' | 'first_day' | 'last_day' | 'custom_date';
+  allocateOnCustomDate: string;
 }
 
 interface StoredItem extends FormState {
@@ -38,14 +37,14 @@ interface StoredItem extends FormState {
 }
 
 const initialData: StoredItem[] = [
-  { id: 1, name: 'Sick Leave', leaveCode: 'SL', daysPerYear: 12, carryForward: true, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, nonEncashableLeaves: 0, encashmentRatePercent: 100, description: 'For medical reasons and health issues', status: 'active', leaveCategory: 'paid', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '' },
-  { id: 2, name: 'Casual Leave', leaveCode: 'CL', daysPerYear: 12, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, nonEncashableLeaves: 0, encashmentRatePercent: 100, description: 'For personal work and short-term needs', status: 'active', leaveCategory: 'paid', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '' },
-  { id: 3, name: 'Earned Leave', leaveCode: 'EL', daysPerYear: 20, carryForward: true, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: true, maxEncashableDays: 15, nonEncashableLeaves: 5, encashmentRatePercent: 100, description: 'Accumulated leave for vacation and long breaks', status: 'active', leaveCategory: 'paid', hasExpiry: false, expiryDays: 0, enableEarnedLeave: true, creditFrequency: 'monthly', allocateOnDate: 'date_of_joining' },
-  { id: 4, name: 'Maternity Leave', leaveCode: 'ML', daysPerYear: 180, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, nonEncashableLeaves: 0, encashmentRatePercent: 100, description: 'For expecting and new mothers', status: 'active', leaveCategory: 'paid', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '' },
-  { id: 5, name: 'Paternity Leave', leaveCode: 'PL', daysPerYear: 5, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, nonEncashableLeaves: 0, encashmentRatePercent: 100, description: 'For new fathers', status: 'active', leaveCategory: 'paid', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '' },
-  { id: 6, name: 'Bereavement Leave', leaveCode: 'BL', daysPerYear: 5, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, nonEncashableLeaves: 0, encashmentRatePercent: 100, description: 'For loss of immediate family member', status: 'active', leaveCategory: 'paid', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '' },
-  { id: 7, name: 'Unpaid Leave', leaveCode: 'UL', daysPerYear: 0, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: true, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, nonEncashableLeaves: 0, encashmentRatePercent: 100, description: 'Leave without pay', status: 'active', leaveCategory: 'unpaid', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '' },
-  { id: 8, name: 'Comp Off', leaveCode: 'CO', daysPerYear: 10, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: true, allowEncashment: false, maxEncashableDays: 0, nonEncashableLeaves: 0, encashmentRatePercent: 100, description: 'Compensatory off for weekend or holiday work', status: 'inactive', leaveCategory: 'paid', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '' },
+  { id: 1, name: 'Sick Leave', leaveCode: 'SL', daysPerYear: 12, carryForward: true, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'For medical reasons and health issues', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
+  { id: 2, name: 'Casual Leave', leaveCode: 'CL', daysPerYear: 12, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'For personal work and short-term needs', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
+  { id: 3, name: 'Earned Leave', leaveCode: 'EL', daysPerYear: 20, carryForward: true, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: true, maxEncashableDays: 15, encashmentRatePercent: 100, description: 'Accumulated leave for vacation and long breaks', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: true, creditFrequency: 'monthly', allocateOnDate: '', allocateOnCustomDate: '' },
+  { id: 4, name: 'Maternity Leave', leaveCode: 'ML', daysPerYear: 180, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'For expecting and new mothers', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
+  { id: 5, name: 'Paternity Leave', leaveCode: 'PL', daysPerYear: 5, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'For new fathers', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
+  { id: 6, name: 'Bereavement Leave', leaveCode: 'BL', daysPerYear: 5, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'For loss of immediate family member', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
+  { id: 7, name: 'Unpaid Leave', leaveCode: 'UL', daysPerYear: 0, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: true, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'Leave without pay', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
+  { id: 8, name: 'Comp Off', leaveCode: 'CO', daysPerYear: 10, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: true, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'Compensatory off for weekend or holiday work', status: 'inactive', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
 ];
 
 function loadTypes(): StoredItem[] {
@@ -56,7 +55,6 @@ function loadTypes(): StoredItem[] {
       return parsed.map((item) => ({
         ...item,
         leaveCode: item.leaveCode ?? '',
-        leaveCategory: item.leaveCategory ?? 'paid',
         carryForward: item.carryForward ?? false,
         maxCarryForwardLeaves: item.maxCarryForwardLeaves ?? 0,
         carryForwardExpiryDays: item.carryForwardExpiryDays ?? 0,
@@ -71,7 +69,6 @@ function loadTypes(): StoredItem[] {
         isCompensatory: item.isCompensatory ?? false,
         allowEncashment: item.allowEncashment ?? false,
         maxEncashableDays: item.maxEncashableDays ?? 0,
-        nonEncashableLeaves: item.nonEncashableLeaves ?? 0,
         encashmentRatePercent: item.encashmentRatePercent ?? 100,
         hasExpiry: item.hasExpiry ?? false,
         expiryDays: item.expiryDays ?? 0,
@@ -88,11 +85,10 @@ const defaultForm: FormState = {
   name: '', leaveCode: '', daysPerYear: 0, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0,
   isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false,
   allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false,
-  allowEncashment: false, maxEncashableDays: 0, nonEncashableLeaves: 0, encashmentRatePercent: 100,
+  allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100,
   description: '', status: 'active',
   hasExpiry: false, expiryDays: 0,
-  enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '',
-  leaveCategory: 'paid',
+  enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '',
 };
 
 const inputClass = "w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all";
@@ -152,7 +148,6 @@ export default function LeaveTypeForm() {
       isCompensatory: item.isCompensatory ?? false,
       allowEncashment: item.allowEncashment ?? false,
       maxEncashableDays: item.maxEncashableDays ?? 0,
-      nonEncashableLeaves: item.nonEncashableLeaves ?? 0,
       encashmentRatePercent: item.encashmentRatePercent ?? 100,
       description: item.description, status: item.status,
       hasExpiry: item.hasExpiry ?? false,
@@ -160,7 +155,7 @@ export default function LeaveTypeForm() {
       enableEarnedLeave: item.enableEarnedLeave ?? false,
       creditFrequency: item.creditFrequency ?? '',
       allocateOnDate: item.allocateOnDate ?? '',
-      leaveCategory: item.leaveCategory ?? 'paid',
+      allocateOnCustomDate: item.allocateOnCustomDate ?? '',
     });
   }, [id, isEdit]);
 
@@ -241,18 +236,9 @@ export default function LeaveTypeForm() {
                   className={`${inputClass} uppercase`} />
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Days Per Year *</label>
-                <input type="number" required min={0} value={form.daysPerYear} onChange={(e) => setForm((p) => ({ ...p, daysPerYear: Math.max(0, parseInt(e.target.value) || 0) }))} className={inputClass} />
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Leave Category</label>
-                <select value={form.leaveCategory} onChange={(e) => setForm((p) => ({ ...p, leaveCategory: e.target.value as 'paid' | 'unpaid' }))} className={inputClass}>
-                  <option value="paid">Paid</option>
-                  <option value="unpaid">Unpaid</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Days Per Year *</label>
+              <input type="number" required min={0} value={form.daysPerYear} onChange={(e) => setForm((p) => ({ ...p, daysPerYear: Math.max(0, parseInt(e.target.value) || 0) }))} className={inputClass} />
             </div>
           </div>
         </motion.div>
@@ -434,17 +420,11 @@ export default function LeaveTypeForm() {
                 animate={{ opacity: 1, height: 'auto' }}
                 className="space-y-4 border-t border-zinc-100 pt-4"
               >
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Maximum Encashable Days</label>
                     <input type="number" min={0} value={form.maxEncashableDays}
                       onChange={(e) => setForm((p) => ({ ...p, maxEncashableDays: Math.max(0, parseInt(e.target.value) || 0) }))}
-                      className={inputClass} />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Non-Encashable Leaves</label>
-                    <input type="number" min={0} value={form.nonEncashableLeaves}
-                      onChange={(e) => setForm((p) => ({ ...p, nonEncashableLeaves: Math.max(0, parseInt(e.target.value) || 0) }))}
                       className={inputClass} />
                   </div>
                   <div>
@@ -507,14 +487,25 @@ export default function LeaveTypeForm() {
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Allocate on Date</label>
                     <select value={form.allocateOnDate}
-                      onChange={(e) => setForm((p) => ({ ...p, allocateOnDate: e.target.value as '' | 'first_day' | 'last_day' | 'date_of_joining' }))}
+                      onChange={(e) => setForm((p) => ({ ...p, allocateOnDate: e.target.value as '' | 'first_day' | 'last_day' | 'custom_date' }))}
                       className={inputClass}>
                       <option value="" disabled>Select</option>
                       <option value="first_day">First Day</option>
                       <option value="last_day">Last Day</option>
-                      <option value="date_of_joining">Date of Joining</option>
+                      <option value="custom_date">Custom Date</option>
                     </select>
                   </div>
+                  {form.allocateOnDate === 'custom_date' && (
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Select Date</label>
+                      <input
+                        type="date"
+                        value={form.allocateOnCustomDate}
+                        onChange={(e) => setForm((p) => ({ ...p, allocateOnCustomDate: e.target.value }))}
+                        className={inputClass}
+                      />
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
