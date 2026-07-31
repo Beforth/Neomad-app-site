@@ -184,6 +184,14 @@ export default function Invoices() {
     }
   }, [items.length, totalCount, page, updatePage]);
 
+  // Re-fetch metrics when date filter changes and panel is open
+  useEffect(() => {
+    if (!showMetrics) return;
+    setMetricsLoading(true);
+    const dateParams = dateFilter ? { date_from: dateFilter, date_to: dateFilter } : undefined;
+    appApi.getInvoiceMetrics(dateParams).then(m => { setInvoiceMetrics(m); setMetricsLoading(false); }).catch(() => setMetricsLoading(false));
+  }, [dateFilter, showMetrics]);
+
   useEffect(() => {
     if (!token || (user?.role !== 'admin' && user?.role !== 'manager')) return;
     getUsers(token, { role_code: 'delivery' })
@@ -518,9 +526,10 @@ export default function Invoices() {
           className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none cursor-pointer"
         />
         <button onClick={() => {
-          if (!showMetrics && !invoiceMetrics) {
+          if (!showMetrics || !invoiceMetrics) {
             setMetricsLoading(true);
-            appApi.getInvoiceMetrics().then(m => { setInvoiceMetrics(m); setMetricsLoading(false); });
+            const dateParams = dateFilter ? { date_from: dateFilter, date_to: dateFilter } : undefined;
+            appApi.getInvoiceMetrics(dateParams).then(m => { setInvoiceMetrics(m); setMetricsLoading(false); });
           }
           setShowMetrics(v => !v);
         }} className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-bold text-zinc-600 hover:bg-zinc-100 transition-colors flex items-center gap-1.5">

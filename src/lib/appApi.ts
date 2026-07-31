@@ -243,12 +243,20 @@ export const appApi = {
     return { success: true };
   },
 
-  getStats: async () => {
-    return authedGet('/invoices/stats');
+  getStats: async (params?: { date_from?: string; date_to?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.date_from) sp.set('date_from', params.date_from);
+    if (params?.date_to) sp.set('date_to', params.date_to);
+    const qs = sp.toString();
+    return authedGet(`/invoices/stats${qs ? `?${qs}` : ''}`);
   },
 
-  getInvoiceMetrics: async () => {
-    const d: any = await authedGet('/invoices/metrics');
+  getInvoiceMetrics: async (params?: { date_from?: string; date_to?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.date_from) sp.set('date_from', params.date_from);
+    if (params?.date_to) sp.set('date_to', params.date_to);
+    const qs = sp.toString();
+    const d: any = await authedGet(`/invoices/metrics${qs ? `?${qs}` : ''}`);
     return {
       totalCount: d.total_count,
       todayCount: d.today_count,
