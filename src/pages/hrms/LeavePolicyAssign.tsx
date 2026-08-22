@@ -1,12 +1,28 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Trash2, Inbox, UserPlus, Plus } from 'lucide-react';
+import { Trash2, Inbox, UserPlus, Plus, Loader2, Users, Search, X, Eye } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
+import { useAuth } from '../../context/AuthContext';
+import { getUsers } from '../../lib/api';
+import {
+  listLeavePolicies,
+  listLeavePeriods,
+  listLeavePolicyAssignments,
+  createLeavePolicyAssignment,
+  deleteLeavePolicyAssignment,
+} from '../../lib/hrmsLeave';
 
-interface PolicyOption {
+interface Option {
   value: string;
   label: string;
+}
+
+interface PeriodOption {
+  value: string;
+  label: string;
+  startDate: string;
+  endDate: string;
 }
 
 interface Assignment {
@@ -17,90 +33,83 @@ interface Assignment {
   startDate: string;
   endDate: string;
   assignedAt: string;
+  entitlements: { leaveTypeName: string; days?: number }[];
 }
-
-function loadPolicies(): PolicyOption[] {
-  try {
-    const stored = localStorage.getItem('leavePolicies');
-    if (!stored) return [];
-    const policies = JSON.parse(stored) as { id: number; name: string }[];
-    return policies.map((p) => ({ value: String(p.id), label: p.name }));
-  } catch {
-    return [];
-  }
-}
-
-function loadAssignments(): Assignment[] {
-  try {
-    const stored = localStorage.getItem('leavePolicyAssignments');
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-interface PeriodOption {
-  value: string;
-  label: string;
-  startDate: string;
-  endDate: string;
-}
-
-function loadPeriods(): PeriodOption[] {
-  try {
-    const stored = localStorage.getItem('leavePeriods');
-    if (!stored) return [];
-    const periods = JSON.parse(stored) as { id: number; label: string; startDate: string; endDate: string }[];
-    return periods.map((p) => ({ value: String(p.id), label: p.label, startDate: p.startDate, endDate: p.endDate }));
-  } catch {
-    return [];
-  }
-}
-
-const mockEmployees = [
-  { value: 'Alice Johnson', label: 'Alice Johnson' },
-  { value: 'Bob Smith', label: 'Bob Smith' },
-  { value: 'Carol Davis', label: 'Carol Davis' },
-  { value: 'David Wilson', label: 'David Wilson' },
-  { value: 'Eva Martinez', label: 'Eva Martinez' },
-];
 
 export default function LeavePolicyAssign() {
   const navigate = useNavigate();
+  const { token } = useAuth();
 
-  const [policyOptions, setPolicyOptions] = useState<PolicyOption[]>([]);
-  const [selectedPolicy, setSelectedPolicy] = useState('');
-  const [selectedEmployee, setSelectedEmployee] = useState('');
-  const [assignBasis, setAssignBasis] = useState('');
+  const [policyOptions, setPolicyOptions] = useState<Option[]>([]);
+  const [employeeOptions, setEmployeeOptions] = useState<Option[]>([]);
   const [periodOptions, setPeriodOptions] = useState<PeriodOption[]>([]);
+
+  const [selectedPolicy, setSelectedPolicy] = useState('');
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [empSearch, setEmpSearch] = useState('');
+  const [showEmpDropdown, setShowEmpDropdown] = useState(false);
+  const [assignBasis, setAssignBasis] = useState('user');
   const [selectedPeriod, setSelectedPeriod] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [carryOverUnused, setCarryOverUnused] = useState(false);
+  const [toast, setToast] = useState('');
 
-  useEffect(() => {
-    setPolicyOptions(loadPolicies());
-    setAssignments(loadAssignments());
-    setPeriodOptions(loadPeriods());
-  }, []);
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
 
-  useEffect(() => {
-    if (assignBasis === 'joining_date') {
-      setSelectedPeriod('');
-      setStartDate('');
-      setEndDate('');
-    } else if (assignBasis === '') {
-      setSelectedPeriod('');
-      setStartDate('');
-      setEndDate('');
-    } else {
-      setSelectedPeriod('');
-      setStartDate('');
-      setEndDate('');
+  const reloadData = async () => {
+    if (!token) return;
+    try {
+      const [uData, pData, prData, aData] = await Promise.all([
+        getUsers(token),
+        listLeavePolicies(token),
+        listLeavePeriods(token),
+        listLeavePolicyAssignments(token),
+      ]);
+
+      setEmployeeOptions(
+        uData.map((u: any) => ({
+          value: String(u.id),
+          label: (u.full_name || u.email || `User #${u.id}`).trim(),
+        }))
+      );
+      setPolicyOptions(pData.map((p) => ({ value: String(p.id), label: p.name })));
+      setPeriodOptions(
+        prData.map((pr) => ({
+          value: String(pr.id),
+          label: pr.label,
+          startDate: pr.start_date,
+          endDate: pr.end_date,
+        }))
+      );
+      if (prData.length > 0 && !selectedPeriod) {
+        setSelectedPeriod(String(prData[0].id));
+        setStartDate(prData[0].start_date);
+        setEndDate(prData[0].end_date);
+      }
+      setAssignments(
+        aData.map((a) => ({
+          id: a.id,
+          policyName: a.policy_name || `Policy #${a.policy_id}`,
+          employeeName: a.employee_name || a.employee_email || `User #${a.user_id}`,
+          assignBasis: a.assign_basis || 'user',
+          startDate: a.start_date,
+          endDate: a.end_date,
+          assignedAt: a.created_at ? a.created_at.split('T')[0] : a.start_date,
+          entitlements: (a.entitlements || []).map((e) => ({
+            leaveTypeName: e.leave_type_name || `Type #${e.leave_type_id}`,
+            days: e.days,
+          })),
+        }))
+      );
+    } catch (e) {
+      console.error('Failed to load assign options:', e);
     }
-  }, [assignBasis]);
+  };
+
+  useEffect(() => { reloadData(); }, [token]);
 
   useEffect(() => {
     if (!selectedPeriod) {
@@ -115,37 +124,50 @@ export default function LeavePolicyAssign() {
     }
   }, [selectedPeriod, periodOptions]);
 
-  const handleAssign = () => {
-    if (!selectedPolicy || !selectedEmployee || !assignBasis || !startDate || !endDate) return;
-    setSaving(true);
+  const handleAssign = async () => {
+    const periodObj = periodOptions.find((p) => p.value === selectedPeriod);
+    const sDate = startDate || (periodObj ? periodObj.startDate : '') || `${new Date().getFullYear()}-01-01`;
+    const eDate = endDate || (periodObj ? periodObj.endDate : '') || `${new Date().getFullYear()}-12-31`;
 
-    const policy = policyOptions.find((p) => p.value === selectedPolicy);
-    const list = loadAssignments();
-    const newId = Math.max(...list.map((a) => a.id), 0) + 1;
-    list.push({
-      id: newId,
-      policyName: policy?.label ?? 'Unknown',
-      employeeName: selectedEmployee,
-      assignBasis,
-      startDate,
-      endDate,
-      assignedAt: new Date().toISOString().split('T')[0],
-    });
-    localStorage.setItem('leavePolicyAssignments', JSON.stringify(list));
-    setAssignments(list);
-    setSelectedPolicy('');
-    setSelectedEmployee('');
-    setAssignBasis('');
-    setSelectedPeriod('');
-    setStartDate('');
-    setEndDate('');
-    setSaving(false);
+    if (!selectedPolicy || selectedEmployees.length === 0 || !token) {
+      showToast('Please select a policy and at least one employee');
+      return;
+    }
+    setSaving(true);
+    try {
+      await Promise.all(
+        selectedEmployees.map((empId) =>
+          createLeavePolicyAssignment(token, {
+            policy_id: Number(selectedPolicy),
+            user_id: Number(empId),
+            assign_basis: assignBasis || 'leave_period',
+            period_id: selectedPeriod ? Number(selectedPeriod) : undefined,
+            start_date: sDate,
+            end_date: eDate,
+            carry_over_unused: carryOverUnused,
+          })
+        )
+      );
+      showToast(`Policy assigned to ${selectedEmployees.length} employee${selectedEmployees.length > 1 ? 's' : ''} successfully!`);
+      await reloadData();
+      setSelectedPolicy('');
+      setSelectedEmployees([]);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to assign policy');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const removeAssignment = (id: number) => {
-    const list = assignments.filter((a) => a.id !== id);
-    setAssignments(list);
-    localStorage.setItem('leavePolicyAssignments', JSON.stringify(list));
+  const removeAssignment = async (id: number) => {
+    if (!token) return;
+    try {
+      await deleteLeavePolicyAssignment(token, id);
+      setAssignments((prev) => prev.filter((a) => a.id !== id));
+      showToast('Assignment removed');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to remove assignment');
+    }
   };
 
   return (
@@ -199,14 +221,111 @@ export default function LeavePolicyAssign() {
               <p className="text-[10px] text-zinc-400 mt-1">No policies available. Create one first.</p>
             )}
           </div>
+          {/* Bulk Employee Selector */}
           <div>
-            <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Select Employee *</label>
-            <SearchableSelect
-              value={selectedEmployee}
-              onChange={setSelectedEmployee}
-              options={mockEmployees}
-              placeholder="Choose an employee"
-            />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1">
+                <Users size={12} className="text-zinc-500" /> Select Employees (Bulk Assign) *
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedEmployees(employeeOptions.map((e) => e.value))}
+                  className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline"
+                >
+                  Select All ({employeeOptions.length})
+                </button>
+                <span className="text-zinc-300">·</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedEmployees([])}
+                  className="text-[10px] font-bold text-zinc-400 hover:text-zinc-600 hover:underline"
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div
+                onClick={() => setShowEmpDropdown((v) => !v)}
+                className="w-full px-3 py-2.5 text-xs border border-zinc-200 rounded-xl bg-white text-zinc-900 cursor-pointer flex items-center justify-between hover:border-zinc-300 transition-all"
+              >
+                <span className="font-semibold text-zinc-700">
+                  {selectedEmployees.length === 0
+                    ? 'Choose employees...'
+                    : `${selectedEmployees.length} of ${employeeOptions.length} Employee${selectedEmployees.length > 1 ? 's' : ''} Selected`}
+                </span>
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider bg-zinc-100 px-2 py-0.5 rounded-md">
+                  {showEmpDropdown ? 'Close ▲' : 'Select ▼'}
+                </span>
+              </div>
+
+              {showEmpDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3 border border-zinc-200 rounded-xl bg-white shadow-lg space-y-2 max-h-60 overflow-y-auto"
+                >
+                  <div className="relative mb-2">
+                    <Search size={14} className="absolute left-2.5 top-2.5 text-zinc-400" />
+                    <input
+                      type="text"
+                      value={empSearch}
+                      onChange={(e) => setEmpSearch(e.target.value)}
+                      placeholder="Search employee by name..."
+                      className="w-full pl-8 pr-3 py-1.5 text-xs border border-zinc-200 rounded-lg outline-none focus:border-zinc-400"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    {employeeOptions
+                      .filter((e) => e.label.toLowerCase().includes(empSearch.toLowerCase()))
+                      .map((emp) => {
+                        const isSelected = selectedEmployees.includes(emp.value);
+                        return (
+                          <label
+                            key={emp.value}
+                            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
+                              isSelected ? 'bg-emerald-50 text-emerald-900 font-bold' : 'hover:bg-zinc-50 text-zinc-700'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                setSelectedEmployees((prev) =>
+                                  isSelected ? prev.filter((x) => x !== emp.value) : [...prev, emp.value]
+                                );
+                              }}
+                              className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                            />
+                            <span>{emp.label}</span>
+                          </label>
+                        );
+                      })}
+                  </div>
+                </motion.div>
+              )}
+
+              {selectedEmployees.length > 0 && (
+                <div className="flex items-center justify-between px-3 py-2 bg-emerald-50/70 border border-emerald-200/80 rounded-xl text-xs font-semibold text-emerald-800">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                    {selectedEmployees.length === employeeOptions.length
+                      ? `All Employees Selected (${employeeOptions.length} Employees)`
+                      : `${selectedEmployees.length} Employee${selectedEmployees.length > 1 ? 's' : ''} Selected for Assignment`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEmployees([])}
+                    className="text-[11px] text-emerald-700 hover:text-emerald-950 font-bold underline"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Assign Based On *</label>
@@ -277,10 +396,11 @@ export default function LeavePolicyAssign() {
             <button
               type="button"
               onClick={handleAssign}
-              disabled={saving || !selectedPolicy || !selectedEmployee || !assignBasis || !startDate || !endDate}
+              disabled={saving || !selectedPolicy || selectedEmployees.length === 0}
               className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 text-white rounded-xl text-sm font-bold hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <UserPlus size={16} /> {saving ? 'Assigning...' : 'Assign'}
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+              <span>{saving ? 'Assigning...' : `Assign Policy to ${selectedEmployees.length > 0 ? selectedEmployees.length : ''} Employee${selectedEmployees.length > 1 ? 's' : ''}`}</span>
             </button>
           </div>
         </div>
@@ -311,7 +431,7 @@ export default function LeavePolicyAssign() {
             <table className="w-full text-left">
               <thead className="bg-zinc-50/50 border-b border-zinc-100">
                 <tr>
-                  {['Employee', 'Policy', 'Basis', 'Start Date', 'End Date', 'Assigned Date', ''].map((label) => (
+                  {['Employee', 'Policy', 'Allocated Leave', 'Basis', 'Start Date', 'End Date', 'Assigned Date', ''].map((label) => (
                     <th key={label} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">
                       {label}
                     </th>
@@ -329,17 +449,45 @@ export default function LeavePolicyAssign() {
                   >
                     <td className="px-4 py-3 text-xs font-bold text-zinc-900">{a.employeeName}</td>
                     <td className="px-4 py-3 text-xs text-zinc-500">{a.policyName}</td>
+                    <td className="px-4 py-3 text-xs">
+                      {a.entitlements && a.entitlements.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {a.entitlements.map((ent, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                            >
+                              {ent.leaveTypeName} {ent.days ? `(${ent.days}d)` : ''}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          2 Paid / 3 LWP Monthly
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-xs text-zinc-500">{a.assignBasis === 'leave_period' ? 'Leave Period' : 'Joining Date'}</td>
                     <td className="px-4 py-3 text-xs text-zinc-500">{a.startDate}</td>
                     <td className="px-4 py-3 text-xs text-zinc-500">{a.endDate}</td>
                     <td className="px-4 py-3 text-xs text-zinc-500">{a.assignedAt}</td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => removeAssignment(a.id)}
-                        className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => navigate(`/hrms/leave/policy/assign/${a.id}`)}
+                          className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+                          title="View Assignment Details"
+                        >
+                          <Eye size={15} />
+                        </button>
+                        <button
+                          onClick={() => removeAssignment(a.id)}
+                          className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Remove Assignment"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </motion.tr>
                 ))}

@@ -93,7 +93,7 @@ export interface ApiRole {
   code: string;
 }
 
-function getApiError(err: { detail?: string | { msg?: string }[] }, fallback: string): string {
+export function getApiError(err: { detail?: string | { msg?: string }[] }, fallback: string): string {
   if (typeof err.detail === 'string') return err.detail;
   if (Array.isArray(err.detail) && err.detail[0]?.msg) return err.detail[0].msg;
   return fallback;
@@ -1567,6 +1567,14 @@ export interface ShiftType {
   break_end: string;
   color?: string;
   is_active: boolean;
+  late_grace_enabled?: boolean;
+  late_grace_minutes?: number;
+  late_penalty_amount?: number;
+  half_day_after_minutes?: number;
+  overtime_enabled?: boolean;
+  overtime_after_minutes?: number;
+  overtime_rate?: number;
+  overtime_rate_per_hour?: number;
 }
 
 export interface ShiftAssignment {
@@ -1575,6 +1583,8 @@ export interface ShiftAssignment {
   staff_name: string;
   shift_type_id: number;
   shift_type_name: string;
+  start_time?: string | null;
+  end_time?: string | null;
   location: string;
   status: 'active' | 'pending' | 'cancelled';
   schedule_type: 'alternate_day' | 'alternate_week' | 'fixed';
@@ -1582,6 +1592,23 @@ export interface ShiftAssignment {
   working_days: string[];
   effective_from: string;
   effective_to: string | null;
+  is_active?: boolean;
+}
+
+export interface DailyShiftAllocation {
+  id: number;
+  staff_id: number;
+  staff_name: string;
+  date: string;
+  shift_type_id: number;
+  shift_type_name: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  check_in: string | null;
+  check_out: string | null;
+  status: 'scheduled' | 'arrived' | 'not_arrived' | 'on_the_way' | 'late';
+  late_minutes: number;
+  break_minutes: number;
 }
 
 export interface ShiftSettings {
@@ -1592,6 +1619,7 @@ export interface ShiftSettings {
   overtimeCalculation: boolean;
   overtimeShiftTypeIds: number[];
   beginCheckInBeforeShiftStart: boolean;
+  defaultShiftTypeId: number | null;
 }
 
 export const DEFAULT_SHIFT_SETTINGS: ShiftSettings = {
@@ -1602,6 +1630,7 @@ export const DEFAULT_SHIFT_SETTINGS: ShiftSettings = {
   overtimeCalculation: true,
   overtimeShiftTypeIds: [],
   beginCheckInBeforeShiftStart: true,
+  defaultShiftTypeId: null,
 };
 
 export const SHIFT_COLORS: readonly string[] = [] as const;

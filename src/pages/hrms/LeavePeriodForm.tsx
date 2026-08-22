@@ -2,36 +2,22 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Save } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import SearchableSelect from '../../components/SearchableSelect';
-
-interface LeavePeriodItem {
-  id: number;
-  label: string;
-  startDate: string;
-  endDate: string;
-  isActive: boolean;
-  holidayListId: number | null;
-}
-
-const initialPeriods: LeavePeriodItem[] = [
-  { id: 1, label: 'FY 2025–2026', startDate: '2025-04-01', endDate: '2026-03-31', isActive: false, holidayListId: null },
-  { id: 2, label: 'FY 2026–2027', startDate: '2026-04-01', endDate: '2027-03-31', isActive: true, holidayListId: null },
-];
-
-function loadPeriods(): LeavePeriodItem[] {
-  try {
-    const stored = localStorage.getItem('leavePeriods');
-    return stored ? JSON.parse(stored) : initialPeriods;
-  } catch {
-    return initialPeriods;
-  }
-}
+import {
+  getLeavePeriod,
+  createLeavePeriod,
+  updateLeavePeriod,
+  listHolidayLists,
+  type HolidayListOut,
+} from '../../lib/hrmsLeave';
 
 const inputClass = "w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all";
 
 export default function LeavePeriodForm() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { token } = useAuth();
   const isEdit = Boolean(id);
 
   const [label, setLabel] = useState('');
@@ -39,60 +25,72 @@ export default function LeavePeriodForm() {
   const [endDate, setEndDate] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [holidayListId, setHolidayListId] = useState('');
+  const [holidayLists, setHolidayLists] = useState<HolidayListOut[]>([]);
   const [holidayOptions, setHolidayOptions] = useState<{ value: string; label: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('holidayLists');
-      const lists = stored ? JSON.parse(stored) : [];
-      setHolidayOptions([
-        ...lists.map((h: any) => ({ value: String(h.id), label: h.name })),
-        { value: '__create__', label: '+ Create Holiday List' },
-      ]);
-    } catch {
-      setHolidayOptions([{ value: '__create__', label: '+ Create Holiday List' }]);
-    }
-  }, []);
+    if (!token) return;
+    listHolidayLists(token)
+      .then((lists) => {
+        setHolidayLists(lists);
+        setHolidayOptions([
+          ...lists.map((h) => ({ value: String(h.id), label: h.name })),
+          { value: '__create__', label: '+ Create Holiday List' },
+        ]);
+      })
+      .catch(() => {
+        setHolidayOptions([{ value: '__create__', label: '+ Create Holiday List' }]);
+      });
+  }, [token]);
 
   useEffect(() => {
-    if (!isEdit) return;
-    const periods = loadPeriods();
-    const item = periods.find((p) => p.id === Number(id));
-    if (!item) { setNotFound(true); return; }
-    setLabel(item.label);
-    setStartDate(item.startDate);
-    setEndDate(item.endDate);
-    setIsActive(item.isActive);
-    setHolidayListId(item.holidayListId ? String(item.holidayListId) : '');
-  }, [id, isEdit]);
+    if (!isEdit || !token) return;
+    getLeavePeriod(token, Number(id))
+      .then((item) => {
+        setLabel(item.label);
+        setStartDate(item.start_date);
+        setEndDate(item.end_date);
+        setIsActive(item.is_active);
+        setHolidayListId(item.holiday_list_id ? String(item.holiday_list_id) : '');
+      })
+      .catch(() => {
+        setNotFound(true);
+      });
+  }, [id, isEdit, token]);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!label.trim() || !startDate || !endDate) return;
+    if (!label.trim() || !startDate || !endDate || !token) return;
     setSaving(true);
+    setErrorMsg('');
 
-    const periods = loadPeriods();
-    if (isEdit) {
-      const idx = periods.findIndex((p) => p.id === Number(id));
-      if (idx >= 0) {
-        const upd = { ...periods[idx], label: label.trim(), startDate, endDate, isActive, holidayListId: holidayListId ? Number(holidayListId) : null };
-        if (upd.isActive) {
-          periods.forEach((p) => p.isActive = false);
-        }
-        periods[idx] = upd;
+    try {
+      if (isEdit) {
+        await updateLeavePeriod(token, Number(id), {
+          label: label.trim(),
+          start_date: startDate,
+          end_date: endDate,
+          is_active: isActive,
+          holiday_list_id: holidayListId ? Number(holidayListId) : null,
+        });
+      } else {
+        await createLeavePeriod(token, {
+          label: label.trim(),
+          start_date: startDate,
+          end_date: endDate,
+          is_active: isActive,
+          holiday_list_id: holidayListId ? Number(holidayListId) : null,
+        });
       }
-    } else {
-      const newId = Math.max(...periods.map((p) => p.id), 0) + 1;
-      if (isActive) {
-        periods.forEach((p) => p.isActive = false);
-      }
-      periods.push({ id: newId, label: label.trim(), startDate, endDate, isActive, holidayListId: holidayListId ? Number(holidayListId) : null });
+      navigate('/hrms/leave/period');
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to save leave period');
+    } finally {
+      setSaving(false);
     }
-    localStorage.setItem('leavePeriods', JSON.stringify(periods));
-    setSaving(false);
-    navigate('/hrms/leave/period');
   };
 
   const handleHolidayChange = (val: string) => {
@@ -137,6 +135,12 @@ export default function LeavePeriodForm() {
         </div>
       </motion.div>
 
+      {errorMsg && (
+        <div className="p-3 bg-red-50 text-red-700 rounded-xl text-xs font-medium border border-red-200">
+          {errorMsg}
+        </div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -177,20 +181,18 @@ export default function LeavePeriodForm() {
                     options={holidayOptions}
                     placeholder="Select or create"
                   />
-                  {isEdit && holidayListId && (() => {
-                    const stored = localStorage.getItem('holidayLists');
-                    const lists = stored ? JSON.parse(stored) : [];
-                    const found = lists.find((h: any) => String(h.id) === holidayListId);
+                  {holidayListId && (() => {
+                    const found = holidayLists.find((h) => String(h.id) === holidayListId);
                     if (!found) return null;
                     return (
                       <div className="mt-2 text-[11px] text-zinc-500 bg-zinc-50 rounded-lg px-3 py-2 border border-zinc-100">
                         <span className="font-medium text-zinc-700">{found.name}</span>
                         <span className="mx-1.5">·</span>
                         <span>{found.holidays?.length ?? 0} holidays</span>
-                        {found.fromDate && found.toDate && (
+                        {found.from_date && found.to_date && (
                           <>
                             <span className="mx-1.5">·</span>
-                            <span>{found.fromDate} → {found.toDate}</span>
+                            <span>{found.from_date} → {found.to_date}</span>
                           </>
                         )}
                       </div>

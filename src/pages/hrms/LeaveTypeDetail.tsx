@@ -1,72 +1,9 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowLeft, Calendar } from 'lucide-react';
-
-interface LeaveTypeFull {
-  id: number;
-  name: string;
-  leaveCode: string;
-  daysPerYear: number;
-  carryForward: boolean;
-  maxCarryForwardLeaves: number;
-  carryForwardExpiryDays: number;
-  allowLeaveAfterDays: number;
-  maxConsecutiveLeaves: number;
-  isLeaveWithoutPay: boolean;
-  isPartiallyPaidLeave: boolean;
-  isOptionalLeave: boolean;
-  allowNegativeBalance: boolean;
-  allowOverAllocating: boolean;
-  includeHolidaysAsLeaves: boolean;
-  isCompensatory: boolean;
-  hasExpiry: boolean;
-  expiryDays: number;
-  allowEncashment: boolean;
-  maxEncashableDays: number;
-  encashmentRatePercent: number;
-  enableEarnedLeave: boolean;
-  creditFrequency: string;
-  allocateOnDate: string;
-  allocateOnCustomDate?: string;
-  description: string;
-  status: 'active' | 'inactive';
-}
-
-function loadTypes(): LeaveTypeFull[] {
-  try {
-    const stored = localStorage.getItem('leaveTypes');
-    if (stored) {
-      const parsed = JSON.parse(stored) as LeaveTypeFull[];
-      return parsed.map((item) => ({
-        ...item,
-        leaveCode: item.leaveCode ?? '',
-        carryForward: item.carryForward ?? false,
-        maxCarryForwardLeaves: item.maxCarryForwardLeaves ?? 0,
-        carryForwardExpiryDays: item.carryForwardExpiryDays ?? 0,
-        allowLeaveAfterDays: item.allowLeaveAfterDays ?? 0,
-        maxConsecutiveLeaves: item.maxConsecutiveLeaves ?? 0,
-        isLeaveWithoutPay: item.isLeaveWithoutPay ?? false,
-        isPartiallyPaidLeave: item.isPartiallyPaidLeave ?? false,
-        isOptionalLeave: item.isOptionalLeave ?? false,
-        allowNegativeBalance: item.allowNegativeBalance ?? false,
-        allowOverAllocating: item.allowOverAllocating ?? false,
-        includeHolidaysAsLeaves: item.includeHolidaysAsLeaves ?? false,
-        isCompensatory: item.isCompensatory ?? false,
-        hasExpiry: item.hasExpiry ?? false,
-        expiryDays: item.expiryDays ?? 0,
-        allowEncashment: item.allowEncashment ?? false,
-        maxEncashableDays: item.maxEncashableDays ?? 0,
-        encashmentRatePercent: item.encashmentRatePercent ?? 100,
-        enableEarnedLeave: item.enableEarnedLeave ?? false,
-        creditFrequency: item.creditFrequency ?? '',
-        allocateOnDate: item.allocateOnDate ?? '',
-        allocateOnCustomDate: item.allocateOnCustomDate ?? '',
-      }));
-    }
-  } catch {}
-  return [];
-}
+import { ArrowLeft, Calendar, Loader2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { getLeaveType, LeaveTypeOut } from '../../lib/hrmsLeave';
 
 function Check({ checked }: { checked: boolean }) {
   return checked
@@ -90,11 +27,33 @@ function FieldsGrid({ fields }: { fields: { label: string; value: string }[] }) 
 export default function LeaveTypeDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { token } = useAuth();
+  const [item, setItem] = useState<LeaveTypeOut | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const item = useMemo(() => {
-    const types = loadTypes();
-    return types.find((t) => t.id === Number(id)) || null;
-  }, [id]);
+  useEffect(() => {
+    if (!id || !token) return;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await getLeaveType(token, Number(id));
+        setItem(res);
+      } catch (e) {
+        console.error('Failed to get leave type detail:', e);
+        setItem(null);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [id, token]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="animate-spin text-zinc-400" size={24} />
+      </div>
+    );
+  }
 
   if (!item) {
     return (
@@ -112,14 +71,14 @@ export default function LeaveTypeDetail() {
   }
 
   const settingsCheckboxes = [
-    { key: 'carryForward', label: 'Carry Forward' },
-    { key: 'isLeaveWithoutPay', label: 'Leave Without Pay' },
-    { key: 'isPartiallyPaidLeave', label: 'Partially Paid Leave' },
-    { key: 'isOptionalLeave', label: 'Optional Leave' },
-    { key: 'allowNegativeBalance', label: 'Allow Negative Balance' },
-    { key: 'allowOverAllocating', label: 'Allow Over Allocating' },
-    { key: 'includeHolidaysAsLeaves', label: 'Include Holidays Within Leaves as Leaves' },
-    { key: 'isCompensatory', label: 'Is Compensatory' },
+    { key: 'carry_forward', label: 'Carry Forward' },
+    { key: 'is_leave_without_pay', label: 'Leave Without Pay' },
+    { key: 'is_partially_paid_leave', label: 'Partially Paid Leave' },
+    { key: 'is_optional_leave', label: 'Optional Leave' },
+    { key: 'allow_negative_balance', label: 'Allow Negative Balance' },
+    { key: 'allow_over_allocating', label: 'Allow Over Allocating' },
+    { key: 'include_holidays_as_leaves', label: 'Include Holidays Within Leaves as Leaves' },
+    { key: 'is_compensatory', label: 'Is Compensatory' },
   ] as const;
 
   return (
@@ -149,7 +108,7 @@ export default function LeaveTypeDetail() {
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[
-          { label: 'Days Per Year', value: `${item.daysPerYear}`, icon: Calendar, color: 'bg-blue-50 text-blue-600' },
+          { label: 'Days Per Year', value: `${item.days_per_year}`, icon: Calendar, color: 'bg-blue-50 text-blue-600' },
         ].map((stat, i) => (
           <motion.div
             key={stat.label}
@@ -194,9 +153,9 @@ export default function LeaveTypeDetail() {
         </div>
         <div className="p-4">
           <FieldsGrid fields={[
-            { label: 'Leave Code', value: item.leaveCode || '—' },
-            { label: 'Allow Leave Application After (Days)', value: `${item.allowLeaveAfterDays}` },
-            { label: 'Max Consecutive Leaves Allowed', value: `${item.maxConsecutiveLeaves}` },
+            { label: 'Leave Code', value: item.leave_code || '—' },
+            { label: 'Allow Leave Application After (Days)', value: `${item.allow_leave_after_days || 0}` },
+            { label: 'Max Consecutive Leaves Allowed', value: `${item.max_consecutive_leaves || 0}` },
           ]} />
         </div>
       </motion.div>
@@ -224,7 +183,7 @@ export default function LeaveTypeDetail() {
       </motion.div>
 
       {/* Carry Forward */}
-      {item.carryForward && (
+      {item.carry_forward && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -236,35 +195,15 @@ export default function LeaveTypeDetail() {
           </div>
           <div className="p-4">
             <FieldsGrid fields={[
-              { label: 'Max Carry Forward Leaves', value: `${item.maxCarryForwardLeaves}` },
-              { label: 'Expiry of Carry Forwarded Leaves (Days)', value: `${item.carryForwardExpiryDays}` },
-            ]} />
-          </div>
-        </motion.div>
-      )}
-
-      {/* Compensatory Off Settings */}
-      {item.isCompensatory && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.16 }}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
-        >
-          <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Compensatory Off Settings</h2>
-          </div>
-          <div className="p-4">
-            <FieldsGrid fields={[
-              { label: 'Has Expiry', value: item.hasExpiry ? 'Yes' : 'No' },
-              { label: 'Expiry Days', value: item.hasExpiry ? `${item.expiryDays}` : '—' },
+              { label: 'Max Carry Forward Leaves', value: `${item.max_carry_forward_leaves || 0}` },
+              { label: 'Expiry of Carry Forwarded Leaves (Days)', value: `${item.carry_forward_expiry_days || 0}` },
             ]} />
           </div>
         </motion.div>
       )}
 
       {/* Encashment */}
-      {item.allowEncashment && (
+      {item.allow_encashment && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -276,15 +215,15 @@ export default function LeaveTypeDetail() {
           </div>
           <div className="p-4">
             <FieldsGrid fields={[
-              { label: 'Max Encashable Days', value: `${item.maxEncashableDays}` },
-              { label: 'Encashment Rate', value: `${item.encashmentRatePercent}%` },
+              { label: 'Max Encashable Days', value: `${item.max_encashable_days || 0}` },
+              { label: 'Encashment Rate', value: `${item.encashment_rate_percent || 100}%` },
             ]} />
           </div>
         </motion.div>
       )}
 
       {/* Earned Leave */}
-      {item.enableEarnedLeave && (
+      {item.enable_earned_leave && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -296,8 +235,8 @@ export default function LeaveTypeDetail() {
           </div>
           <div className="p-4">
             <FieldsGrid fields={[
-              { label: 'Credit Frequency', value: item.creditFrequency ? item.creditFrequency.charAt(0).toUpperCase() + item.creditFrequency.slice(1) : '—' },
-              { label: 'Allocate on Date', value: item.allocateOnDate ? (item.allocateOnDate === 'first_day' ? 'First Day' : item.allocateOnDate === 'last_day' ? 'Last Day' : item.allocateOnDate === 'custom_date' && item.allocateOnCustomDate ? new Date(item.allocateOnCustomDate).toLocaleDateString() : item.allocateOnDate === 'custom_date' ? 'Custom Date (not set)' : '—') : '—' },
+              { label: 'Credit Frequency', value: item.earned_leave_frequency ? item.earned_leave_frequency.charAt(0).toUpperCase() + item.earned_leave_frequency.slice(1) : '—' },
+              { label: 'Allocate on Date', value: item.allocate_on_date ? (item.allocate_on_date === 'first_day' ? 'First Day' : item.allocate_on_date === 'last_day' ? 'Last Day' : item.allocate_on_date === 'custom_date' && item.allocate_on_custom_date ? new Date(item.allocate_on_custom_date).toLocaleDateString() : item.allocate_on_date === 'custom_date' ? 'Custom Date (not set)' : '—') : '—' },
             ]} />
           </div>
         </motion.div>

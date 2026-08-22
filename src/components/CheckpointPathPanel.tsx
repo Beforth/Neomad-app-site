@@ -1,5 +1,6 @@
 import { MapPin, Route } from 'lucide-react';
 import type { DeliveryCheckpointRow } from '../lib/api';
+import { formatTimeIST } from '../lib/timeUtils';
 import {
   checkpointJobRef,
   checkpointTypeLabel,
@@ -99,10 +100,7 @@ export default function CheckpointPathPanel({
                     <p className="text-[10px] text-zinc-500 truncate">{checkpointJobRef(row)}</p>
                     <div className="flex items-center gap-2 mt-0.5 text-[9px] text-zinc-400 font-medium">
                       <span>
-                        {new Date(row.recorded_at).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {formatTimeIST(row.recorded_at)}
                       </span>
                       {row.path_id != null && (
                         <span className="text-emerald-600 font-bold uppercase">path</span>

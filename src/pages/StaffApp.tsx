@@ -43,19 +43,8 @@ export default function StaffApp() {
 
         if (dist > GEOFENCE_RADIUS_METERS) {
           setIsOutside(true);
-          if (!alertSentRef.current) {
-            // Trigger system alert
-            appApi.saveNotification({
-              title: 'Staff Member Left Office Premises',
-              message: `${user?.username} has moved ${Math.round(dist)} meters away from the office.`,
-              targets: ['admin', 'manager'],
-              priority: 'important'
-            });
-            alertSentRef.current = true;
-          }
         } else {
           setIsOutside(false);
-          alertSentRef.current = false;
         }
       },
       (err) => {

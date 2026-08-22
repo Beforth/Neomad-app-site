@@ -1,11 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, XCircle, ChevronLeft, ChevronRight, ArrowUpDown,
-  Plus, ChevronUp, ChevronDown, Inbox, Eye, CheckCircle2, X,
+  Plus, ChevronUp, ChevronDown, Inbox, Eye, CheckCircle2, X, Loader2, Check, ShieldAlert, Trash2,
 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
+import { useAuth } from '../../context/AuthContext';
+import { listLeaveRequests, approveLeaveRequest, rejectLeaveRequest, withdrawLeaveRequest, listLeaveTypes } from '../../lib/hrmsLeave';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Status' },
@@ -16,11 +18,10 @@ const STATUS_OPTIONS = [
 
 const TYPE_OPTIONS = [
   { value: 'all', label: 'All Types' },
-  { value: 'Sick Leave', label: 'Sick Leave' },
+  { value: 'Medical Leave', label: 'Medical Leave' },
+  { value: 'Privilege Leave', label: 'Privilege Leave' },
   { value: 'Casual Leave', label: 'Casual Leave' },
-  { value: 'Earned Leave', label: 'Earned Leave' },
-  { value: 'Maternity Leave', label: 'Maternity Leave' },
-  { value: 'Paternity Leave', label: 'Paternity Leave' },
+  { value: 'Leave Without Pay', label: 'Leave Without Pay' },
 ];
 
 type SortKey = 'employee' | 'startDate' | 'days';
@@ -33,41 +34,24 @@ interface LeaveRequest {
   startDate: string;
   endDate: string;
   days: number;
+  isInformed: boolean;
+  isEmergency: boolean;
+  paidDays: number;
+  lwpDays: number;
+  plannedDays: number;
+  unplannedDays: number;
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
   appliedOn: string;
 }
 
-const initialData: LeaveRequest[] = [
-  { id: 1, employee: 'Rahul Sharma', department: 'Delivery', leaveType: 'Sick Leave', startDate: '2026-07-10', endDate: '2026-07-12', days: 3, reason: 'Fever and cold', status: 'approved', appliedOn: '2026-07-08' },
-  { id: 2, employee: 'Priya Patil', department: 'Operations', leaveType: 'Casual Leave', startDate: '2026-07-14', endDate: '2026-07-14', days: 1, reason: 'Personal work', status: 'pending', appliedOn: '2026-07-12' },
-  { id: 3, employee: 'Amit Deshmukh', department: 'Warehouse', leaveType: 'Earned Leave', startDate: '2026-07-18', endDate: '2026-07-22', days: 5, reason: 'Family vacation', status: 'pending', appliedOn: '2026-07-10' },
-  { id: 4, employee: 'Sneha Kulkarni', department: 'Office Admin', leaveType: 'Sick Leave', startDate: '2026-07-05', endDate: '2026-07-06', days: 2, reason: 'Doctor appointment', status: 'approved', appliedOn: '2026-07-04' },
-  { id: 5, employee: 'Vikram Jadhav', department: 'Delivery', leaveType: 'Casual Leave', startDate: '2026-07-20', endDate: '2026-07-20', days: 1, reason: 'Bank work', status: 'rejected', appliedOn: '2026-07-15' },
-  { id: 6, employee: 'Neha Gaikwad', department: 'Operations', leaveType: 'Maternity Leave', startDate: '2026-08-01', endDate: '2027-01-28', days: 180, reason: 'Maternity', status: 'approved', appliedOn: '2026-06-20' },
-  { id: 7, employee: 'Suresh More', department: 'Delivery', leaveType: 'Sick Leave', startDate: '2026-07-15', endDate: '2026-07-15', days: 1, reason: 'Migraine', status: 'pending', appliedOn: '2026-07-14' },
-  { id: 8, employee: 'Pooja Mane', department: 'Warehouse', leaveType: 'Casual Leave', startDate: '2026-07-25', endDate: '2026-07-26', days: 2, reason: 'Family function', status: 'pending', appliedOn: '2026-07-16' },
-  { id: 9, employee: 'Rajesh Kumar', department: 'Delivery', leaveType: 'Earned Leave', startDate: '2026-07-28', endDate: '2026-07-30', days: 3, reason: 'Personal reasons', status: 'approved', appliedOn: '2026-07-11' },
-  { id: 10, employee: 'Kavita Shinde', department: 'Office Admin', leaveType: 'Paternity Leave', startDate: '2026-07-21', endDate: '2026-07-25', days: 5, reason: 'Child birth', status: 'approved', appliedOn: '2026-07-01' },
-  { id: 11, employee: 'Anil Rathod', department: 'Delivery', leaveType: 'Sick Leave', startDate: '2026-07-08', endDate: '2026-07-09', days: 2, reason: 'Stomach ache', status: 'rejected', appliedOn: '2026-07-07' },
-  { id: 12, employee: 'Meena Yadav', department: 'Operations', leaveType: 'Casual Leave', startDate: '2026-07-22', endDate: '2026-07-22', days: 1, reason: 'Urgent work at home', status: 'pending', appliedOn: '2026-07-17' },
-  { id: 13, employee: 'Deepak Verma', department: 'Warehouse', leaveType: 'Earned Leave', startDate: '2026-08-05', endDate: '2026-08-08', days: 4, reason: 'Trip planned', status: 'pending', appliedOn: '2026-07-17' },
-  { id: 14, employee: 'Sunita Bhosale', department: 'Delivery', leaveType: 'Sick Leave', startDate: '2026-07-16', endDate: '2026-07-17', days: 2, reason: 'Back pain', status: 'approved', appliedOn: '2026-07-15' },
-  { id: 15, employee: 'Ramesh Naik', department: 'Office Admin', leaveType: 'Casual Leave', startDate: '2026-07-29', endDate: '2026-07-29', days: 1, reason: 'Personal work', status: 'pending', appliedOn: '2026-07-17' },
-];
-
 const PAGE_SIZE = 10;
 
-function loadRequests(): LeaveRequest[] {
-  try {
-    const stored = localStorage.getItem('leaveRequests');
-    if (stored) return JSON.parse(stored) as LeaveRequest[];
-  } catch {}
-  return initialData;
-}
-
 function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const parts = d.split('T')[0].split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return d;
+  const [y, m, day] = parts;
+  return new Date(y, m - 1, day).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function statusBadge(status: string) {
@@ -78,6 +62,7 @@ function statusBadge(status: string) {
 }
 
 export default function LeaveRequest() {
+  const { token } = useAuth();
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -85,27 +70,121 @@ export default function LeaveRequest() {
   const [sortBy, setSortBy] = useState<SortKey>('startDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
-  const [requests, setRequests] = useState<LeaveRequest[]>(loadRequests);
-  const [actionTarget, setActionTarget] = useState<{ id: number; action: 'approved' | 'rejected' } | null>(null);
+  const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [leaveTypes, setLeaveTypes] = useState<{ id: number; name: string }[]>([]);
+  const [actionTarget, setActionTarget] = useState<{ id: number; action: 'approved' | 'rejected'; comment: string; isEmergencyOverride: boolean } | null>(null);
+  const [viewTarget, setViewTarget] = useState<LeaveRequest | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LeaveRequest | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [toast, setToast] = useState('');
+  const [loadError, setLoadError] = useState('');
 
-  useEffect(() => { localStorage.setItem('leaveRequests', JSON.stringify(requests)); }, [requests]);
+  const showToast = (msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(''), 2500);
+  };
+
+  useEffect(() => {
+    if (!token) return;
+    (async () => {
+      try {
+        const types = await listLeaveTypes(token);
+        setLeaveTypes(types);
+      } catch (e) {
+        console.error('Failed to load leave types:', e);
+      }
+    })();
+  }, [token]);
+
+  const typeOptions = useMemo(() => [
+    { value: 'all', label: 'All Types' },
+    ...leaveTypes.map((t) => ({ value: t.name, label: t.name })),
+  ], [leaveTypes]);
+
+  const reloadRequests = useCallback(async () => {
+    if (!token) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      const data = await listLeaveRequests(token);
+      setRequests(
+        data.map((r) => ({
+          id: r.id,
+          employee: r.employee_name || r.employee_email || `User #${r.user_id}`,
+          department: 'Staff',
+          leaveType: r.leave_type_name || `Type #${r.leave_type_id}`,
+          startDate: r.start_date,
+          endDate: r.end_date,
+          days: r.days,
+          isInformed: r.is_informed ?? true,
+          isEmergency: r.is_emergency ?? false,
+          paidDays: r.paid_days ?? 0,
+          lwpDays: r.lwp_days ?? 0,
+          plannedDays: r.planned_days ?? 0,
+          unplannedDays: r.unplanned_days ?? 0,
+          reason: r.reason || '',
+          status: (r.status as any) || 'pending',
+          appliedOn: r.applied_on ? r.applied_on.split('T')[0] : r.start_date,
+        }))
+      );
+      setLoadError('');
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load leave requests');
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { reloadRequests(); }, [reloadRequests]);
 
   function handleAction(id: number, newStatus: 'approved' | 'rejected') {
-    setActionTarget({ id, action: newStatus });
+    const r = requests.find((req) => req.id === id);
+    setActionTarget({ id, action: newStatus, comment: '', isEmergencyOverride: r?.isEmergency || false });
   }
 
-  function confirmAction() {
-    if (!actionTarget) return;
-    setRequests((prev) => prev.map((r) => (r.id === actionTarget.id ? { ...r, status: actionTarget.action } : r)));
-    setActionTarget(null);
+  async function confirmAction() {
+    if (!actionTarget || !token) return;
+    const comment = actionTarget.comment.trim() || undefined;
+    try {
+      if (actionTarget.action === 'approved') {
+        await approveLeaveRequest(token, actionTarget.id, comment, actionTarget.isEmergencyOverride);
+        showToast('Leave request approved');
+      } else {
+        await rejectLeaveRequest(token, actionTarget.id, comment);
+        showToast('Leave request rejected');
+      }
+      await reloadRequests();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to resolve leave request');
+    } finally {
+      setActionTarget(null);
+    }
   }
+
+  async function confirmDeleteRequest() {
+    if (!deleteTarget || !token) return;
+    setDeleting(true);
+    try {
+      await withdrawLeaveRequest(token, deleteTarget.id);
+      showToast('Leave request deleted successfully');
+      setDeleteTarget(null);
+      await reloadRequests();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to delete leave request');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300);
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [statusFilter, typeFilter, searchDebounced]);
+  useEffect(() => { setPage(1); }, [statusFilter, typeFilter, searchDebounced, fromDate, toDate]);
 
   const filtered = useMemo(() => {
     let data = [...requests];
@@ -118,6 +197,13 @@ export default function LeaveRequest() {
     if (statusFilter !== 'all') data = data.filter((r) => r.status === statusFilter);
     if (typeFilter !== 'all') data = data.filter((r) => r.leaveType === typeFilter);
 
+    if (fromDate) {
+      data = data.filter((r) => r.startDate >= fromDate || r.endDate >= fromDate);
+    }
+    if (toDate) {
+      data = data.filter((r) => r.startDate <= toDate || r.endDate <= toDate);
+    }
+
     data.sort((a, b) => {
       let cmp = 0;
       if (sortBy === 'employee') cmp = a.employee.localeCompare(b.employee);
@@ -126,14 +212,14 @@ export default function LeaveRequest() {
       return sortOrder === 'asc' ? cmp : -cmp;
     });
     return data;
-  }, [requests, searchDebounced, statusFilter, typeFilter, sortBy, sortOrder]);
+  }, [requests, searchDebounced, statusFilter, typeFilter, fromDate, toDate, sortBy, sortOrder]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const startRow = (page - 1) * PAGE_SIZE + 1;
   const endRow = Math.min(page * PAGE_SIZE, filtered.length);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const hasFilters = search || statusFilter !== 'all' || typeFilter !== 'all';
+  const hasFilters = search || statusFilter !== 'all' || typeFilter !== 'all' || fromDate || toDate;
 
   function toggleSort(key: SortKey) {
     if (sortBy === key) setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
@@ -147,6 +233,12 @@ export default function LeaveRequest() {
 
   return (
     <div className="space-y-6">
+      {toast && (
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
+          className="fixed top-5 right-5 z-[9999] bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
+          <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
+        </motion.div>
+      )}
       <motion.header
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -181,7 +273,7 @@ export default function LeaveRequest() {
             className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
           />
         </div>
-        <div className="w-[160px]">
+        <div className="w-[140px]">
           <SearchableSelect
             value={statusFilter}
             onChange={setStatusFilter}
@@ -189,17 +281,40 @@ export default function LeaveRequest() {
             className="w-full"
           />
         </div>
-        <div className="w-[160px]">
+        <div className="w-[140px]">
           <SearchableSelect
             value={typeFilter}
             onChange={setTypeFilter}
-            options={TYPE_OPTIONS}
+            options={typeOptions}
             className="w-full"
           />
         </div>
+
+        {/* Date Pickers (From Date & To Date) */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1 text-xs">
+            <span className="text-[10px] text-zinc-400 font-bold uppercase">From</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="bg-transparent outline-none text-xs text-zinc-700 font-medium cursor-pointer [color-scheme:light]"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1 text-xs">
+            <span className="text-[10px] text-zinc-400 font-bold uppercase">To</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="bg-transparent outline-none text-xs text-zinc-700 font-medium cursor-pointer [color-scheme:light]"
+            />
+          </div>
+        </div>
+
         {hasFilters && (
           <button
-            onClick={() => { setSearch(''); setStatusFilter('all'); setTypeFilter('all'); }}
+            onClick={() => { setSearch(''); setStatusFilter('all'); setTypeFilter('all'); setFromDate(''); setToDate(''); }}
             className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors"
           >
             <XCircle size={12} />Clear
@@ -214,6 +329,20 @@ export default function LeaveRequest() {
         transition={{ delay: 0.1 }}
         className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden"
       >
+        {loadError && (
+          <div className="p-4 bg-rose-50/80 border-b border-rose-200 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-rose-900">
+              <XCircle size={16} className="text-rose-600 shrink-0" />
+              {loadError}
+            </div>
+            <button
+              onClick={reloadRequests}
+              className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-bold hover:bg-rose-700 transition-colors shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
@@ -261,43 +390,50 @@ export default function LeaveRequest() {
                       className="hover:bg-zinc-50/50 transition-colors"
                     >
                       <td className="px-4 py-3">
-                        <span className="text-xs font-bold text-zinc-900">{r.employee}</span>
+                        <span className="text-xs font-bold text-zinc-900 block">{r.employee}</span>
                       </td>
                       <td className="px-4 py-3 text-xs font-medium text-zinc-700">{r.leaveType}</td>
                       <td className="px-4 py-3 text-xs text-zinc-500 whitespace-nowrap">
                         {formatDate(r.startDate)}{r.startDate !== r.endDate ? ` – ${formatDate(r.endDate)}` : ''}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-zinc-100 text-[11px] font-bold text-zinc-700">
-                          {r.days}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg bg-zinc-100 text-xs font-bold text-zinc-800">
+                          {r.days} d
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-zinc-500 max-w-[160px] truncate">{r.reason}</td>
+                      <td className="px-4 py-3 text-xs text-zinc-500 max-w-[180px] truncate">{r.reason}</td>
                       <td className="px-4 py-3">{statusBadge(r.status)}</td>
                       <td className="px-4 py-3 text-[10px] text-zinc-400 whitespace-nowrap">{formatDate(r.appliedOn)}</td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
-                          <button className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="View">
-                            <Eye size={14} />
+                          <button onClick={() => setViewTarget(r)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer" title="View Details">
+                            <Eye size={16} />
                           </button>
-                          {r.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => handleAction(r.id, 'approved')}
-                                className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
-                                title="Accept"
-                              >
-                                <CheckCircle2 size={14} />
-                              </button>
-                              <button
-                                onClick={() => handleAction(r.id, 'rejected')}
-                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Reject"
-                              >
-                                <XCircle size={14} />
-                              </button>
-                            </>
+                          {(r.status === 'pending' || r.status === 'rejected') && (
+                            <button
+                              onClick={() => handleAction(r.id, 'approved')}
+                              className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                              title="Approve Request"
+                            >
+                              <CheckCircle2 size={16} />
+                            </button>
                           )}
+                          {(r.status === 'pending' || r.status === 'approved') && (
+                            <button
+                              onClick={() => handleAction(r.id, 'rejected')}
+                              className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                              title="Reject Request"
+                            >
+                              <XCircle size={16} />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setDeleteTarget(r)}
+                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Leave Request"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </td>
                     </motion.tr>
@@ -331,28 +467,35 @@ export default function LeaveRequest() {
                     </span>
                   </div>
                   <p className="text-[10px] text-zinc-500 line-clamp-1">{r.reason}</p>
-                  <div className="flex items-center gap-1 pt-1">
-                    <button className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="View">
-                      <Eye size={14} />
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <button onClick={() => setViewTarget(r)} className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer" title="View">
+                      <Eye size={18} />
                     </button>
-                    {r.status === 'pending' && (
-                      <>
-                        <button
-                          onClick={() => handleAction(r.id, 'approved')}
-                          className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
-                          title="Accept"
-                        >
-                          <CheckCircle2 size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleAction(r.id, 'rejected')}
-                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Reject"
-                        >
-                          <XCircle size={14} />
-                        </button>
-                      </>
+                    {(r.status === 'pending' || r.status === 'rejected') && (
+                      <button
+                        onClick={() => handleAction(r.id, 'approved')}
+                        className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                        title="Approve"
+                      >
+                        <CheckCircle2 size={18} />
+                      </button>
                     )}
+                    {(r.status === 'pending' || r.status === 'approved') && (
+                      <button
+                        onClick={() => handleAction(r.id, 'rejected')}
+                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                        title="Reject"
+                      >
+                        <XCircle size={18} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setDeleteTarget(r)}
+                      className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                      title="Delete"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 </motion.div>
               ))}
@@ -386,6 +529,82 @@ export default function LeaveRequest() {
         )}
       </motion.div>
 
+      {/* View Request Details Modal */}
+      {viewTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
+          onClick={() => setViewTarget(null)} role="dialog" aria-modal="true">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden"
+          >
+            <div className="p-5 border-b border-zinc-100 relative">
+              <button type="button" onClick={() => setViewTarget(null)}
+                className="absolute top-5 right-5 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+                <X size={18} />
+              </button>
+              <h3 className="text-base font-bold text-zinc-900">Leave Request Details</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">{viewTarget.employee} · {viewTarget.leaveType}</p>
+            </div>
+            <div className="p-5 space-y-3.5 text-xs">
+              <div className="grid grid-cols-2 gap-3 bg-zinc-50 p-3 rounded-xl border border-zinc-100">
+                <div>
+                  <span className="text-[10px] text-zinc-400 font-bold uppercase block mb-0.5">Dates</span>
+                  <span className="font-bold text-zinc-800">{formatDate(viewTarget.startDate)} {viewTarget.startDate !== viewTarget.endDate ? `– ${formatDate(viewTarget.endDate)}` : ''}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-zinc-400 font-bold uppercase block mb-0.5">Total Duration</span>
+                  <span className="font-bold text-zinc-800">{viewTarget.days} Day(s)</span>
+                </div>
+              </div>
+
+              {/* Notice & Application Timing */}
+              <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500 font-semibold">Application Timing:</span>
+                  {viewTarget.startDate < viewTarget.appliedOn ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                      ⚠️ Late Application (Applied after taking leave)
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      ✓ On-Time Application (Informed in advance)
+                    </span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500 font-semibold">Calculated Breakdown:</span>
+                  <span className="font-bold text-zinc-900">
+                    {viewTarget.paidDays > 0 ? `${viewTarget.paidDays} Paid` : ''}
+                    {viewTarget.paidDays > 0 && viewTarget.lwpDays > 0 ? ' + ' : ''}
+                    {viewTarget.lwpDays > 0 ? `${viewTarget.lwpDays} LWP` : ''}
+                    {viewTarget.paidDays === 0 && viewTarget.lwpDays === 0 ? `${viewTarget.days}d` : ''}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] text-zinc-400 font-bold uppercase block mb-1">Reason</span>
+                <p className="text-zinc-700 bg-zinc-50 p-2.5 rounded-lg border border-zinc-100 leading-relaxed">{viewTarget.reason || 'No reason provided'}</p>
+              </div>
+
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-zinc-500 font-semibold">Status:</span>
+                {statusBadge(viewTarget.status)}
+              </div>
+            </div>
+            <div className="px-5 py-3 flex justify-end bg-zinc-50/80">
+              <button type="button" onClick={() => setViewTarget(null)}
+                className="px-4 py-1.5 rounded-xl bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 transition-colors">
+                Close
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Approve / Reject Action Modal */}
       {actionTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
           onClick={() => setActionTarget(null)} role="dialog" aria-modal="true">
@@ -403,22 +622,92 @@ export default function LeaveRequest() {
               <h3 className="text-lg font-bold text-zinc-900">
                 {actionTarget.action === 'approved' ? 'Approve' : 'Reject'} leave request?
               </h3>
-              <p className="text-sm text-zinc-600 mt-2">
+              <p className="text-sm text-zinc-600 mt-1">
                 <span className="font-semibold text-zinc-800">
                   {requests.find((r) => r.id === actionTarget.id)?.employee}
                 </span>
                 {' · '}
                 {requests.find((r) => r.id === actionTarget.id)?.leaveType}
               </p>
+
+              {/* Request Notice & Breakdown Summary */}
+              {(() => {
+                const req = requests.find((r) => r.id === actionTarget.id);
+                if (!req) return null;
+                const isLate = req.startDate < req.appliedOn;
+                return (
+                  <div className="mt-3 bg-zinc-50 border border-zinc-200 rounded-xl p-3 space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-zinc-500 font-semibold">Application Timing:</span>
+                      {isLate ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                          ⚠️ Late Application
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          ✓ On-Time Application
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-zinc-500 font-semibold">Calculated Breakdown:</span>
+                      <span className="font-bold text-zinc-900">
+                        {req.paidDays > 0 ? `${req.paidDays} Paid` : ''}
+                        {req.paidDays > 0 && req.lwpDays > 0 ? ' + ' : ''}
+                        {req.lwpDays > 0 ? `${req.lwpDays} LWP` : ''}
+                        {req.paidDays === 0 && req.lwpDays === 0 ? `${req.days}d` : ''}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
               <p className="text-xs text-red-600 font-medium mt-2">This action cannot be undone.</p>
             </div>
-            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
+            <div className="px-6 py-4 space-y-3">
+              {actionTarget.action === 'approved' && (
+                <div
+                  onClick={() => setActionTarget({ ...actionTarget, isEmergencyOverride: !actionTarget.isEmergencyOverride })}
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer select-none transition-all ${actionTarget.isEmergencyOverride ? 'bg-purple-100/80 border-purple-400 shadow-sm' : 'bg-purple-50/50 border-purple-200'}`}
+                >
+                  <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-all ${actionTarget.isEmergencyOverride ? 'bg-purple-700 border-purple-700 text-white' : 'bg-white border-purple-300'}`}>
+                    {actionTarget.isEmergencyOverride && <Check size={14} strokeWidth={3} />}
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                      <ShieldAlert size={14} className="text-purple-700" />
+                      Emergency Exception Override
+                    </span>
+                    <span className="text-[11px] text-purple-800/80 block leading-tight mt-0.5">
+                      Waive the 2 paid days/month limit for this request and convert LWP days to Paid using the employee's yearly balance.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 mb-1.5">
+                  Reason / Notes (optional)
+                </label>
+                <textarea
+                  value={actionTarget.comment}
+                  onChange={(e) => setActionTarget({ ...actionTarget, comment: e.target.value })}
+                  placeholder={
+                    actionTarget.action === 'rejected'
+                      ? 'Add an optional reason for rejection...'
+                      : 'Add an optional note...'
+                  }
+                  rows={3}
+                  className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-xl bg-zinc-50 outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all resize-none"
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 flex gap-2 justify-end bg-zinc-50/80">
               <button type="button" onClick={() => setActionTarget(null)}
                 className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
                 Cancel
               </button>
               <button type="button" onClick={confirmAction}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold transition-colors ${actionTarget.action === 'approved' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'}`}>
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${actionTarget.action === 'approved' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'}`}>
                 {actionTarget.action === 'approved' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
                 {actionTarget.action === 'approved' ? 'Approve' : 'Reject'}
               </button>
@@ -426,6 +715,45 @@ export default function LeaveRequest() {
           </motion.div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl space-y-4"
+            >
+              <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+                <Trash2 size={24} />
+              </div>
+              <div className="text-center space-y-1">
+                <h3 className="text-base font-bold text-zinc-900">Delete Leave Request?</h3>
+                <p className="text-xs text-zinc-500">
+                  Are you sure you want to delete the leave request for <strong className="text-zinc-800">{deleteTarget.employee}</strong> ({deleteTarget.leaveType}, {deleteTarget.days}d)? This action cannot be undone.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  className="flex-1 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteRequest}
+                  disabled={deleting}
+                  className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {deleting ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

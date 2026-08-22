@@ -1,10 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Calendar, Plus, Search, XCircle, ToggleLeft, ToggleRight,
-  Pencil, Trash2, X, CheckCircle2,
+  Pencil, Trash2, X, CheckCircle2, Loader2,
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { listLeavePeriods, updateLeavePeriod, deleteLeavePeriod } from '../../lib/hrmsLeave';
 
 interface LeavePeriodItem {
   id: number;
@@ -14,28 +16,38 @@ interface LeavePeriodItem {
   isActive: boolean;
 }
 
-const initialPeriods: LeavePeriodItem[] = [
-  { id: 1, label: 'FY 2025–2026', startDate: '2025-04-01', endDate: '2026-03-31', isActive: false },
-  { id: 2, label: 'FY 2026–2027', startDate: '2026-04-01', endDate: '2027-03-31', isActive: true },
-];
-
 export default function LeavePeriod() {
   const navigate = useNavigate();
+  const { token } = useAuth();
+
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
-  const [periods, setPeriods] = useState<LeavePeriodItem[]>(() => {
-    try {
-      const stored = localStorage.getItem('leavePeriods');
-      return stored ? JSON.parse(stored) : initialPeriods;
-    } catch {
-      return initialPeriods;
-    }
-  });
+  const [periods, setPeriods] = useState<LeavePeriodItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<LeavePeriodItem | null>(null);
 
-  useEffect(() => {
-    localStorage.setItem('leavePeriods', JSON.stringify(periods));
-  }, [periods]);
+  const reloadPeriods = useCallback(async () => {
+    if (!token) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      const data = await listLeavePeriods(token);
+      setPeriods(
+        data.map((p) => ({
+          id: p.id,
+          label: p.label,
+          startDate: p.start_date,
+          endDate: p.end_date,
+          isActive: p.is_active,
+        }))
+      );
+    } catch (e) {
+      console.error('Failed to load leave periods:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { reloadPeriods(); }, [reloadPeriods]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300);
@@ -50,16 +62,26 @@ export default function LeavePeriod() {
 
   const activePeriod = periods.find((p) => p.isActive);
 
-  function toggleActive(id: number) {
-    setPeriods((prev) =>
-      prev.map((p) => ({ ...p, isActive: p.id === id }))
-    );
+  async function toggleActive(id: number) {
+    if (!token) return;
+    try {
+      await updateLeavePeriod(token, id, { is_active: true });
+      await reloadPeriods();
+    } catch (e) {
+      console.error('Failed to toggle active period:', e);
+    }
   }
 
-  function confirmDelete() {
-    if (!deleteTarget) return;
-    setPeriods((prev) => prev.filter((p) => p.id !== deleteTarget.id));
-    setDeleteTarget(null);
+  async function confirmDelete() {
+    if (!deleteTarget || !token) return;
+    try {
+      await deleteLeavePeriod(token, deleteTarget.id);
+      await reloadPeriods();
+    } catch (e) {
+      console.error('Failed to delete leave period:', e);
+    } finally {
+      setDeleteTarget(null);
+    }
   }
 
   const statCards = [

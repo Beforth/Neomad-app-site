@@ -125,6 +125,61 @@ const setNotificationsStore = (value: LocalNotification[]): void => {
   }
 };
 
+export function filterUserNotifications(all: any[], user: any): any[] {
+  if (!user) return [];
+  const isAdminOrManager = user.role === 'admin' || user.role === 'manager';
+
+  return all.filter((n: any) => {
+    const titleStr = String(n.title || n.category || n.type || '').toLowerCase();
+    const msgStr = String(n.message || '').toLowerCase();
+
+    // 1. Exclude invoice notifications
+    if (titleStr.includes('invoice') || msgStr.includes('invoice') || n.invoiceId) return false;
+
+    // 2. Exclude geofence, location tracking, and organizational surrounding monitoring logs
+    if (
+      titleStr.includes('premises') ||
+      msgStr.includes('premises') ||
+      (msgStr.includes('moved') && msgStr.includes('meters')) ||
+      titleStr.includes('geofence') ||
+      msgStr.includes('geofence') ||
+      titleStr.includes('surrounding') ||
+      msgStr.includes('surrounding')
+    ) {
+      return false;
+    }
+
+    if (isAdminOrManager) {
+      // ADMIN/MANAGER VIEW: Show all user-submitted requests (Attendance, Leave, Expenses)
+      // Exclude private notifications targeted strictly to non-admin staff members
+      if (Array.isArray(n.targetUserIds) && n.targetUserIds.length > 0 && !n.targetUserIds.includes(user.id)) {
+        return false;
+      }
+      return true;
+    } else {
+      // STAFF / NON-ADMIN VIEW: Show strictly their own personal notifications
+      if (Array.isArray(n.targetUserIds) && n.targetUserIds.length > 0) {
+        if (!n.targetUserIds.includes(user.id)) return false;
+      }
+
+      const notifUserId = n.userId ?? n.user_id;
+      if (notifUserId !== undefined && notifUserId !== null) {
+        if (Number(notifUserId) !== Number(user.id)) return false;
+      }
+
+      if (n.employeeName && user.username) {
+        if (String(n.employeeName).toLowerCase() !== String(user.username).toLowerCase()) return false;
+      }
+
+      const targets = Array.isArray(n.targets) ? n.targets : ['all'];
+      const matchesRole = targets.includes('all') || targets.includes(user.role || '');
+      if (!matchesRole) return false;
+
+      return true;
+    }
+  });
+}
+
 const pushSystemNotif = (
   title: string,
   message: string,
@@ -331,6 +386,7 @@ export const appApi = {
   },
 
   getNotifications: () => getNotificationsStore(),
+  getUserNotifications: (user: any) => filterUserNotifications(getNotificationsStore(), user),
   saveNotification: (n: any) => {
     const list = getNotificationsStore();
     if (n.notificationId && list.some((x: any) => String(x.notificationId) === String(n.notificationId))) {

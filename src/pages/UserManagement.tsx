@@ -288,7 +288,7 @@ export default function UserManagement() {
       <AnimatePresence>
         {toast && (
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="fixed top-6 right-6 z-99 bg-zinc-900 text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
+            className="fixed top-6 right-6 z-[9999] bg-zinc-900 text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
             <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
           </motion.div>
         )}

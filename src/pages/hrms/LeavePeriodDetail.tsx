@@ -1,55 +1,35 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Calendar, ToggleLeft, ToggleRight, ArrowLeft, Inbox } from 'lucide-react';
-
-interface LeavePeriodItem {
-  id: number;
-  label: string;
-  startDate: string;
-  endDate: string;
-  isActive: boolean;
-  holidayListId: number | null;
-}
-
-interface HolidayItem {
-  id: number;
-  name: string;
-  date: string;
-}
-
-interface HolidayList {
-  id: number;
-  name: string;
-  fromDate: string;
-  toDate: string;
-  holidays: HolidayItem[];
-}
+import { Calendar, ToggleLeft, ToggleRight, ArrowLeft, Inbox, Loader2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { getLeavePeriod, type LeavePeriodOut } from '../../lib/hrmsLeave';
 
 export default function LeavePeriodDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { token } = useAuth();
 
-  const period = useMemo(() => {
-    try {
-      const stored = localStorage.getItem('leavePeriods');
-      const periods: LeavePeriodItem[] = stored ? JSON.parse(stored) : [];
-      return periods.find((p) => p.id === Number(id)) || null;
-    } catch {
-      return null;
-    }
-  }, [id]);
+  const [period, setPeriod] = useState<LeavePeriodOut | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const holidayList = useMemo(() => {
-    if (!period?.holidayListId) return null;
-    try {
-      const stored = localStorage.getItem('holidayLists');
-      const lists: HolidayList[] = stored ? JSON.parse(stored) : [];
-      return lists.find((h) => h.id === period.holidayListId) || null;
-    } catch {
-      return null;
-    }
-  }, [period]);
+  useEffect(() => {
+    if (!token || !id) { setLoading(false); return; }
+    setLoading(true);
+    getLeavePeriod(token, Number(id))
+      .then((data) => setPeriod(data))
+      .catch(() => setPeriod(null))
+      .finally(() => setLoading(false));
+  }, [token, id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-zinc-400 gap-2">
+        <Loader2 className="w-5 h-5 animate-spin" />
+        <span className="text-xs font-bold">Loading leave period details...</span>
+      </div>
+    );
+  }
 
   if (!period) {
     return (
@@ -84,7 +64,7 @@ export default function LeavePeriodDetail() {
             <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{period.label}</h1>
             <p className="text-sm text-zinc-500 mt-0.5">Leave period details</p>
           </div>
-          {period.isActive ? (
+          {period.is_active ? (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600">
               <ToggleRight size={12} /> Active
             </span>
@@ -98,11 +78,11 @@ export default function LeavePeriodDetail() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { label: 'Start Date', value: period.startDate },
-          { label: 'End Date', value: period.endDate },
+          { label: 'Start Date', value: period.start_date },
+          { label: 'End Date', value: period.end_date },
           { label: 'Duration', value: `${(() => {
-            const s = new Date(period.startDate);
-            const e = new Date(period.endDate);
+            const s = new Date(period.start_date);
+            const e = new Date(period.end_date);
             const days = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
             return `${days} days`;
           })()}` },
@@ -125,7 +105,7 @@ export default function LeavePeriodDetail() {
         ))}
       </div>
 
-      {holidayList ? (
+      {period.holiday_list_id ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -134,16 +114,14 @@ export default function LeavePeriodDetail() {
         >
           <div className="p-4 border-b border-zinc-100 flex items-center justify-between">
             <div>
-              <h2 className="font-bold text-zinc-900 text-sm">{holidayList.name}</h2>
+              <h2 className="font-bold text-zinc-900 text-sm">{period.holiday_list_name || 'Linked Holiday List'}</h2>
               <p className="text-xs text-zinc-400 mt-0.5">
-                {holidayList.fromDate} → {holidayList.toDate}
-                <span className="mx-1.5">·</span>
-                {holidayList.holidays?.length ?? 0} holidays
+                {period.holidays?.length ?? 0} holidays
               </p>
             </div>
           </div>
 
-          {holidayList.holidays && holidayList.holidays.length > 0 ? (
+          {period.holidays && period.holidays.length > 0 ? (
             <>
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left">
@@ -154,12 +132,12 @@ export default function LeavePeriodDetail() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-50">
-                    {holidayList.holidays
+                    {period.holidays
                       .slice()
                       .sort((a, b) => a.date.localeCompare(b.date))
                       .map((h, i) => (
                         <motion.tr
-                          key={h.id}
+                          key={h.id || i}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: i * 0.02 }}
@@ -174,11 +152,11 @@ export default function LeavePeriodDetail() {
               </div>
 
               <div className="md:hidden divide-y divide-zinc-100">
-                {holidayList.holidays
+                {period.holidays
                   .slice()
                   .sort((a, b) => a.date.localeCompare(b.date))
-                  .map((h) => (
-                    <div key={h.id} className="p-4 flex items-center justify-between">
+                  .map((h, i) => (
+                    <div key={h.id || i} className="p-4 flex items-center justify-between">
                       <div>
                         <p className="text-xs font-bold text-zinc-900">{h.name}</p>
                         <p className="text-[10px] text-zinc-400 mt-0.5">{h.date}</p>

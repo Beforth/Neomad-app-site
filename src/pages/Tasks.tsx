@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import * as api from '../lib/api';
 import { TASKS_PAGE_SUBTITLE, TASKS_PAGE_TITLE } from '../components/tasks/TaskSectionFrame';
 import { TASK_STATUS_COLORS, assigneeName, type AssigneeLike } from './tasks/taskShared';
+import { formatDateTimeIST } from '../lib/timeUtils';
 import SearchableSelect from '../components/SearchableSelect';
 
 export default function Tasks() {
@@ -254,7 +255,7 @@ export default function Tasks() {
                 <div className="flex items-center justify-between text-xs pt-3 border-t border-zinc-50">
                   <div className="flex items-center gap-1.5 text-zinc-400">
                     <Clock size={12} />
-                    <span>{new Date(task.created_at).toLocaleString()}</span>
+                    <span>{formatDateTimeIST(task.created_at)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button type="button" onClick={() => navigate(`/tasks/${task.id}`)} className="text-emerald-500 font-bold hover:underline">
@@ -311,7 +312,7 @@ export default function Tasks() {
                       assigneeName(availableAssignees, task.assigned_to ?? undefined)
                     )}
                   </td>
-                  <td className="px-4 py-3 text-[10px] text-zinc-400">{new Date(task.created_at).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-[10px] text-zinc-400">{formatDateTimeIST(task.created_at)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <button

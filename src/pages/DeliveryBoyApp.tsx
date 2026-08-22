@@ -4,10 +4,12 @@ import { useSocket } from '../hooks/useSocket';
 import {
   Power, Clock, MapPin, ChevronRight, CheckCircle2, Truck,
   History, LayoutGrid, AlertCircle, Navigation, Upload, IndianRupee,
-  FileCheck, LogOut, XCircle, Camera, Bell, X, Map as MapIcon, Flag
+  FileCheck, LogOut, XCircle, Camera, Bell, X, Map as MapIcon, Flag,
+  Trash2, CheckSquare, Square
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { appApi } from '../lib/appApi';
+import { formatDateTimeIST } from '../lib/timeUtils';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -78,7 +80,24 @@ export default function DeliveryBoyApp() {
   const [submitError, setSubmitError] = useState<Record<number, string>>({});
   const [showNotifs, setShowNotifs] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [selectedUserNotifIds, setSelectedUserNotifIds] = useState<any[]>([]);
   const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null);
+
+  const userFeedRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleOutsideUserClick(event: MouseEvent) {
+      if (userFeedRef.current && !userFeedRef.current.contains(event.target as Node)) {
+        setSelectedUserNotifIds([]);
+      }
+    }
+    if (selectedUserNotifIds.length > 0) {
+      document.addEventListener('click', handleOutsideUserClick);
+    }
+    return () => {
+      document.removeEventListener('click', handleOutsideUserClick);
+    };
+  }, [selectedUserNotifIds.length]);
 
   // Modals
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -459,12 +478,47 @@ export default function DeliveryBoyApp() {
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 300 }} 
               onClick={(e) => e.stopPropagation()} className="bg-white rounded-t-3xl w-full max-w-md mx-auto max-h-[80vh] overflow-hidden flex flex-col">
               <div className="p-4 border-b border-zinc-100 flex items-center justify-between shrink-0">
-                <h3 className="text-lg font-bold text-zinc-900">Notifications</h3>
-                <button onClick={() => setShowNotifs(false)} className="p-2 rounded-lg text-zinc-400 hover:text-zinc-600 active:scale-95 transition-all">
-                  <X size={20} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-zinc-900">Notifications</h3>
+                  {notifications.length > 0 && (
+                    <span className="text-xs bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-md font-bold">
+                      {notifications.length}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {selectedUserNotifIds.length > 0 && (
+                    <button
+                      onClick={() => {
+                        selectedUserNotifIds.forEach((id) => appApi.deleteNotification(id));
+                        setSelectedUserNotifIds([]);
+                        const all = appApi.getNotifications();
+                        setNotifications(all.filter((n: any) => n.targetRole === 'delivery_boy' || n.targetRole === 'all' || n.userId === user?.id));
+                      }}
+                      className="flex items-center gap-1 text-xs font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 hover:bg-rose-100 transition-colors"
+                    >
+                      <Trash2 size={12} /> Delete ({selectedUserNotifIds.length})
+                    </button>
+                  )}
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={() => {
+                        notifications.forEach((n: any) => appApi.deleteNotification(n.id));
+                        setSelectedUserNotifIds([]);
+                        setNotifications([]);
+                      }}
+                      className="flex items-center gap-1 text-xs font-bold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-lg border border-zinc-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors"
+                      title="Clear all notifications"
+                    >
+                      <Trash2 size={12} /> Delete All
+                    </button>
+                  )}
+                  <button onClick={() => setShowNotifs(false)} className="p-2 rounded-lg text-zinc-400 hover:text-zinc-600 active:scale-95 transition-all">
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <div ref={userFeedRef} className="flex-1 overflow-y-auto p-4 space-y-3">
                 {notifications.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-400">
@@ -475,24 +529,55 @@ export default function DeliveryBoyApp() {
                 ) : (
                   notifications.map((notif: any) => {
                     const isRead = (notif.readBy || []).includes(user?.id);
+                    const isSelected = selectedUserNotifIds.includes(notif.id);
                     return (
-                      <div key={notif.id} className={`p-3 rounded-xl border transition-all ${isRead ? 'bg-white border-zinc-100' : 'bg-blue-50 border-blue-200'}`}
+                      <div
+                        key={notif.id}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer select-none flex items-start justify-between gap-3 ${
+                          isSelected
+                            ? 'bg-zinc-100 border-zinc-900 shadow-2xs'
+                            : isRead
+                            ? 'bg-white border-zinc-100 hover:bg-zinc-50'
+                            : 'bg-blue-50/70 border-blue-200 hover:bg-blue-50'
+                        }`}
                         onClick={() => {
                           if (!isRead) {
                             appApi.markNotifRead(notif.id, user?.id);
-                            setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, readBy: [...(n.readBy || []), user?.id] } : n));
+                            setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, readBy: [...(n.readBy || []), user?.id] } : n));
                           }
-                        }}>
-                        <div className="flex items-start gap-3">
+                          setSelectedUserNotifIds((prev) => prev.includes(notif.id) ? prev.filter((id) => id !== notif.id) : [...prev, notif.id]);
+                        }}
+                      >
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          <div className="mt-1 text-zinc-400 shrink-0">
+                            {isSelected ? <CheckSquare size={16} className="text-zinc-900" /> : <Square size={16} className="text-zinc-300" />}
+                          </div>
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${notif.priority === 'urgent' ? 'bg-red-100 text-red-600' : notif.priority === 'important' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
                             <Bell size={16} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="text-sm font-bold text-zinc-900">{notif.title}</h4>
                             <p className="text-xs text-zinc-600 mt-0.5">{notif.message}</p>
-                            <p className="text-[10px] text-zinc-400 mt-1">{new Date(notif.created_at).toLocaleString()}</p>
+                            <p className="text-[10px] text-zinc-400 mt-1">{formatDateTimeIST(notif.created_at)}</p>
                           </div>
-                          {!isRead && <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-1" />}
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {!isRead && <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              appApi.deleteNotification(notif.id);
+                              setSelectedUserNotifIds((prev) => prev.filter((id) => id !== notif.id));
+                              const all = appApi.getNotifications();
+                              setNotifications(all.filter((n: any) => n.targetRole === 'delivery_boy' || n.targetRole === 'all' || n.userId === user?.id));
+                            }}
+                            className="p-1 text-zinc-300 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                            title="Delete notification"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                       </div>
                     );
@@ -988,7 +1073,7 @@ export default function DeliveryBoyApp() {
                       <div className="text-right">
                         <p className="text-[13px] font-bold text-zinc-900">₹{Number(inv.amount).toLocaleString()}</p>
                         <p className="text-[9px] text-zinc-500">
-                          {inv.delivered_at ? new Date(inv.delivered_at).toLocaleString() : '—'}
+                          {formatDateTimeIST(inv.delivered_at)}
                         </p>
                       </div>
                     </div>

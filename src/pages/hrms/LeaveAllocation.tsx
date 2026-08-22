@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowLeft, Trash2, Inbox, Plus } from 'lucide-react';
+import { ArrowLeft, Trash2, Inbox, Plus, Loader2 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
+import { useAuth } from '../../context/AuthContext';
+import { getUsers } from '../../lib/api';
+import {
+  listLeaveTypes,
+  listLeavePolicies,
+  listLeaveAllocations,
+  createLeaveAllocation,
+  deleteLeaveAllocation,
+} from '../../lib/hrmsLeave';
 
-interface PolicyOption {
-  value: string;
-  label: string;
-}
-
-interface LeaveTypeOption {
+interface Option {
   value: string;
   label: string;
 }
@@ -26,52 +30,16 @@ interface AllocationItem {
   allocatedAt: string;
 }
 
-function loadPolicies(): PolicyOption[] {
-  try {
-    const stored = localStorage.getItem('leavePolicies');
-    if (!stored) return [];
-    const policies = JSON.parse(stored) as { id: number; name: string }[];
-    return policies.map((p) => ({ value: String(p.id), label: p.name }));
-  } catch {
-    return [];
-  }
-}
-
-function loadLeaveTypes(): LeaveTypeOption[] {
-  try {
-    const stored = localStorage.getItem('leaveTypes');
-    if (!stored) return [];
-    const types = JSON.parse(stored) as { id: number; name: string }[];
-    return types.map((t) => ({ value: String(t.id), label: t.name }));
-  } catch {
-    return [];
-  }
-}
-
-function loadAllocations(): AllocationItem[] {
-  try {
-    const stored = localStorage.getItem('leaveAllocations');
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-const mockEmployees = [
-  { value: 'Alice Johnson', label: 'Alice Johnson' },
-  { value: 'Bob Smith', label: 'Bob Smith' },
-  { value: 'Carol Davis', label: 'Carol Davis' },
-  { value: 'David Wilson', label: 'David Wilson' },
-  { value: 'Eva Martinez', label: 'Eva Martinez' },
-];
-
 const inputClass = "w-full px-3 py-2.5 text-xs border border-zinc-200 rounded-xl bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all";
 
 export default function LeaveAllocation() {
   const navigate = useNavigate();
+  const { token } = useAuth();
 
-  const [policyOptions, setPolicyOptions] = useState<PolicyOption[]>([]);
-  const [leaveTypeOptions, setLeaveTypeOptions] = useState<LeaveTypeOption[]>([]);
+  const [policyOptions, setPolicyOptions] = useState<Option[]>([]);
+  const [leaveTypeOptions, setLeaveTypeOptions] = useState<Option[]>([]);
+  const [employeeOptions, setEmployeeOptions] = useState<Option[]>([]);
+
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [selectedLeaveType, setSelectedLeaveType] = useState('');
   const [selectedPolicy, setSelectedPolicy] = useState('');
@@ -81,48 +49,86 @@ export default function LeaveAllocation() {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [allocations, setAllocations] = useState<AllocationItem[]>([]);
+  const [toast, setToast] = useState('');
 
-  useEffect(() => {
-    setPolicyOptions(loadPolicies());
-    setLeaveTypeOptions(loadLeaveTypes());
-    setAllocations(loadAllocations());
-  }, []);
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
 
-  const handleAllocate = () => {
-    if (!selectedEmployee || !selectedLeaveType || !selectedPolicy || totalDays <= 0 || !effectiveDate) return;
-    setSaving(true);
+  const reloadData = async () => {
+    if (!token) return;
+    try {
+      const [uData, tData, pData, aData] = await Promise.all([
+        getUsers(token),
+        listLeaveTypes(token),
+        listLeavePolicies(token),
+        listLeaveAllocations(token),
+      ]);
 
-    const policy = policyOptions.find((p) => p.value === selectedPolicy);
-    const leaveType = leaveTypeOptions.find((t) => t.value === selectedLeaveType);
-    const list = loadAllocations();
-    const newId = Math.max(...list.map((a) => a.id), 0) + 1;
-    list.push({
-      id: newId,
-      employeeName: selectedEmployee,
-      leaveType: leaveType?.label ?? 'Unknown',
-      policyName: policy?.label ?? 'Unknown',
-      totalDays,
-      carryForwardDays,
-      effectiveDate,
-      notes,
-      allocatedAt: new Date().toISOString().split('T')[0],
-    });
-    localStorage.setItem('leaveAllocations', JSON.stringify(list));
-    setAllocations(list);
-    setSelectedEmployee('');
-    setSelectedLeaveType('');
-    setSelectedPolicy('');
-    setTotalDays(0);
-    setCarryForwardDays(0);
-    setEffectiveDate('');
-    setNotes('');
-    setSaving(false);
+      setEmployeeOptions(
+        uData.map((u: any) => ({
+          value: String(u.id),
+          label: (u.full_name || u.email || `User #${u.id}`).trim(),
+        }))
+      );
+      setLeaveTypeOptions(tData.map((t) => ({ value: String(t.id), label: t.name })));
+      setPolicyOptions(pData.map((p) => ({ value: String(p.id), label: p.name })));
+      setAllocations(
+        aData.map((a) => ({
+          id: a.id,
+          employeeName: a.employee_name || a.employee_email || `User #${a.user_id}`,
+          leaveType: a.leave_type_name || `Type #${a.leave_type_id}`,
+          policyName: a.policy_name || 'Manual',
+          totalDays: a.total_days,
+          carryForwardDays: a.carry_forward_days || 0,
+          effectiveDate: a.effective_date,
+          notes: a.notes || '',
+          allocatedAt: a.created_at ? a.created_at.split('T')[0] : a.effective_date,
+        }))
+      );
+    } catch (e) {
+      console.error('Failed to load allocation data:', e);
+    }
   };
 
-  const removeAllocation = (id: number) => {
-    const list = allocations.filter((a) => a.id !== id);
-    setAllocations(list);
-    localStorage.setItem('leaveAllocations', JSON.stringify(list));
+  useEffect(() => { reloadData(); }, [token]);
+
+  const handleAllocate = async () => {
+    if (!selectedEmployee || !selectedLeaveType || totalDays <= 0 || !effectiveDate || !token) return;
+    setSaving(true);
+    try {
+      await createLeaveAllocation(token, {
+        user_id: Number(selectedEmployee),
+        leave_type_id: Number(selectedLeaveType),
+        policy_id: selectedPolicy ? Number(selectedPolicy) : undefined,
+        total_days: totalDays,
+        carry_forward_days: carryForwardDays,
+        effective_date: effectiveDate,
+        notes: notes || undefined,
+      });
+      showToast('Leave allocated successfully');
+      await reloadData();
+      setSelectedEmployee('');
+      setSelectedLeaveType('');
+      setSelectedPolicy('');
+      setTotalDays(0);
+      setCarryForwardDays(0);
+      setEffectiveDate('');
+      setNotes('');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to allocate leave');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeAllocation = async (id: number) => {
+    if (!token) return;
+    try {
+      await deleteLeaveAllocation(token, id);
+      setAllocations((prev) => prev.filter((a) => a.id !== id));
+      showToast('Allocation removed');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to remove allocation');
+    }
   };
 
   return (
@@ -169,7 +175,7 @@ export default function LeaveAllocation() {
               <SearchableSelect
                 value={selectedEmployee}
                 onChange={setSelectedEmployee}
-                options={mockEmployees}
+                options={employeeOptions}
                 placeholder="Choose an employee"
               />
             </div>

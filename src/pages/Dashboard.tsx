@@ -1,10 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Clock, CheckCircle2, XCircle, Truck,
   ArrowUpRight, Users,
-  RotateCcw, MapPin
+  RotateCcw, MapPin, X,
+  ArrowUpDown, ChevronUp, ChevronDown
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTrackingSocket } from '../hooks/useSocket';
 import { appApi } from '../lib/appApi';
@@ -31,6 +33,13 @@ export default function Dashboard() {
   const [deliveryBoys, setDeliveryBoys] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [recentDeliveries, setRecentDeliveries] = useState<any[]>([]);
+  const [detailCard, setDetailCard] = useState<any>(null);
+  const [detailItems, setDetailItems] = useState<any[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<string>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const navigate = useNavigate();
 
   const { subscribe, connected } = useTrackingSocket(Boolean(canLiveMap && token));
 
@@ -88,18 +97,84 @@ export default function Dashboard() {
   const mapCenter = averageCenterForMarkers(mapRiders, DEFAULT_MAP_CENTER);
 
   const allCards = [
-    { label: 'Total Boys', value: stats?.total_boys?.count || 0, icon: Users, color: 'blue', roles: ['admin', 'manager'], hideIfBoySelected: true },
-    { label: 'Pending', value: stats?.pending?.count || 0, icon: Clock, color: 'amber', roles: ['admin', 'manager'] },
-    { label: 'Assigned', value: stats?.assigned?.count || 0, icon: Truck, color: 'indigo', roles: ['admin', 'manager'] },
-    { label: 'Completed', value: stats?.completed?.count || 0, icon: CheckCircle2, color: 'emerald', roles: ['admin', 'manager'] },
-    { label: 'Cancelled', value: stats?.cancelled?.count || 0, icon: XCircle, color: 'red', roles: ['admin', 'manager'] },
-    { label: 'Return', value: stats?.return?.count || 0, icon: RotateCcw, color: 'purple', roles: ['admin', 'manager'] },
+    { key: 'total_boys', label: 'Total Boys', value: stats?.total_boys?.count || 0, icon: Users, color: 'blue', roles: ['admin', 'manager'], hideIfBoySelected: true },
+    { key: 'pending', label: 'Pending', value: stats?.pending?.count || 0, icon: Clock, color: 'amber', roles: ['admin', 'manager'], status: 'pending' },
+    { key: 'assigned', label: 'Assigned', value: stats?.assigned?.count || 0, icon: Truck, color: 'indigo', roles: ['admin', 'manager'], status: 'assigned' },
+    { key: 'completed', label: 'Completed', value: stats?.completed?.count || 0, icon: CheckCircle2, color: 'emerald', roles: ['admin', 'manager'], status: 'completed' },
+    { key: 'cancelled', label: 'Cancelled', value: stats?.cancelled?.count || 0, icon: XCircle, color: 'red', roles: ['admin', 'manager'], status: 'cancelled' },
+    { key: 'return', label: 'Return', value: stats?.return?.count || 0, icon: RotateCcw, color: 'purple', roles: ['admin', 'manager'], status: 'return' },
   ];
 
   const cards = allCards.filter(c => 
     c.roles.includes(user?.role || '') && 
     !(c.hideIfBoySelected && selectedBoyId !== 'all')
   );
+
+  const openCard = useCallback((card: any) => {
+    setDetailCard(card);
+    setDetailItems([]);
+    setDetailError(null);
+    setSortKey('name');
+    setSortOrder('asc');
+    if (card.key === 'total_boys') {
+      setDetailLoading(true);
+      if (token) {
+        appApi.getUsers()
+          .then((users: any[]) => setDetailItems(users.filter((u: any) => u.role === 'delivery_boy')))
+          .catch(() => setDetailItems(deliveryBoys))
+          .finally(() => setDetailLoading(false));
+      } else {
+        setDetailItems(deliveryBoys);
+        setDetailLoading(false);
+      }
+      return;
+    }
+    if (!token) {
+      setDetailLoading(false);
+      return;
+    }
+    setDetailLoading(true);
+    (async () => {
+      try {
+        const pageSize = 200;
+        const all: any[] = [];
+        for (let page = 1; page <= 10; page++) {
+          const r = await getInvoices(token, { status: card.status, page, page_size: pageSize });
+          all.push(...(r.items || []));
+          if ((r.items || []).length < pageSize || r.total != null && all.length >= r.total) break;
+        }
+        setDetailItems(all);
+      } catch (e) {
+        setDetailError(normalizeFetchError(e, card.label));
+      } finally {
+        setDetailLoading(false);
+      }
+    })();
+  }, [token, deliveryBoys]);
+
+  const BOY_SORT_FIELDS = [
+    { key: 'name', label: 'Name' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Phone' },
+  ];
+
+  const toggleSort = (key: string) => {
+    if (sortKey === key) setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortOrder('asc'); }
+  };
+
+  const sortedItems = useMemo(() => {
+    if (detailCard?.key !== 'total_boys') return detailItems;
+    const dir = sortOrder === 'asc' ? 1 : -1;
+    const str = (v: any) => (v ?? '').toString().toLowerCase();
+    return [...detailItems].sort((a, b) => {
+      let va = ''; let vb = '';
+      if (sortKey === 'email') { va = str(a.email); vb = str(b.email); }
+      else if (sortKey === 'phone') { va = str(a.phone); vb = str(b.phone); }
+      else { va = str(a.username); vb = str(b.username); }
+      return va < vb ? -dir : va > vb ? dir : 0;
+    });
+  }, [detailItems, detailCard, sortKey, sortOrder]);
 
   return (
     <div className="space-y-8">
@@ -161,7 +236,11 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            className="bg-white p-4 rounded-xl border border-zinc-100 shadow-sm hover:shadow-md transition-all group"
+            onClick={() => openCard(card)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCard(card); } }}
+            className="bg-white p-4 rounded-xl border border-zinc-100 shadow-sm hover:shadow-md transition-all group cursor-pointer"
           >
             <div className="flex items-center justify-between mb-2">
               <div className={`p-1.5 rounded-lg bg-${card.color}-50 text-${card.color}-600 group-hover:scale-110 transition-transform`}>
@@ -260,6 +339,112 @@ export default function Dashboard() {
           </div>
         </div>
         )}      </div>
+
+      <AnimatePresence>
+        {detailCard && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-zinc-900/50 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setDetailCard(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg bg-${detailCard.color}-50 text-${detailCard.color}-600`}>
+                    <detailCard.icon size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-zinc-900">{detailCard.label}</h3>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                      {detailCard.value} total
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setDetailCard(null)} className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" aria-label="Close">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {!detailLoading && !detailError && detailItems.length > 0 && detailCard.key === 'total_boys' && (
+                  <div className="flex items-center gap-1 flex-wrap px-4 pt-3 pb-2 border-b border-zinc-100 shrink-0">
+                    {BOY_SORT_FIELDS.map((f) => {
+                      const active = sortKey === f.key;
+                      return (
+                        <button
+                          key={f.key}
+                          onClick={() => toggleSort(f.key)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${active ? 'bg-zinc-900 text-white' : 'bg-zinc-50 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100'}`}
+                        >
+                          {f.label}
+                          {active ? (sortOrder === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />) : <ArrowUpDown size={12} className="opacity-50" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="overflow-y-auto p-3 flex-1">
+                {detailLoading ? (
+                  <div className="flex items-center justify-center py-16 text-sm text-zinc-400">Loading…</div>
+                ) : detailError ? (
+                  <div className="text-xs text-red-600 p-4">{detailError}</div>
+                ) : detailItems.length === 0 ? (
+                  <div className="text-center text-zinc-400 text-xs py-16">No {detailCard.label} records found.</div>
+                ) : detailCard.key === 'total_boys' ? (
+                  <div className="space-y-2">
+                    {sortedItems.map((b) => (
+                      <div key={b.id} className="flex items-center justify-between p-3 rounded-lg bg-zinc-50 border border-zinc-100">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center border border-zinc-200 shadow-sm shrink-0">
+                            <Users size={14} className="text-zinc-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-zinc-900 truncate">{b.username}</p>
+                            <p className="text-[10px] text-zinc-500 truncate">{b.email}{b.phone ? ` • ${b.phone}` : ''}</p>
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Delivery Boy</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {detailItems.map((inv) => (
+                      <button
+                        key={inv.id}
+                        onClick={() => navigate(`/invoices/${inv.id}`)}
+                        className="w-full text-left flex items-center justify-between p-3 rounded-lg bg-zinc-50 border border-zinc-100 hover:bg-zinc-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center border border-zinc-200 shadow-sm shrink-0">
+                            <Truck size={14} className="text-zinc-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-zinc-900 truncate">{inv.invoice_number}</p>
+                            <p className="text-[10px] text-zinc-500 truncate">{inv.hospital_name}{inv.assignee_name ? ` • ${inv.assignee_name}` : ''}</p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs font-bold text-zinc-900">₹{Number(inv.amount || 0).toLocaleString()}</p>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-zinc-100 text-zinc-600 capitalize">{inv.status}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

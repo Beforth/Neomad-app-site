@@ -43,11 +43,11 @@ const MONTHLY_EXPENSES = [
 ];
 
 const LEAVE_REQUESTS = [
-  { id: 1, staff: 'Amit Tandon', type: 'Sick Leave', dates: 'Jul 15 - Jul 16', status: 'pending' },
-  { id: 2, staff: 'Meena Devi', type: 'Casual Leave', dates: 'Jul 18 - Jul 19', status: 'approved' },
+  { id: 1, staff: 'Amit Tandon', type: 'Medical Leave', dates: 'Jul 15 - Jul 16', status: 'pending' },
+  { id: 2, staff: 'Meena Devi', type: 'Privileged Leave', dates: 'Jul 18 - Jul 19', status: 'approved' },
   { id: 3, staff: 'Ravi Kumar', type: 'Earned Leave', dates: 'Jul 20 - Jul 22', status: 'approved' },
-  { id: 4, staff: 'Sneha Patil', type: 'Sick Leave', dates: 'Jul 14', status: 'rejected' },
-  { id: 5, staff: 'Vikram Joshi', type: 'Casual Leave', dates: 'Jul 21 - Jul 22', status: 'pending' },
+  { id: 4, staff: 'Sneha Patil', type: 'Medical Leave', dates: 'Jul 14', status: 'rejected' },
+  { id: 5, staff: 'Vikram Joshi', type: 'Privileged Leave', dates: 'Jul 21 - Jul 22', status: 'pending' },
 ];
 
 const LEAVE_STATUS_STYLES: Record<string, string> = {

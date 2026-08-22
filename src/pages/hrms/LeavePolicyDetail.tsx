@@ -3,9 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Tag, Calendar, ArrowRightLeft, Clock,
-  Search, XCircle, ArrowUpDown, ChevronUp, ChevronDown, Inbox,
+  Search, XCircle, ArrowUpDown, ChevronUp, ChevronDown, Inbox, Loader2,
 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
+import { useAuth } from '../../context/AuthContext';
+import { getLeavePolicy, type LeavePolicyOut } from '../../lib/hrmsLeave';
 
 const CARRY_FORWARD_OPTIONS = [
   { value: 'all', label: 'All' },
@@ -24,18 +26,10 @@ interface PolicyItem {
   description: string;
 }
 
-interface SavedPolicy {
-  id: number;
-  name: string;
-  description: string;
-  effectiveDate: string;
-  status: 'active' | 'inactive';
-  entitlements: { leaveTypeName: string; days: number; carryForward: boolean; maxContinuous: number; description: string }[];
-}
-
 export default function LeavePolicyDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { token } = useAuth();
 
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
@@ -43,7 +37,8 @@ export default function LeavePolicyDetail() {
   const [sortBy, setSortBy] = useState<SortKey>('type');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [entitlements, setEntitlements] = useState<PolicyItem[]>([]);
-  const [policy, setPolicy] = useState<SavedPolicy | null>(null);
+  const [policy, setPolicy] = useState<LeavePolicyOut | null>(null);
+  const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
@@ -52,25 +47,29 @@ export default function LeavePolicyDetail() {
   }, [search]);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('leavePolicies');
-      if (!stored) { setNotFound(true); return; }
-      const policies: SavedPolicy[] = JSON.parse(stored);
-      const found = policies.find((p) => p.id === Number(id));
-      if (!found) { setNotFound(true); return; }
-      setPolicy(found);
-      setEntitlements(found.entitlements.map((e, i) => ({
-        id: i + 1,
-        type: e.leaveTypeName,
-        days: e.days,
-        carryForward: e.carryForward,
-        maxContinuous: e.maxContinuous,
-        description: e.description,
-      })));
-    } catch {
-      setNotFound(true);
-    }
-  }, [id]);
+    if (!token || !id) { setLoading(false); return; }
+    setLoading(true);
+    getLeavePolicy(token, Number(id))
+      .then((data) => {
+        setPolicy(data);
+        setEntitlements(
+          (data.entitlements || []).map((e, i) => ({
+            id: e.id || i + 1,
+            type: e.leave_type_name || `Leave Type ${e.leave_type_id}`,
+            days: e.days,
+            carryForward: e.carry_forward,
+            maxContinuous: e.max_continuous,
+            description: e.description || '',
+          }))
+        );
+      })
+      .catch(() => {
+        setNotFound(true);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [token, id]);
 
   const filtered = useMemo(() => {
     let data = [...entitlements];
@@ -102,7 +101,16 @@ export default function LeavePolicyDetail() {
     return sortOrder === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />;
   }
 
-  if (notFound) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-zinc-400 gap-2">
+        <Loader2 className="w-5 h-5 animate-spin" />
+        <span className="text-xs font-bold">Loading leave policy details...</span>
+      </div>
+    );
+  }
+
+  if (notFound || !policy) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -117,13 +125,11 @@ export default function LeavePolicyDetail() {
     );
   }
 
-  if (!policy) return null;
-
   const statCards = [
     { label: 'Total Types', value: entitlements.length, icon: Tag, color: 'bg-blue-50 text-blue-600' },
-    { label: 'Annual Days', value: entitlements.reduce((s, r) => s + r.days, 0), icon: Calendar, color: 'bg-emerald-50 text-emerald-600' },
+    { label: 'Max Paid / Month', value: policy.max_paid_leaves ? `${policy.max_paid_leaves} Days/mo` : 'Not Limited', icon: Calendar, color: 'bg-emerald-50 text-emerald-600' },
+    { label: 'Max Unpaid / Month', value: policy.max_unpaid_leaves ? `${policy.max_unpaid_leaves} Days/mo` : 'Not Limited', icon: Calendar, color: 'bg-zinc-100 text-zinc-700' },
     { label: 'Carry Forward', value: entitlements.filter((r) => r.carryForward).length, icon: ArrowRightLeft, color: 'bg-amber-50 text-amber-600' },
-    { label: 'Max Continuous', value: Math.max(...entitlements.map((r) => r.maxContinuous)), icon: Clock, color: 'bg-rose-50 text-rose-600' },
   ];
 
   return (
@@ -143,7 +149,7 @@ export default function LeavePolicyDetail() {
           <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{policy.name}</h1>
           <p className="text-xs text-zinc-500 font-medium mt-0.5">
             {policy.status === 'active' ? 'Active' : 'Inactive'}
-            {policy.effectiveDate ? ` · Effective ${policy.effectiveDate}` : ''}
+            {policy.effective_date ? ` · Effective ${policy.effective_date}` : ''}
             {policy.description ? ` · ${policy.description}` : ''}
           </p>
         </div>

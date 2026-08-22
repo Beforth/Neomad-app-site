@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Save } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { getLeaveType, createLeaveType, updateLeaveType } from '../../lib/hrmsLeave';
 
 interface FormState {
   name: string;
@@ -32,55 +34,6 @@ interface FormState {
   allocateOnCustomDate: string;
 }
 
-interface StoredItem extends FormState {
-  id: number;
-}
-
-const initialData: StoredItem[] = [
-  { id: 1, name: 'Sick Leave', leaveCode: 'SL', daysPerYear: 12, carryForward: true, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'For medical reasons and health issues', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
-  { id: 2, name: 'Casual Leave', leaveCode: 'CL', daysPerYear: 12, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'For personal work and short-term needs', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
-  { id: 3, name: 'Earned Leave', leaveCode: 'EL', daysPerYear: 20, carryForward: true, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: true, maxEncashableDays: 15, encashmentRatePercent: 100, description: 'Accumulated leave for vacation and long breaks', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: true, creditFrequency: 'monthly', allocateOnDate: '', allocateOnCustomDate: '' },
-  { id: 4, name: 'Maternity Leave', leaveCode: 'ML', daysPerYear: 180, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'For expecting and new mothers', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
-  { id: 5, name: 'Paternity Leave', leaveCode: 'PL', daysPerYear: 5, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'For new fathers', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
-  { id: 6, name: 'Bereavement Leave', leaveCode: 'BL', daysPerYear: 5, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'For loss of immediate family member', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
-  { id: 7, name: 'Unpaid Leave', leaveCode: 'UL', daysPerYear: 0, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: true, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'Leave without pay', status: 'active', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
-  { id: 8, name: 'Comp Off', leaveCode: 'CO', daysPerYear: 10, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: true, allowEncashment: false, maxEncashableDays: 0, encashmentRatePercent: 100, description: 'Compensatory off for weekend or holiday work', status: 'inactive', hasExpiry: false, expiryDays: 0, enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '' },
-];
-
-function loadTypes(): StoredItem[] {
-  try {
-    const stored = localStorage.getItem('leaveTypes');
-    if (stored) {
-      const parsed = JSON.parse(stored) as StoredItem[];
-      return parsed.map((item) => ({
-        ...item,
-        leaveCode: item.leaveCode ?? '',
-        carryForward: item.carryForward ?? false,
-        maxCarryForwardLeaves: item.maxCarryForwardLeaves ?? 0,
-        carryForwardExpiryDays: item.carryForwardExpiryDays ?? 0,
-        allowLeaveAfterDays: item.allowLeaveAfterDays ?? 0,
-        maxConsecutiveLeaves: item.maxConsecutiveLeaves ?? 0,
-        isLeaveWithoutPay: item.isLeaveWithoutPay ?? false,
-        isPartiallyPaidLeave: item.isPartiallyPaidLeave ?? false,
-        isOptionalLeave: item.isOptionalLeave ?? false,
-        allowNegativeBalance: item.allowNegativeBalance ?? false,
-        allowOverAllocating: item.allowOverAllocating ?? false,
-        includeHolidaysAsLeaves: item.includeHolidaysAsLeaves ?? false,
-        isCompensatory: item.isCompensatory ?? false,
-        allowEncashment: item.allowEncashment ?? false,
-        maxEncashableDays: item.maxEncashableDays ?? 0,
-        encashmentRatePercent: item.encashmentRatePercent ?? 100,
-        hasExpiry: item.hasExpiry ?? false,
-        expiryDays: item.expiryDays ?? 0,
-        enableEarnedLeave: item.enableEarnedLeave ?? false,
-        creditFrequency: item.creditFrequency ?? '',
-        allocateOnDate: item.allocateOnDate ?? '',
-      }));
-    }
-  } catch {}
-  return initialData;
-}
-
 const defaultForm: FormState = {
   name: '', leaveCode: '', daysPerYear: 0, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0,
   isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false,
@@ -106,17 +59,22 @@ const checkboxes = [
 
 export default function LeaveTypeForm() {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id } = useParams<{ id?: string }>();
   const isEdit = Boolean(id);
+  const { token } = useAuth();
 
   const [form, setForm] = useState<FormState>(defaultForm);
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [toast, setToast] = useState('');
   const codeEdited = useRef(false);
 
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+
   function generateLeaveCode(name: string): string {
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 0 || !name.trim()) return '';
+    const trimmed = name.trim();
+    if (!trimmed) return '';
+    const parts = trimmed.split(/\s+/);
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
     return parts.map((w) => w[0]).join('').toUpperCase().slice(0, 4);
   }
@@ -127,54 +85,88 @@ export default function LeaveTypeForm() {
   }, [form.name]);
 
   useEffect(() => {
-    if (!isEdit) return;
-    const types = loadTypes();
-    const item = types.find((t) => t.id === Number(id));
-    if (!item) { setNotFound(true); return; }
-    codeEdited.current = true;
-    setForm({
-      name: item.name, leaveCode: item.leaveCode ?? '', daysPerYear: item.daysPerYear,
-      carryForward: item.carryForward ?? false,
-      maxCarryForwardLeaves: item.maxCarryForwardLeaves ?? 0,
-      carryForwardExpiryDays: item.carryForwardExpiryDays ?? 0,
-      allowLeaveAfterDays: item.allowLeaveAfterDays ?? 0,
-      maxConsecutiveLeaves: item.maxConsecutiveLeaves ?? 0,
-      isLeaveWithoutPay: item.isLeaveWithoutPay ?? false,
-      isPartiallyPaidLeave: item.isPartiallyPaidLeave ?? false,
-      isOptionalLeave: item.isOptionalLeave ?? false,
-      allowNegativeBalance: item.allowNegativeBalance ?? false,
-      allowOverAllocating: item.allowOverAllocating ?? false,
-      includeHolidaysAsLeaves: item.includeHolidaysAsLeaves ?? false,
-      isCompensatory: item.isCompensatory ?? false,
-      allowEncashment: item.allowEncashment ?? false,
-      maxEncashableDays: item.maxEncashableDays ?? 0,
-      encashmentRatePercent: item.encashmentRatePercent ?? 100,
-      description: item.description, status: item.status,
-      hasExpiry: item.hasExpiry ?? false,
-      expiryDays: item.expiryDays ?? 0,
-      enableEarnedLeave: item.enableEarnedLeave ?? false,
-      creditFrequency: item.creditFrequency ?? '',
-      allocateOnDate: item.allocateOnDate ?? '',
-      allocateOnCustomDate: item.allocateOnCustomDate ?? '',
-    });
-  }, [id, isEdit]);
+    if (!isEdit || !token || !id) return;
+    (async () => {
+      try {
+        const item = await getLeaveType(token, Number(id));
+        codeEdited.current = true;
+        setForm({
+          name: item.name,
+          leaveCode: item.leave_code ?? '',
+          daysPerYear: item.days_per_year,
+          carryForward: item.carry_forward ?? false,
+          maxCarryForwardLeaves: item.max_carry_forward_leaves ?? 0,
+          carryForwardExpiryDays: item.carry_forward_expiry_days ?? 0,
+          allowLeaveAfterDays: item.allow_leave_after_days ?? 0,
+          maxConsecutiveLeaves: item.max_consecutive_leaves ?? 0,
+          isLeaveWithoutPay: item.is_leave_without_pay ?? false,
+          isPartiallyPaidLeave: item.is_partially_paid_leave ?? false,
+          isOptionalLeave: item.is_optional_leave ?? false,
+          allowNegativeBalance: item.allow_negative_balance ?? false,
+          allowOverAllocating: item.allow_over_allocating ?? false,
+          includeHolidaysAsLeaves: item.include_holidays_as_leaves ?? false,
+          isCompensatory: item.is_compensatory ?? false,
+          allowEncashment: item.allow_encashment ?? false,
+          maxEncashableDays: item.max_encashable_days ?? 0,
+          encashmentRatePercent: item.encashment_rate_percent ?? 100,
+          description: item.description || '',
+          status: item.status || 'active',
+          hasExpiry: false,
+          expiryDays: 0,
+          enableEarnedLeave: item.enable_earned_leave ?? false,
+          creditFrequency: (item.earned_leave_frequency as any) || '',
+          allocateOnDate: (item.allocate_on_date as any) || '',
+          allocateOnCustomDate: item.allocate_on_custom_date || '',
+        });
+      } catch (e) {
+        setNotFound(true);
+      }
+    })();
+  }, [id, isEdit, token]);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || form.daysPerYear < 0) return;
+    if (!token) return;
     setSaving(true);
+    try {
+      const payload = {
+        name: form.name.trim() || 'Unnamed Leave Type',
+        leave_code: form.leaveCode ? form.leaveCode.trim() : '',
+        days_per_year: form.daysPerYear || 0,
+        carry_forward: form.carryForward,
+        max_carry_forward_leaves: form.maxCarryForwardLeaves || 0,
+        carry_forward_expiry_days: form.carryForwardExpiryDays || 0,
+        allow_leave_after_days: form.allowLeaveAfterDays || 0,
+        max_consecutive_leaves: form.maxConsecutiveLeaves || 0,
+        is_leave_without_pay: form.isLeaveWithoutPay,
+        is_partially_paid_leave: form.isPartiallyPaidLeave,
+        is_optional_leave: form.isOptionalLeave,
+        allow_negative_balance: form.allowNegativeBalance,
+        allow_over_allocating: form.allowOverAllocating,
+        include_holidays_as_leaves: form.includeHolidaysAsLeaves,
+        is_compensatory: form.isCompensatory,
+        enable_earned_leave: form.enableEarnedLeave,
+        earned_leave_frequency: form.enableEarnedLeave && form.creditFrequency ? form.creditFrequency : '',
+        allocate_on_date: form.enableEarnedLeave && form.allocateOnDate ? form.allocateOnDate : '',
+        allocate_on_custom_date: form.enableEarnedLeave && form.allocateOnDate === 'custom_date' && form.allocateOnCustomDate ? form.allocateOnCustomDate : '',
+        allow_encashment: form.allowEncashment,
+        max_encashable_days: form.maxEncashableDays || 0,
+        encashment_rate_percent: form.encashmentRatePercent || 100,
+        description: form.description ? form.description.trim() : '',
+        status: form.status || 'active',
+      };
 
-    const types = loadTypes();
-    if (isEdit) {
-      const idx = types.findIndex((t) => t.id === Number(id));
-      if (idx >= 0) types[idx] = { id: types[idx].id, ...form, name: form.name.trim() };
-    } else {
-      const newId = Math.max(...types.map((t) => t.id), 0) + 1;
-      types.push({ id: newId, ...form, name: form.name.trim(), description: '' });
+      if (isEdit) {
+        await updateLeaveType(token, Number(id), payload);
+      } else {
+        await createLeaveType(token, payload);
+      }
+      navigate('/hrms/leave/type');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to save leave type');
+    } finally {
+      setSaving(false);
     }
-    localStorage.setItem('leaveTypes', JSON.stringify(types));
-    setSaving(false);
-    navigate('/hrms/leave/type');
   };
 
   if (notFound) {
@@ -225,20 +217,49 @@ export default function LeaveTypeForm() {
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Leave Type Name *</label>
-                <input type="text" required value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Sick Leave" className={inputClass} />
+                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Leave Type Name</label>
+                <input type="text" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Medical Leave" className={inputClass} />
               </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Leave Code</label>
                 <input type="text" value={form.leaveCode}
                   onChange={(e) => { codeEdited.current = true; setForm((p) => ({ ...p, leaveCode: e.target.value })); }}
-                  placeholder="e.g. SL"
+                  placeholder="e.g. ML"
                   className={`${inputClass} uppercase`} />
               </div>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Days Per Year *</label>
-              <input type="number" required min={0} value={form.daysPerYear} onChange={(e) => setForm((p) => ({ ...p, daysPerYear: Math.max(0, parseInt(e.target.value) || 0) }))} className={inputClass} />
+              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Days Per Year</label>
+              <input type="number" min={0} value={form.daysPerYear} onChange={(e) => setForm((p) => ({ ...p, daysPerYear: Math.max(0, parseInt(e.target.value) || 0) }))} className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Description</label>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                placeholder="Enter a description for this leave category..."
+                rows={3}
+                className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Status</label>
+              <div className="flex items-center gap-2 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, status: 'active' }))}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${form.status === 'active' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
+                >
+                  Active
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, status: 'inactive' }))}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${form.status === 'inactive' ? 'bg-rose-600 text-white shadow-sm' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
+                >
+                  Inactive
+                </button>
+              </div>
             </div>
           </div>
         </motion.div>
@@ -267,22 +288,6 @@ export default function LeaveTypeForm() {
                   onChange={(e) => setForm((p) => ({ ...p, maxConsecutiveLeaves: Math.max(0, parseInt(e.target.value) || 0) }))}
                   className={inputClass} />
               </div>
-            </div>
-            <div>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${form.status === 'active' ? 'bg-zinc-900' : 'border-2 border-zinc-400 hover:border-zinc-600'}`}>
-                  <input type="checkbox" checked={form.status === 'active'}
-                    onChange={() => setForm((p) => ({ ...p, status: p.status === 'active' ? 'inactive' : 'active' }))}
-                    className="sr-only" />
-                  {form.status === 'active' && (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-                      className="w-3 h-3 pointer-events-none">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                </span>
-                <span className="text-sm text-zinc-700">Active</span>
-              </label>
             </div>
           </div>
         </motion.div>
@@ -523,7 +528,7 @@ export default function LeaveTypeForm() {
             className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
             Cancel
           </button>
-          <button type="submit" disabled={saving || !form.name.trim() || form.daysPerYear < 0}
+          <button type="submit" disabled={saving}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
             <Save size={16} /> {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Leave Type'}
           </button>

@@ -6,6 +6,8 @@ import {
   Search, XCircle, ArrowUpDown, ChevronUp, ChevronDown, Inbox, User,
 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
+import { useAuth } from '../../context/AuthContext';
+import { getLeavePolicyAssignment, getLeavePolicy, type LeavePolicyAssignmentOut, type LeavePolicyOut } from '../../lib/hrmsLeave';
 
 const CARRY_FORWARD_OPTIONS = [
   { value: 'all', label: 'All' },
@@ -24,48 +26,10 @@ interface PolicyItem {
   description: string;
 }
 
-interface Assignment {
-  id: number;
-  policyName: string;
-  employeeName: string;
-  assignedAt: string;
-}
-
-interface SavedPolicy {
-  id: number;
-  name: string;
-  description: string;
-  effectiveDate: string;
-  status: 'active' | 'inactive';
-  entitlements: { leaveTypeName: string; days: number; carryForward: boolean; maxContinuous: number; description: string }[];
-}
-
-const generalRules = [
-  { label: 'Casual Leave Notice', value: '1 day prior' },
-  { label: 'Planned Leave Notice', value: '7 days prior' },
-  { label: 'Max Consecutive Days', value: '3 days without approval' },
-  { label: 'Half-Day Policy', value: 'Available for Sick & Casual' },
-  { label: 'Probation Leave', value: 'Only Sick Leave allowed' },
-  { label: 'Leave Encashment', value: 'Not applicable' },
-];
-
-const approvalSteps = [
-  { step: 1, title: 'Employee Applies', desc: 'Submit leave request with reason and dates' },
-  { step: 2, title: 'Manager Reviews', desc: 'Approve or reject with comments' },
-  { step: 3, title: 'HR Approval', desc: 'Final approval for extended or special leaves' },
-  { step: 4, title: 'Record Updated', desc: 'Leave balance and attendance auto-updated' },
-];
-
-const carryForwardRules = [
-  { type: 'Sick Leave', limit: '5 days', expiry: 'June 30' },
-  { type: 'Earned Leave', limit: '10 days', expiry: 'June 30' },
-  { type: 'Casual Leave', value: 'Not applicable', expiry: '-' },
-  { type: 'Maternity Leave', value: 'Not applicable', expiry: '-' },
-];
-
 export default function LeavePolicyAssignDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { token } = useAuth();
 
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
@@ -73,7 +37,7 @@ export default function LeavePolicyAssignDetail() {
   const [sortBy, setSortBy] = useState<SortKey>('type');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [entitlements, setEntitlements] = useState<PolicyItem[]>([]);
-  const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [assignment, setAssignment] = useState<LeavePolicyAssignmentOut | null>(null);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
@@ -82,31 +46,30 @@ export default function LeavePolicyAssignDetail() {
   }, [search]);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('leavePolicyAssignments');
-      if (!stored) { setNotFound(true); return; }
-      const assignments: Assignment[] = JSON.parse(stored);
-      const found = assignments.find((a) => a.id === Number(id));
-      if (!found) { setNotFound(true); return; }
-      setAssignment(found);
-
-      const policiesStored = localStorage.getItem('leavePolicies');
-      if (!policiesStored) { setNotFound(true); return; }
-      const policies: SavedPolicy[] = JSON.parse(policiesStored);
-      const policy = policies.find((p) => p.name === found.policyName);
-      if (!policy) { setNotFound(true); return; }
-      setEntitlements(policy.entitlements.map((e, i) => ({
-        id: i + 1,
-        type: e.leaveTypeName,
-        days: e.days,
-        carryForward: e.carryForward,
-        maxContinuous: e.maxContinuous,
-        description: e.description,
-      })));
-    } catch {
-      setNotFound(true);
-    }
-  }, [id]);
+    if (!token || !id) return;
+    (async () => {
+      try {
+        const assignData = await getLeavePolicyAssignment(token, Number(id));
+        setAssignment(assignData);
+        if (assignData.policy_id) {
+          const polData = await getLeavePolicy(token, assignData.policy_id);
+          setEntitlements(
+            (polData.entitlements || []).map((e, i) => ({
+              id: e.id || i + 1,
+              type: e.leave_type_name || `Leave Type ${e.leave_type_id}`,
+              days: e.days,
+              carryForward: e.carry_forward,
+              maxContinuous: e.max_continuous,
+              description: e.description || '',
+            }))
+          );
+        }
+      } catch (e) {
+        console.error('Error fetching assignment detail:', e);
+        setNotFound(true);
+      }
+    })();
+  }, [token, id]);
 
   const filtered = useMemo(() => {
     let data = [...entitlements];
@@ -176,9 +139,24 @@ export default function LeavePolicyAssignDetail() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
         </button>
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{assignment.employeeName}</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{assignment.employee_name || assignment.employee_email}</h1>
+            {assignment.status === 'active' ? (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Active
+              </span>
+            ) : assignment.status === 'discontinued' ? (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                Discontinued (Same Year)
+              </span>
+            ) : (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-zinc-100 text-zinc-500 border border-zinc-200">
+                Inactive (Prev Year)
+              </span>
+            )}
+          </div>
           <p className="text-sm text-zinc-500 mt-0.5">
-            {assignment.policyName} · Assigned {assignment.assignedAt}
+            Policy: {assignment.policy_name} · Assigned {assignment.start_date}
           </p>
         </div>
       </motion.div>
@@ -195,10 +173,8 @@ export default function LeavePolicyAssignDetail() {
             <User size={18} className="text-zinc-500" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-zinc-900">{assignment.employeeName}</p>
-            <p className="text-xs text-zinc-400">
-              {assignment.policyName} · {assignment.assignedAt}
-            </p>
+            <p className="text-sm font-bold text-zinc-900">{assignment.employee_name || assignment.employee_email}</p>
+            <p className="text-xs text-zinc-400">Assigned Policy: {assignment.policy_name}</p>
           </div>
         </div>
       </motion.div>
@@ -267,7 +243,7 @@ export default function LeavePolicyAssignDetail() {
         className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
       >
         <div className="p-4 border-b border-zinc-100">
-          <h2 className="font-bold text-zinc-900 text-sm">Leave Entitlements — {assignment.policyName}</h2>
+          <h2 className="font-bold text-zinc-900 text-sm">Leave Entitlements — {assignment.policy_name}</h2>
           <p className="text-xs text-zinc-400 mt-0.5">Annual leave allocation per leave type</p>
         </div>
 
@@ -361,109 +337,6 @@ export default function LeavePolicyAssignDetail() {
         )}
       </motion.div>
 
-      {/* General Rules + Approval Workflow */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
-        >
-          <div className="p-4 border-b border-zinc-100 flex items-center gap-2">
-            <Info size={16} className="text-zinc-500" />
-            <h2 className="font-bold text-zinc-900 text-sm">General Rules</h2>
-          </div>
-          <div className="divide-y divide-zinc-50">
-            {generalRules.map((rule) => (
-              <div key={rule.label} className="px-4 py-3 flex items-center justify-between hover:bg-zinc-50/50 transition-colors">
-                <span className="text-xs text-zinc-500">{rule.label}</span>
-                <span className="text-xs font-bold text-zinc-900">{rule.value}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
-        >
-          <div className="p-4 border-b border-zinc-100 flex items-center gap-2">
-            <ChevronRight size={16} className="text-zinc-500" />
-            <h2 className="font-bold text-zinc-900 text-sm">Approval Workflow</h2>
-          </div>
-          <div className="p-4 space-y-3">
-            {approvalSteps.map((step) => (
-              <div key={step.step} className="flex items-start gap-3">
-                <div className="w-7 h-7 rounded-full bg-zinc-900 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                  {step.step}
-                </div>
-                <div className="pt-0.5">
-                  <p className="text-xs font-bold text-zinc-900">{step.title}</p>
-                  <p className="text-[10px] text-zinc-400 mt-0.5">{step.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Carry Forward Rules + Important Dates */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
-        >
-          <div className="p-4 border-b border-zinc-100 flex items-center gap-2">
-            <ArrowRightLeft size={16} className="text-zinc-500" />
-            <h2 className="font-bold text-zinc-900 text-sm">Carry Forward Rules</h2>
-          </div>
-          <div className="divide-y divide-zinc-50">
-            {carryForwardRules.map((rule) => (
-              <div key={rule.type} className="px-4 py-3 flex items-center justify-between hover:bg-zinc-50/50 transition-colors">
-                <span className="text-xs font-medium text-zinc-700">{rule.type}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] text-zinc-400">Expiry: {rule.expiry}</span>
-                  <span className="text-xs font-bold text-zinc-900">{rule.limit || rule.value}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
-        >
-          <div className="p-4 border-b border-zinc-100 flex items-center gap-2">
-            <Calendar size={16} className="text-zinc-500" />
-            <h2 className="font-bold text-zinc-900 text-sm">Important Dates</h2>
-          </div>
-          <div className="divide-y divide-zinc-50">
-            <div className="px-4 py-3 flex items-center justify-between hover:bg-zinc-50/50 transition-colors">
-              <span className="text-xs text-zinc-500">Financial Year</span>
-              <span className="text-xs font-bold text-zinc-900">April 1 – March 31</span>
-            </div>
-            <div className="px-4 py-3 flex items-center justify-between hover:bg-zinc-50/50 transition-colors">
-              <span className="text-xs text-zinc-500">Leave Reset Date</span>
-              <span className="text-xs font-bold text-zinc-900">April 1 each year</span>
-            </div>
-            <div className="px-4 py-3 flex items-center justify-between hover:bg-zinc-50/50 transition-colors">
-              <span className="text-xs text-zinc-500">Carry Forward Expiry</span>
-              <span className="text-xs font-bold text-zinc-900">June 30 each year</span>
-            </div>
-            <div className="px-4 py-3 flex items-center justify-between hover:bg-zinc-50/50 transition-colors">
-              <span className="text-xs text-zinc-500">Settlement Deadline</span>
-              <span className="text-xs font-bold text-zinc-900">March 31 each year</span>
-            </div>
-          </div>
-        </motion.div>
-      </div>
     </div>
   );
 }

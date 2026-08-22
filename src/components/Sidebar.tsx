@@ -2,7 +2,7 @@ import {
   LayoutDashboard, FileText, MapPin, BarChart3, Users,
   UserCircle, LogOut, Menu, X, Bell, Package, History, Settings as SettingsIcon,
   ChevronDown, Truck, CalendarCheck, Clock, Receipt, Trophy, Check,
-  Wallet, Banknote, CalendarOff, CalendarClock
+  Wallet, Banknote, CalendarOff, CalendarClock, ClipboardCheck as ClipboardCheckIcon,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
@@ -39,19 +39,30 @@ const DELIVERY_ITEMS: NavItem[] = [
 ];
 
 const HRMS_ITEMS: NavItem[] = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/hrms/dashboard', roles: ['admin', 'manager'] },
-  { icon: CalendarCheck, label: 'Attendance', path: '/hrms/attendance', roles: ['admin', 'manager'] },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/hrms/dashboard', roles: ['admin', 'manager', 'staff', 'delivery_boy'] },
+  { icon: CalendarCheck, label: 'Attendance', path: '/hrms/attendance', roles: ['admin', 'manager', 'staff', 'delivery_boy'] },
   { icon: Users, label: 'Staff', path: '/hrms/staff', roles: ['admin', 'manager'] },
-  { icon: Wallet, label: 'Expenses', path: '/hrms/expenses', roles: ['admin', 'manager'] },
+  { icon: Wallet, label: 'Expenses', roles: ['admin', 'manager', 'staff', 'delivery_boy'], children: [
+    { label: 'Business Claims', path: '/hrms/expenses' },
+    { label: 'Salary Advances', path: '/hrms/expenses?tab=advances' },
+  ]},
   { icon: Trophy, label: 'Incentives', path: '/hrms/incentives', roles: ['admin', 'manager'] },
-  { icon: Banknote, label: 'Payroll', path: '/hrms/payroll', roles: ['admin', 'manager'] },
+  { icon: Banknote, label: 'Payroll', path: '/hrms/payroll', roles: ['staff', 'delivery_boy'] },
+  { icon: Banknote, label: 'Payroll', roles: ['admin', 'manager'], children: [
+    { label: 'Pay Cycles', path: '/hrms/payroll' },
+    { label: 'Structures', path: '/hrms/payroll/structures' },
+    { label: 'Settings', path: '/hrms/payroll/settings' },
+  ]},
   { icon: CalendarOff, label: 'Leave', roles: ['admin', 'manager'], children: [
     // { label: 'Apply', path: '/hrms/leave/apply' },
     { label: 'Requests', path: '/hrms/leave/requests' },
     { label: 'Type', path: '/hrms/leave/type' },
     { label: 'Policy', path: '/hrms/leave/policy' },
     { label: 'Period', path: '/hrms/leave/period' },
+    { label: 'Holiday List', path: '/hrms/leave/holiday-list' },
   ]},
+  { icon: CalendarOff, label: 'Leave', path: '/hrms/leave', roles: ['staff', 'delivery_boy'] },
+  { icon: CalendarClock, label: 'My Shifts', path: '/hrms/my-shifts', roles: ['staff', 'delivery_boy'] },
   { icon: CalendarClock, label: 'Shifts', path: '/hrms/shifts', roles: ['admin', 'manager'] },
   { icon: UserCircle, label: 'Profile', path: '/profile', roles: ['admin', 'manager'] },
 ];
@@ -66,11 +77,20 @@ export default function Sidebar() {
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [expandedItem, setExpandedItem] = useState<string | null>(() => {
     if (location.pathname.startsWith('/hrms/leave')) return 'Leave';
+    if (location.pathname.startsWith('/hrms/payroll')) return 'Payroll';
     return null;
   });
   const switcherRef = useRef<HTMLDivElement>(null);
 
   const canSwitch = user?.role === 'admin' || user?.role === 'manager';
+  const isEmployee = user?.role === 'staff' || user?.role === 'delivery_boy';
+
+  // Employees are always in the HRMS app
+  useEffect(() => {
+    if (isEmployee && activeApp !== 'hrms') {
+      setActiveApp('hrms');
+    }
+  }, [isEmployee, activeApp, setActiveApp]);
 
   useEffect(() => {
     const refresh = () => {
@@ -84,11 +104,11 @@ export default function Sidebar() {
     };
     const onUpdated = () => refresh();
     window.addEventListener(APP_NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+    window.addEventListener('storage', onUpdated);
     refresh();
-    const t = setInterval(refresh, 5000);
     return () => {
-      clearInterval(t);
       window.removeEventListener(APP_NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+      window.removeEventListener('storage', onUpdated);
     };
   }, [user?.id, user?.role]);
 
@@ -102,12 +122,15 @@ export default function Sidebar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const menuItems = activeApp === 'hrms' ? HRMS_ITEMS : DELIVERY_ITEMS;
+  const menuItems = (isEmployee || activeApp === 'hrms') ? HRMS_ITEMS : DELIVERY_ITEMS;
   const filteredItems = menuItems.filter(item => item.roles.includes(user?.role || ''));
 
   useEffect(() => {
     if (location.pathname.startsWith('/hrms/leave')) {
       setExpandedItem('Leave');
+    }
+    if (location.pathname.startsWith('/hrms/payroll')) {
+      setExpandedItem('Payroll');
     }
   }, [location.pathname]);
 

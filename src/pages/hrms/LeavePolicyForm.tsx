@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Save, Plus, Trash2, ChevronRight, ChevronDown } from 'lucide-react';
+import { Save, Plus, Trash2, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
+import { useAuth } from '../../context/AuthContext';
+import { listLeaveTypes, createLeavePolicy, getLeavePolicy, updateLeavePolicy, LeaveTypeOut } from '../../lib/hrmsLeave';
 
 interface EntitlementItem {
+  leaveTypeId: number;
   leaveTypeName: string;
   days: number;
   carryForward: boolean;
@@ -12,48 +15,29 @@ interface EntitlementItem {
   description: string;
 }
 
-interface LeavePolicyItem {
-  id: number;
-  name: string;
-  description: string;
-  effectiveDate: string;
-  status: 'active' | 'inactive';
-  entitlements: EntitlementItem[];
-}
-
 const inputClass = "w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all";
-
-function loadPolicies(): LeavePolicyItem[] {
-  try {
-    const stored = localStorage.getItem('leavePolicies');
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-function loadLeaveTypeOptions() {
-  try {
-    const stored = localStorage.getItem('leaveTypes');
-    if (!stored) return [];
-    const types = JSON.parse(stored) as { name: string }[];
-    return types.map((t) => ({ value: t.name, label: t.name }));
-  } catch {
-    return [];
-  }
-}
 
 export default function LeavePolicyForm() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const { token } = useAuth();
+
+  const isEdit = Boolean(id);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [effectiveDate, setEffectiveDate] = useState('');
+  const [maxPaidLeaves, setMaxPaidLeaves] = useState<number | ''>('');
+  const [maxUnpaidLeaves, setMaxUnpaidLeaves] = useState<number | ''>('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [entitlements, setEntitlements] = useState<EntitlementItem[]>([]);
-  const [selectedType, setSelectedType] = useState('');
+  const [selectedTypeId, setSelectedTypeId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState('');
+  const [allTypes, setAllTypes] = useState<LeaveTypeOut[]>([]);
   const [expandedEntitlements, setExpandedEntitlements] = useState<Set<number>>(new Set());
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
 
   const toggleEntitlement = (index: number) => {
     setExpandedEntitlements((prev) => {
@@ -64,25 +48,67 @@ export default function LeavePolicyForm() {
     });
   };
 
-  const [leaveTypeOptions, setLeaveTypeOptions] = useState<{ value: string; label: string }[]>([]);
-
   useEffect(() => {
-    setLeaveTypeOptions(loadLeaveTypeOptions());
-  }, []);
+    if (!token) return;
+    (async () => {
+      try {
+        const types = await listLeaveTypes(token);
+        setAllTypes(types);
+
+        if (id) {
+          const pol = await getLeavePolicy(token, Number(id));
+          setName(pol.name || '');
+          setDescription(pol.description || '');
+          setEffectiveDate(pol.effective_date || '');
+          setMaxPaidLeaves(pol.max_paid_leaves ?? '');
+          setMaxUnpaidLeaves(pol.max_unpaid_leaves ?? '');
+          setStatus(pol.status as any || 'active');
+          if (pol.entitlements) {
+            setEntitlements(
+              pol.entitlements.map((e) => ({
+                leaveTypeId: e.leave_type_id,
+                leaveTypeName: e.leave_type_name || `Type ${e.leave_type_id}`,
+                days: e.days,
+                carryForward: e.carry_forward,
+                maxContinuous: e.max_continuous,
+                description: e.description || '',
+              }))
+            );
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load leave policy data:', e);
+      }
+    })();
+  }, [token, id]);
+
+  const leaveTypeOptions = allTypes.map((t) => ({ value: String(t.id), label: t.name }));
 
   const availableTypeOptions = leaveTypeOptions.filter(
-    (o) => !entitlements.some((e) => e.leaveTypeName === o.value)
+    (o) => !entitlements.some((e) => String(e.leaveTypeId) === o.value)
   );
 
+  const paidDaysCount = entitlements.reduce((sum, e) => {
+    const t = allTypes.find((lt) => lt.id === e.leaveTypeId);
+    return !t?.is_leave_without_pay ? sum + Number(e.days || 0) : sum;
+  }, 0);
+
+  const unpaidDaysCount = entitlements.reduce((sum, e) => {
+    const t = allTypes.find((lt) => lt.id === e.leaveTypeId);
+    return t?.is_leave_without_pay ? sum + Number(e.days || 0) : sum;
+  }, 0);
+
   const handleAddEntitlement = () => {
-    if (!selectedType) return;
+    if (!selectedTypeId) return;
+    const matched = allTypes.find((t) => String(t.id) === selectedTypeId);
+    if (!matched) return;
     const newIndex = entitlements.length;
     setEntitlements((prev) => [
       ...prev,
-      { leaveTypeName: selectedType, days: 0, carryForward: false, maxContinuous: 0, description: '' },
+      { leaveTypeId: matched.id, leaveTypeName: matched.name, days: matched.days_per_year || 0, carryForward: matched.carry_forward || false, maxContinuous: matched.max_consecutive_leaves || 0, description: '' },
     ]);
     setExpandedEntitlements((prev) => new Set(prev).add(newIndex));
-    setSelectedType('');
+    setSelectedTypeId('');
   };
 
   const updateEntitlement = (index: number, field: keyof EntitlementItem, value: any) => {
@@ -97,24 +123,40 @@ export default function LeavePolicyForm() {
     setEntitlements((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !effectiveDate || !token) return;
     setSaving(true);
 
-    const policies = loadPolicies();
-    const newId = Math.max(...policies.map((p) => p.id), 0) + 1;
-    policies.push({
-      id: newId,
-      name: name.trim(),
-      description,
-      effectiveDate,
-      status,
-      entitlements,
-    });
-    localStorage.setItem('leavePolicies', JSON.stringify(policies));
-    setSaving(false);
-    navigate('/hrms/leave/policy');
+    try {
+      const payload = {
+        name: name.trim(),
+        description: description || undefined,
+        effective_date: effectiveDate,
+        max_paid_leaves: maxPaidLeaves === '' ? 0 : Number(maxPaidLeaves),
+        max_unpaid_leaves: maxUnpaidLeaves === '' ? 0 : Number(maxUnpaidLeaves),
+        status,
+        entitlements: entitlements.map((e) => ({
+          leave_type_id: e.leaveTypeId,
+          days: e.days,
+          carry_forward: e.carryForward,
+          max_continuous: e.maxContinuous,
+          description: e.description,
+        })),
+      };
+
+      if (id) {
+        await updateLeavePolicy(token, Number(id), payload as any);
+        navigate(`/hrms/leave/policy/${id}`);
+      } else {
+        const created = await createLeavePolicy(token, payload);
+        navigate(`/hrms/leave/policy/${created.id}`);
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to save leave policy');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -131,8 +173,8 @@ export default function LeavePolicyForm() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
         </button>
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">New Leave Policy</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Create a new company leave policy</p>
+          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{isEdit ? 'Edit Leave Policy' : 'New Leave Policy'}</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">{isEdit ? 'Update company leave policy rules' : 'Create a new company leave policy'}</p>
         </div>
       </motion.div>
 
@@ -191,6 +233,31 @@ export default function LeavePolicyForm() {
                 </select>
               </div>
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Max Paid Leaves Allowed (per month)</label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 1 or 2"
+                  value={maxPaidLeaves}
+                  onChange={(e) => setMaxPaidLeaves(e.target.value === '' ? '' : Number(e.target.value))}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Max Unpaid (LWP) Leaves Allowed (per month)</label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 2 or 5"
+                  value={maxUnpaidLeaves}
+                  onChange={(e) => setMaxUnpaidLeaves(e.target.value === '' ? '' : Number(e.target.value))}
+                  className={inputClass}
+                />
+              </div>
+            </div>
           </div>
         </motion.div>
 
@@ -201,16 +268,24 @@ export default function LeavePolicyForm() {
           transition={{ delay: 0.08 }}
           className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden mb-6"
         >
-          <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50">
+          <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Leave Entitlements</h2>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
+                Paid: {paidDaysCount} Days
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 text-zinc-700 text-xs font-bold border border-zinc-200">
+                Unpaid: {unpaidDaysCount} Days
+              </span>
+            </div>
           </div>
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
               <div>
                 <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Add Leave Type</label>
                 <SearchableSelect
-                  value={selectedType}
-                  onChange={setSelectedType}
+                  value={selectedTypeId}
+                  onChange={setSelectedTypeId}
                   options={availableTypeOptions}
                   placeholder="Select leave type"
                   disabled={availableTypeOptions.length === 0}
@@ -219,7 +294,7 @@ export default function LeavePolicyForm() {
               <button
                 type="button"
                 onClick={handleAddEntitlement}
-                disabled={!selectedType}
+                disabled={!selectedTypeId}
                 className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus size={14} /> Add

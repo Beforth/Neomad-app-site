@@ -1,11 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Search, XCircle, ChevronLeft, ChevronRight, ArrowUpDown,
-  Plus, ChevronUp, ChevronDown, Inbox, Pencil, Trash2, X,
+  Plus, ChevronUp, ChevronDown, Inbox, Pencil, Trash2, X, Loader2, CheckCircle2,
 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
+import { useAuth } from '../../context/AuthContext';
+import { listLeaveTypes, deleteLeaveType, updateLeaveType } from '../../lib/hrmsLeave';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Status' },
@@ -33,58 +35,63 @@ interface LeaveTypeItem {
   status: 'active' | 'inactive';
 }
 
-const initialData: LeaveTypeItem[] = [
-  { id: 1, name: 'Sick Leave', daysPerYear: 12, carryForward: true, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'For medical reasons and health issues', status: 'active' },
-  { id: 2, name: 'Casual Leave', daysPerYear: 12, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'For personal work and short-term needs', status: 'active' },
-  { id: 3, name: 'Earned Leave', daysPerYear: 20, carryForward: true, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'Accumulated leave for vacation and long breaks', status: 'active' },
-  { id: 4, name: 'Maternity Leave', daysPerYear: 180, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'For expecting and new mothers', status: 'active' },
-  { id: 5, name: 'Paternity Leave', daysPerYear: 5, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'For new fathers', status: 'active' },
-  { id: 6, name: 'Bereavement Leave', daysPerYear: 5, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'For loss of immediate family member', status: 'active' },
-  { id: 7, name: 'Unpaid Leave', daysPerYear: 0, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: true, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: false, description: 'Leave without pay', status: 'active' },
-  { id: 8, name: 'Comp Off', daysPerYear: 10, carryForward: false, maxCarryForwardLeaves: 0, carryForwardExpiryDays: 0, allowLeaveAfterDays: 0, maxConsecutiveLeaves: 0, isLeaveWithoutPay: false, isPartiallyPaidLeave: false, isOptionalLeave: false, allowNegativeBalance: false, allowOverAllocating: false, includeHolidaysAsLeaves: false, isCompensatory: true, description: 'Compensatory off for weekend or holiday work', status: 'inactive' },
-];
-
 const PAGE_SIZE = 10;
 
 type SortKey = 'name' | 'daysPerYear';
 
-function loadTypes() {
-  try {
-    const stored = localStorage.getItem('leaveTypes');
-    if (stored) {
-      const parsed = JSON.parse(stored) as LeaveTypeItem[];
-      return parsed.map((item) => ({
-        ...item,
-        carryForward: item.carryForward ?? false,
-        maxCarryForwardLeaves: item.maxCarryForwardLeaves ?? 0,
-        carryForwardExpiryDays: item.carryForwardExpiryDays ?? 0,
-        allowLeaveAfterDays: item.allowLeaveAfterDays ?? 0,
-        maxConsecutiveLeaves: item.maxConsecutiveLeaves ?? 0,
-        isLeaveWithoutPay: item.isLeaveWithoutPay ?? false,
-        isPartiallyPaidLeave: item.isPartiallyPaidLeave ?? false,
-        isOptionalLeave: item.isOptionalLeave ?? false,
-        allowNegativeBalance: item.allowNegativeBalance ?? false,
-        allowOverAllocating: item.allowOverAllocating ?? false,
-        includeHolidaysAsLeaves: item.includeHolidaysAsLeaves ?? false,
-        isCompensatory: item.isCompensatory ?? false,
-      }));
-    }
-  } catch {}
-  return initialData;
-}
-
 export default function LeaveType() {
   const navigate = useNavigate();
+  const { token } = useAuth();
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState<SortKey>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
-  const [types, setTypes] = useState<LeaveTypeItem[]>(loadTypes);
+  const [types, setTypes] = useState<LeaveTypeItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<LeaveTypeItem | null>(null);
 
-  useEffect(() => { localStorage.setItem('leaveTypes', JSON.stringify(types)); }, [types]);
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+
+  const reload = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await listLeaveTypes(token);
+      setTypes(
+        data.map((t) => ({
+          id: t.id,
+          name: t.name,
+          daysPerYear: t.days_per_year,
+          carryForward: t.carry_forward,
+          maxCarryForwardLeaves: t.max_carry_forward_leaves,
+          carryForwardExpiryDays: t.carry_forward_expiry_days,
+          allowLeaveAfterDays: t.allow_leave_after_days,
+          maxConsecutiveLeaves: t.max_consecutive_leaves,
+          isLeaveWithoutPay: t.is_leave_without_pay,
+          isPartiallyPaidLeave: t.is_partially_paid_leave,
+          isOptionalLeave: t.is_optional_leave,
+          allowNegativeBalance: t.allow_negative_balance,
+          allowOverAllocating: t.allow_over_allocating,
+          includeHolidaysAsLeaves: t.include_holidays_as_leaves,
+          isCompensatory: t.is_compensatory,
+          description: t.description || '',
+          status: (t.status as any) || 'active',
+        }))
+      );
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to load leave types');
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { reload(); }, [reload]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300);
@@ -131,16 +138,44 @@ export default function LeaveType() {
     setDeleteTarget(item);
   }
 
-  function confirmDelete() {
-    if (!deleteTarget) return;
-    setTypes((prev) => prev.filter((t) => t.id !== deleteTarget.id));
-    setDeleteTarget(null);
+  async function confirmDelete() {
+    if (!deleteTarget || !token) return;
+    try {
+      await deleteLeaveType(token, deleteTarget.id);
+      await reload();
+      showToast('Leave type deleted successfully');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to delete leave type');
+    } finally {
+      setDeleteTarget(null);
+    }
   }
 
-  function statusBadge(status: string) {
-    const base = 'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold capitalize';
-    if (status === 'active') return <span className={`${base} bg-emerald-50 text-emerald-600`}>Active</span>;
-    return <span className={`${base} bg-rose-50 text-rose-600`}>Inactive</span>;
+  async function toggleStatus(item: LeaveTypeItem, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!token) return;
+    const nextStatus = item.status === 'active' ? 'inactive' : 'active';
+    try {
+      await updateLeaveType(token, item.id, { status: nextStatus });
+      await reload();
+      showToast(`Leave type set to ${nextStatus}`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update status');
+    }
+  }
+
+  function statusBadge(item: LeaveTypeItem) {
+    const isActive = item.status === 'active';
+    return (
+      <button
+        onClick={(e) => toggleStatus(item, e)}
+        title={`Click to set ${isActive ? 'Inactive' : 'Active'}`}
+        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold capitalize cursor-pointer transition-all hover:scale-105 select-none ${isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-300 hover:bg-rose-100'}`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+        {item.status}
+      </button>
+    );
   }
 
   return (
@@ -258,8 +293,8 @@ export default function LeaveType() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-zinc-500">{r.carryForward ? 'Yes' : 'No'}</td>
-                      <td className="px-4 py-3 text-xs text-zinc-500 max-w-[200px] truncate">{r.description}</td>
-                      <td className="px-4 py-3">{statusBadge(r.status)}</td>
+                      <td className="px-4 py-3 text-xs text-zinc-500 max-w-[200px] truncate">{r.description || '—'}</td>
+                      <td className="px-4 py-3">{statusBadge(r)}</td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
                             <button onClick={() => navigate(`/hrms/leave/type/edit/${r.id}`)} className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
@@ -300,7 +335,7 @@ export default function LeaveType() {
                       </p>
                       <p className="text-[10px] text-zinc-400 mt-0.5">{r.description}</p>
                     </div>
-                    {statusBadge(r.status)}
+                    {statusBadge(r)}
                   </div>
                   <div className="flex items-center gap-3 text-[10px] text-zinc-500">
                     <span>{r.daysPerYear} days/yr</span>
