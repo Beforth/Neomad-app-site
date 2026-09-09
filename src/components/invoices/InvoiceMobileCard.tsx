@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Users, ClipboardCheck } from 'lucide-react';
 import type { ApiInvoice } from '../../lib/api';
+import { formatDateTimeIST } from '../../lib/timeUtils';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700',
@@ -80,7 +81,7 @@ function InvoiceMobileCardInner({ invoice, assigneeLabel, onOpenDetail }: Invoic
       </div>
       <div className="flex justify-between items-end">
         <p className="text-sm font-bold text-zinc-900">₹{invoice.amount.toLocaleString()}</p>
-        <p className="text-[10px] text-zinc-500">{new Date(invoice.created_at).toLocaleString()}</p>
+        <p className="text-[10px] text-zinc-500">{formatDateTimeIST(invoice.created_at)}</p>
       </div>
     </div>
   );

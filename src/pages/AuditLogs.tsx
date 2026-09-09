@@ -4,6 +4,7 @@ import { Search, XCircle, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, His
 import { getAllAuditLogs } from '../lib/api';
 import type { AuditLogEntry } from '../lib/api';
 import { Link } from 'react-router-dom';
+import { formatDateTimeIST } from '../lib/timeUtils';
 import SearchableSelect from '../components/SearchableSelect';
 
 const FIELD_LABELS: Record<string, string> = {
@@ -147,7 +148,7 @@ export default function AuditLogs() {
                 entries.map((entry) => (
                   <tr key={entry.id} className="hover:bg-zinc-50/50">
                     <td className="px-4 py-3 text-[11px] text-zinc-500 whitespace-nowrap">
-                      {new Date(entry.created_at).toLocaleString()}
+                      {formatDateTimeIST(entry.created_at)}
                     </td>
                     <td className="px-4 py-3">
                       <Link

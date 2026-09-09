@@ -11,6 +11,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import type { ApiInvoice } from '../../lib/api';
+import { formatDateTimeIST } from '../../lib/timeUtils';
 import { InvoiceIconTooltip } from './InvoiceIconTooltip';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -167,7 +168,7 @@ function InvoiceDesktopRowInner({
         <p className="text-xs text-amber-600">{waiting}</p>
       </td>
       <td className="px-4 py-3 text-[10px] font-medium text-zinc-400">
-        {new Date(invoice.created_at).toLocaleString()}
+        {formatDateTimeIST(invoice.created_at)}
       </td>
       <td className="px-4 py-3 overflow-visible" onClick={stop}>
         <div className="flex items-center gap-1">

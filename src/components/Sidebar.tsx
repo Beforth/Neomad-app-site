@@ -1,19 +1,96 @@
 import {
   LayoutDashboard, FileText, MapPin, BarChart3, Users,
-  UserCircle, LogOut, Menu, X, Bell, Package, History, Settings as SettingsIcon
+  UserCircle, LogOut, Menu, X, Bell, Package, History, Settings as SettingsIcon,
+  ChevronDown, Truck, CalendarCheck, Clock, Receipt, Trophy, Check,
+  Wallet, Banknote, CalendarOff, CalendarClock, ClipboardCheck as ClipboardCheckIcon,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { motion } from 'motion/react';
+import { useApp } from '../context/AppContext';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import { APP_NOTIFICATIONS_UPDATED_EVENT, appApi } from '../lib/appApi';
 import { isNavItemActive } from '../lib/navActive';
 
+interface NavChildItem {
+  label: string;
+  path: string;
+}
+
+interface NavItem {
+  icon?: typeof LayoutDashboard;
+  label: string;
+  path?: string;
+  roles: string[];
+  children?: NavChildItem[];
+}
+
+const DELIVERY_ITEMS: NavItem[] = [
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/', roles: ['admin', 'manager'] },
+  { icon: Package, label: 'Tasks', path: '/tasks', roles: ['admin', 'manager'] },
+  { icon: FileText, label: 'Invoices', path: '/invoices', roles: ['admin', 'manager'] },
+  { icon: MapPin, label: 'Live Tracking', path: '/tracking', roles: ['admin', 'manager'] },
+  { icon: BarChart3, label: 'Reports', path: '/reports', roles: ['admin', 'manager'] },
+  { icon: History, label: 'Audit Logs', path: '/logs', roles: ['admin', 'manager'] },
+  { icon: Users, label: 'User Management', path: '/users', roles: ['admin'] },
+  { icon: Bell, label: 'Notifications', path: '/notifications', roles: ['admin'] },
+  { icon: SettingsIcon, label: 'Settings', path: '/settings', roles: ['admin'] },
+  { icon: UserCircle, label: 'Profile', path: '/profile', roles: ['admin', 'manager'] },
+];
+
+const HRMS_ITEMS: NavItem[] = [
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/hrms/dashboard', roles: ['admin', 'manager', 'staff', 'delivery_boy'] },
+  { icon: CalendarCheck, label: 'Attendance', path: '/hrms/attendance', roles: ['admin', 'manager', 'staff', 'delivery_boy'] },
+  { icon: Users, label: 'Staff', path: '/hrms/staff', roles: ['admin', 'manager'] },
+  { icon: Wallet, label: 'Expenses', roles: ['admin', 'manager', 'staff', 'delivery_boy'], children: [
+    { label: 'Business Claims', path: '/hrms/expenses' },
+    { label: 'Salary Advances', path: '/hrms/expenses?tab=advances' },
+  ]},
+  { icon: Trophy, label: 'Incentives', path: '/hrms/incentives', roles: ['admin', 'manager'] },
+  { icon: Banknote, label: 'Payroll', path: '/hrms/payroll', roles: ['staff', 'delivery_boy'] },
+  { icon: Banknote, label: 'Payroll', roles: ['admin', 'manager'], children: [
+    { label: 'Pay Cycles', path: '/hrms/payroll' },
+    { label: 'Structures', path: '/hrms/payroll/structures' },
+    { label: 'Settings', path: '/hrms/payroll/settings' },
+  ]},
+  { icon: CalendarOff, label: 'Leave', roles: ['admin', 'manager'], children: [
+    // { label: 'Apply', path: '/hrms/leave/apply' },
+    { label: 'Requests', path: '/hrms/leave/requests' },
+    { label: 'Type', path: '/hrms/leave/type' },
+    { label: 'Policy', path: '/hrms/leave/policy' },
+    { label: 'Period', path: '/hrms/leave/period' },
+    { label: 'Holiday List', path: '/hrms/leave/holiday-list' },
+  ]},
+  { icon: CalendarOff, label: 'Leave', path: '/hrms/leave', roles: ['staff', 'delivery_boy'] },
+  { icon: CalendarClock, label: 'My Shifts', path: '/hrms/my-shifts', roles: ['staff', 'delivery_boy'] },
+  { icon: CalendarClock, label: 'Shifts', path: '/hrms/shifts', roles: ['admin', 'manager'] },
+  { icon: UserCircle, label: 'Profile', path: '/profile', roles: ['admin', 'manager'] },
+];
+
 export default function Sidebar() {
   const { user, logout } = useAuth();
+  const { activeApp, setActiveApp } = useApp();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(true);
   const [unread, setUnread] = useState(0);
-  const location = useLocation();
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [expandedItem, setExpandedItem] = useState<string | null>(() => {
+    if (location.pathname.startsWith('/hrms/leave')) return 'Leave';
+    if (location.pathname.startsWith('/hrms/payroll')) return 'Payroll';
+    return null;
+  });
+  const switcherRef = useRef<HTMLDivElement>(null);
+
+  const canSwitch = user?.role === 'admin' || user?.role === 'manager';
+  const isEmployee = user?.role === 'staff' || user?.role === 'delivery_boy';
+
+  // Employees are always in the HRMS app
+  useEffect(() => {
+    if (isEmployee && activeApp !== 'hrms') {
+      setActiveApp('hrms');
+    }
+  }, [isEmployee, activeApp, setActiveApp]);
 
   useEffect(() => {
     const refresh = () => {
@@ -27,28 +104,45 @@ export default function Sidebar() {
     };
     const onUpdated = () => refresh();
     window.addEventListener(APP_NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+    window.addEventListener('storage', onUpdated);
     refresh();
-    const t = setInterval(refresh, 5000);
     return () => {
-      clearInterval(t);
       window.removeEventListener(APP_NOTIFICATIONS_UPDATED_EVENT, onUpdated);
+      window.removeEventListener('storage', onUpdated);
     };
   }, [user?.id, user?.role]);
 
-  const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/', roles: ['admin', 'manager'] },
-    { icon: Package, label: 'Tasks', path: '/tasks', roles: ['admin', 'manager'] },
-    { icon: FileText, label: 'Invoices', path: '/invoices', roles: ['admin', 'manager'] },
-    { icon: MapPin, label: 'Live Tracking', path: '/tracking', roles: ['admin', 'manager'] },
-    { icon: BarChart3, label: 'Reports', path: '/reports', roles: ['admin', 'manager'] },
-    { icon: History, label: 'Audit Logs', path: '/logs', roles: ['admin', 'manager'] },
-    { icon: Users, label: 'User Management', path: '/users', roles: ['admin'] },
-    { icon: Bell, label: 'Notifications', path: '/notifications', roles: ['admin'] },
-    { icon: SettingsIcon, label: 'Settings', path: '/settings', roles: ['admin'] },
-    { icon: UserCircle, label: 'Profile', path: '/profile', roles: ['admin', 'manager'] },
-  ];
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (switcherRef.current && !switcherRef.current.contains(e.target as Node)) {
+        setSwitcherOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
+  const menuItems = (isEmployee || activeApp === 'hrms') ? HRMS_ITEMS : DELIVERY_ITEMS;
   const filteredItems = menuItems.filter(item => item.roles.includes(user?.role || ''));
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/hrms/leave')) {
+      setExpandedItem('Leave');
+    }
+    if (location.pathname.startsWith('/hrms/payroll')) {
+      setExpandedItem('Payroll');
+    }
+  }, [location.pathname]);
+
+  const handleAppSwitch = (app: 'delivery' | 'hrms') => {
+    setActiveApp(app);
+    setSwitcherOpen(false);
+    if (app === 'hrms') {
+      navigate('/hrms/attendance');
+    } else {
+      navigate('/');
+    }
+  };
 
   return (
     <>
@@ -59,27 +153,144 @@ export default function Sidebar() {
 
       <motion.aside initial={false} animate={{ width: isOpen ? 240 : 0 }}
         className="fixed lg:static inset-y-0 left-0 z-40 bg-white border-r border-zinc-200 text-zinc-600 overflow-hidden flex flex-col shadow-sm lg:shadow-none lg:h-screen">
+        {/* Header with App Switcher */}
         <div className="p-5 mb-2">
           <div className="flex items-center gap-2.5">
             <img src="/app_icon.png" alt="Neomed" className="w-8 h-8 rounded-lg shadow-sm" />
-            <div>
+            <div className="flex-1 min-w-0">
               <span className="text-zinc-900 font-bold text-base block leading-none">Neomed</span>
               <span className="text-[9px] uppercase tracking-wider text-zinc-400 font-semibold">Management</span>
             </div>
+            {canSwitch && (
+              <div className="relative" ref={switcherRef}>
+                <button
+                  onClick={() => setSwitcherOpen(!switcherOpen)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
+                    switcherOpen
+                      ? 'bg-zinc-900 text-white'
+                      : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700'
+                  }`}
+                >
+                  {activeApp === 'delivery' ? (
+                    <Truck size={16} />
+                  ) : (
+                    <CalendarCheck size={16} />
+                  )}
+                  <ChevronDown size={12} className={`transition-transform ${switcherOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                <AnimatePresence>
+                  {switcherOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                      transition={{ duration: 0.12 }}
+                      className="absolute right-0 top-full mt-1.5 w-48 bg-white border border-zinc-200 rounded-xl shadow-xl shadow-zinc-200/50 py-1.5 z-50"
+                    >
+                      <button
+                        onClick={() => handleAppSwitch('delivery')}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
+                          activeApp === 'delivery'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'text-zinc-600 hover:bg-zinc-50'
+                        }`}
+                      >
+                        <Truck size={16} />
+                        <span className="text-sm font-medium flex-1">Delivery App</span>
+                        {activeApp === 'delivery' && <Check size={14} className="text-emerald-500" />}
+                      </button>
+                      <button
+                        onClick={() => handleAppSwitch('hrms')}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
+                          activeApp === 'hrms'
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'text-zinc-600 hover:bg-zinc-50'
+                        }`}
+                      >
+                        <CalendarCheck size={16} />
+                        <span className="text-sm font-medium flex-1">HRMS</span>
+                        {activeApp === 'hrms' && <Check size={14} className="text-blue-500" />}
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
         </div>
 
         <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
           {filteredItems.map(item => {
-            const active = isNavItemActive(item.path, location.pathname);
+            const hasChildren = item.children && item.children.length > 0;
+            const isExpanded = expandedItem === item.label;
+            const active = hasChildren
+              ? item.children!.some(c => location.pathname === c.path)
+              : isNavItemActive(item.path || '', location.pathname);
+
+            if (hasChildren) {
+              return (
+                <div key={item.label}>
+                  <button
+                    onClick={() => setExpandedItem(isExpanded ? null : item.label)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all whitespace-nowrap group ${
+                      active
+                        ? 'bg-zinc-900 text-white shadow-sm'
+                        : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
+                    }`}
+                  >
+                    <div className="relative">
+                      {item.icon && <item.icon size={18} className={active ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-900'} />}
+                    </div>
+                    <span className="font-medium text-sm tracking-tight flex-1 text-left">{item.label}</span>
+                    <ChevronDown size={14} className={`transition-transform duration-200 ${active ? 'text-white' : 'text-zinc-400'} ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="ml-4 pl-3 border-l border-zinc-200 space-y-0.5 py-1">
+                          {item.children!.map(child => {
+                            const childActive = location.pathname === child.path;
+                            return (
+                              <Link
+                                key={child.path}
+                                to={child.path}
+                                onClick={() => { window.innerWidth < 1024 && setIsOpen(false); }}
+                                className={`flex items-center px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all relative ${
+                                  childActive
+                                    ? 'bg-emerald-50 text-emerald-700 font-semibold'
+                                    : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700'
+                                }`}
+                              >
+                                {childActive && (
+                                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-emerald-500 rounded-r-full" />
+                                )}
+                                {child.label}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            }
+
             return (
-              <Link key={item.path} to={item.path} onClick={() => { window.innerWidth < 1024 && setIsOpen(false); }}
+              <Link key={item.path} to={item.path!} onClick={() => { window.innerWidth < 1024 && setIsOpen(false); }}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all whitespace-nowrap group ${active
                   ? 'bg-zinc-900 text-white shadow-sm'
                   : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
                   }`}>
                 <div className="relative">
-                  <item.icon size={18} className={active ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-900'} />
+                  {item.icon && <item.icon size={18} className={active ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-900'} />}
                   {item.path === '/notifications' && unread > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
                       {unread}

@@ -14,6 +14,7 @@ interface SearchableSelectProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  allowCustom?: boolean;
 }
 
 export default function SearchableSelect({
@@ -23,24 +24,27 @@ export default function SearchableSelect({
   placeholder = 'Select...',
   disabled = false,
   className = '',
+  allowCustom = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
   const boxRef = useRef<HTMLDivElement | null>(null);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
   const selected = options.find((o) => o.value === value);
 
+  const activeQuery = allowCustom ? value : query;
+
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = activeQuery.trim().toLowerCase();
     if (!q) return options;
     return options.filter((o) => o.label.toLowerCase().includes(q));
-  }, [options, query]);
+  }, [options, activeQuery]);
 
   const updatePosition = useCallback(() => {
-    if (!buttonRef.current) return;
-    const rect = buttonRef.current.getBoundingClientRect();
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
     const estimatedHeight = 272;
     const gap = 4;
     const spaceBelow = window.innerHeight - rect.bottom - gap;
@@ -87,35 +91,75 @@ export default function SearchableSelect({
     setQuery('');
   };
 
+  const triggerClass =
+    'w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs text-left flex items-center justify-between disabled:opacity-60 outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900';
+
   return (
     <div ref={boxRef} className={`relative ${className}`}>
-      <button
-        ref={buttonRef}
-        type="button"
-        disabled={disabled}
-        onClick={() => {
-          if (disabled) return;
-          setOpen((v) => !v);
-          requestAnimationFrame(updatePosition);
-        }}
-        className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs text-left flex items-center justify-between disabled:opacity-60"
-      >
-        <span className="truncate">{selected?.label ?? placeholder}</span>
-        <ChevronDown size={14} className="text-zinc-400 shrink-0" />
-      </button>
+      {allowCustom ? (
+        <div className="relative">
+          <input
+            ref={(node) => { triggerRef.current = node; }}
+            type="text"
+            value={value}
+            disabled={disabled}
+            placeholder={placeholder}
+            onChange={(e) => {
+              onChange(e.target.value);
+              setOpen(true);
+              requestAnimationFrame(updatePosition);
+            }}
+            onFocus={() => {
+              setOpen(true);
+              requestAnimationFrame(updatePosition);
+            }}
+            className={triggerClass}
+          />
+          <button
+            type="button"
+            tabIndex={-1}
+            disabled={disabled}
+            onClick={() => {
+              if (disabled) return;
+              setOpen((v) => !v);
+              requestAnimationFrame(updatePosition);
+            }}
+            className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600"
+          >
+            <ChevronDown size={14} />
+          </button>
+        </div>
+      ) : (
+        <button
+          ref={(node) => { triggerRef.current = node; }}
+          type="button"
+          disabled={disabled}
+          onClick={() => {
+            if (disabled) return;
+            setOpen((v) => !v);
+            requestAnimationFrame(updatePosition);
+          }}
+          className={triggerClass}
+        >
+          <span className="truncate">{selected?.label ?? placeholder}</span>
+          <ChevronDown size={14} className="text-zinc-400 shrink-0" />
+        </button>
+      )}
       {open && !disabled
         ? createPortal(
             <div ref={popupRef} style={popupStyle} className="bg-white border border-zinc-200 rounded-lg shadow-lg p-2">
-              <div className="relative mb-2">
-                <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400" />
-                <input
-                  autoFocus
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search..."
-                  className="w-full pl-7 pr-2 py-1.5 text-xs bg-zinc-50 border border-zinc-200 rounded-md outline-none"
-                />
-              </div>
+              {!allowCustom && (
+                <div className="relative mb-2">
+                  <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400" />
+                  <input
+                    autoFocus
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search..."
+                    className="w-full pl-7 pr-2 py-1.5 text-xs bg-zinc-50 border border-zinc-200 rounded-md outline-none"
+                  />
+                </div>
+              )}
               <div className="max-h-52 overflow-auto">
                 {filtered.map((o) => (
                   <button

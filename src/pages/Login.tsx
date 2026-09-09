@@ -43,21 +43,24 @@ export default function Login() {
   return (
     <div className="min-h-dvh flex flex-col bg-linear-to-br from-emerald-50 via-white to-blue-50">
       {/* Header / Logo */}
-      <div className="pt-12 pb-8 px-6 flex flex-col items-center">
+      <div className="pt-12 pb-4 px-6 flex flex-col items-center text-center">
         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-          className="w-20 h-20 rounded-3xl shadow-2xl shadow-emerald-500/30 mb-6 rotate-3 overflow-hidden">
-          <img src="/app_icon.png" alt="Neomed" className="w-full h-full object-cover" />
+          className="flex items-center gap-3 mb-2">
+          <img src="/app_icon.png" alt="Neomed" className="w-20 h-20 rounded-2xl shadow-sm" />
+          <div className="text-left">
+            <span className="text-zinc-900 font-bold text-3xl block leading-none">Neomed</span>
+            <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Management</span>
+          </div>
         </motion.div>
-        <h1 className="text-4xl font-black text-zinc-900 tracking-tighter">NEOMED</h1>
-        <p className="text-xs font-bold text-zinc-400 mt-2 uppercase tracking-widest">Enterprise Delivery System</p>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 px-6 pb-8 w-full max-w-md mx-auto">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-          
+      <div className="flex-1 px-6 pb-8 w-full max-w-md mx-auto flex flex-col items-center">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          className="w-full bg-white border border-zinc-200 rounded-xl shadow-2xl py-10 px-6 sm:py-12 sm:px-8">
+
           {/* Title Section */}
-          <div className="text-center">
+          <div className="text-center mb-6">
             <AnimatePresence mode="wait">
               {view === 'login' && (
                 <motion.div key="lh" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>

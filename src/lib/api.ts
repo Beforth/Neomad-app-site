@@ -93,7 +93,7 @@ export interface ApiRole {
   code: string;
 }
 
-function getApiError(err: { detail?: string | { msg?: string }[] }, fallback: string): string {
+export function getApiError(err: { detail?: string | { msg?: string }[] }, fallback: string): string {
   if (typeof err.detail === 'string') return err.detail;
   if (Array.isArray(err.detail) && err.detail[0]?.msg) return err.detail[0].msg;
   return fallback;
@@ -1555,6 +1555,111 @@ export async function clearGmailDelayRecords(token: string): Promise<void> {
     throw new Error(getApiError(err, res.statusText || 'Failed to clear Gmail delay records'));
   }
 }
+
+// ── HRMS Shifts ───────────────────────────────────────────────────────────
+
+export interface ShiftType {
+  id: number;
+  name: string;
+  start_time: string;
+  end_time: string;
+  break_start: string;
+  break_end: string;
+  color?: string;
+  is_active: boolean;
+  late_grace_enabled?: boolean;
+  late_grace_minutes?: number;
+  late_penalty_amount?: number;
+  half_day_after_minutes?: number;
+  overtime_enabled?: boolean;
+  overtime_after_minutes?: number;
+  overtime_rate?: number;
+  overtime_rate_per_hour?: number;
+}
+
+export interface ShiftAssignment {
+  id: number;
+  staff_id: number;
+  staff_name: string;
+  shift_type_id: number;
+  shift_type_name: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  location: string;
+  status: 'active' | 'pending' | 'cancelled';
+  schedule_type: 'alternate_day' | 'alternate_week' | 'fixed';
+  frequency_weeks: number;
+  working_days: string[];
+  effective_from: string;
+  effective_to: string | null;
+  is_active?: boolean;
+}
+
+export interface DailyShiftAllocation {
+  id: number;
+  staff_id: number;
+  staff_name: string;
+  date: string;
+  shift_type_id: number;
+  shift_type_name: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  check_in: string | null;
+  check_out: string | null;
+  status: 'scheduled' | 'arrived' | 'not_arrived' | 'on_the_way' | 'late';
+  late_minutes: number;
+  break_minutes: number;
+}
+
+export interface ShiftSettings {
+  lateEntryGraceMinutes: number;
+  earlyExitGraceMinutes: number;
+  halfDayThresholdHours: number;
+  absentThresholdHours: number;
+  overtimeCalculation: boolean;
+  overtimeShiftTypeIds: number[];
+  beginCheckInBeforeShiftStart: boolean;
+  defaultShiftTypeId: number | null;
+}
+
+export const DEFAULT_SHIFT_SETTINGS: ShiftSettings = {
+  lateEntryGraceMinutes: 30,
+  earlyExitGraceMinutes: 30,
+  halfDayThresholdHours: 4,
+  absentThresholdHours: 2,
+  overtimeCalculation: true,
+  overtimeShiftTypeIds: [],
+  beginCheckInBeforeShiftStart: true,
+  defaultShiftTypeId: null,
+};
+
+export const SHIFT_COLORS: readonly string[] = [] as const;
+
+export const SHIFT_COLOR_CLASSES: Record<string, string> = {};
+
+export const SHIFT_COLOR_DOT: Record<string, string> = {};
+
+export const DAY_LABELS: Record<string, string> = {
+  mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
+};
+
+export const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+export const WORKING_DAYS_DEFAULT = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+export const LOCATION_OPTIONS = ['Office', 'Remote', 'Field', 'Warehouse'];
+
+export const STATUS_COLORS: Record<string, string> = {
+  active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  pending: 'bg-amber-50 text-amber-700 border-amber-200',
+  cancelled: 'bg-zinc-100 text-zinc-500 border-zinc-200',
+};
+
+export const SCHEDULE_TYPE_LABELS: Record<string, string> = {
+  alternate_day: 'Alternate Day',
+  alternate_week: 'Alternate Week',
+  fixed: 'Fixed',
+};
 
 export { getBaseUrl };
 

@@ -4,6 +4,7 @@ import { useTrackingSocket } from '../hooks/useSocket';
 import { Truck, Clock, RefreshCw, X, MapPin, Package, Users, ChevronRight, Battery, Power } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import MapPreview from '../components/MapPreview';
+import { formatDateTimeIST } from '../lib/timeUtils';
 import SearchableSelect from '../components/SearchableSelect';
 import CheckpointPathPanel from '../components/CheckpointPathPanel';
 import {
@@ -129,9 +130,9 @@ function RiderCard({
                     </div>
                     <p className="text-[9px] text-amber-900/90 leading-snug">
                       Last device ping{' '}
-                      {new Date(rider.suspectedPowerOff.last_device_ping_at).toLocaleString()} · battery was{' '}
+                      {formatDateTimeIST(rider.suspectedPowerOff.last_device_ping_at)} · battery was{' '}
                       {rider.suspectedPowerOff.battery_percent_at_last_ping}% (logged{' '}
-                      {new Date(rider.suspectedPowerOff.server_logged_at).toLocaleString()})
+                      {formatDateTimeIST(rider.suspectedPowerOff.server_logged_at)})
                     </p>
                   </div>
                 )}
@@ -145,7 +146,7 @@ function RiderCard({
                   <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-zinc-100">
                     <span className="font-bold text-zinc-400 uppercase">Last fix</span>
                     <span className="font-mono text-zinc-700">
-                      {new Date(rider.lastLocationAt).toLocaleString()}
+                      {formatDateTimeIST(rider.lastLocationAt)}
                     </span>
                   </div>
                 )}

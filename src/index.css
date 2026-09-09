@@ -28,3 +28,46 @@
     scroll-behavior: smooth;
   }
 }
+
+@media print {
+  /* Hide sidebar, topbar, bottom nav, and any print:hidden elements */
+  aside,
+  nav,
+  header,
+  [data-print-hide],
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Remove browser-added URL and page title from header/footer */
+  @page {
+    margin: 16mm;
+    size: A4;
+  }
+
+  /* Reset body background for clean white print */
+  body {
+    background: white !important;
+  }
+
+  /* Make the payslip box fill the printable area cleanly */
+  .payslip-print-root {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Ensure content padding is consistent on print */
+  .payslip-print-root .payslip-header {
+    padding: 0 0 12px 0 !important;
+    border-bottom: 1px solid #e4e4e7 !important;
+    margin-bottom: 16px !important;
+  }
+
+  .payslip-print-root .payslip-body {
+    padding: 0 !important;
+  }
+}
