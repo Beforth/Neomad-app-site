@@ -5,10 +5,10 @@ import {
   UserPlus, Shield, Trash2, Edit2, CheckCircle2,
   XCircle, Search, Key, X, Save, Eye, EyeOff, ChevronLeft, ChevronRight,
   Users, UserCheck, UserX, Plus, ArrowUpDown, ChevronUp,
-  ChevronDown, Inbox
+  ChevronDown, Inbox, Fingerprint, RotateCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { getUsers, getRoles, createUser, updateUser, resetUserPassword, mapBackendRoleToFrontend, normalizeFetchError } from '../../lib/api';
+import { getUsers, getRoles, createUser, updateUser, resetUserPassword, deleteBiometricPin, createBiometricPin, updateBiometricPin, listUserBiometricPins, mapBackendRoleToFrontend, normalizeFetchError, type BiometricPin } from '../../lib/api';
 import SearchableSelect from '../../components/SearchableSelect';
 
 const ROLE_COLORS: Record<string, string> = {
@@ -45,7 +45,7 @@ function toTableUser(u: { id: number; email: string; full_name: string | null; p
   };
 }
 
-function Modal({ title, onClose, children, closeOnBackdropClick = true }: { title: string; onClose: () => void; children: React.ReactNode; closeOnBackdropClick?: boolean }) {
+function Modal({ title, onClose, children, closeOnBackdropClick = true, wide = false }: { title: string; onClose: () => void; children: React.ReactNode; closeOnBackdropClick?: boolean; wide?: boolean }) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       if (closeOnBackdropClick) onClose();
@@ -64,7 +64,7 @@ function Modal({ title, onClose, children, closeOnBackdropClick = true }: { titl
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+        className={`bg-white rounded-2xl shadow-xl w-full overflow-hidden ${wide ? 'max-w-2xl' : 'max-w-md'}`}
       >
         <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
           <h3 className="font-bold text-zinc-900">{title}</h3>
@@ -128,6 +128,98 @@ export default function Staff() {
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [resetUser, setResetUser] = useState<any | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<any | null>(null);
+
+  const [bioPins, setBioPins] = useState<BiometricPin[]>([]);
+  const [bioLoading, setBioLoading] = useState(false);
+  const [bioError, setBioError] = useState<string | null>(null);
+  const [bioReloadKey, setBioReloadKey] = useState(0);
+  const [bioNew, setBioNew] = useState({ deviceSn: '', pin: '' });
+  const [bioSaving, setBioSaving] = useState(false);
+  const [bioUpdateId, setBioUpdateId] = useState<number | null>(null);
+  const [bioUpdateField, setBioUpdateField] = useState<{ pin: string; deviceName: string | null; isActive: boolean } | null>(null);
+  const [bioBusyId, setBioBusyId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!editingUser?.id) return;
+    let cancelled = false;
+    setBioLoading(true);
+    setBioError(null);
+    listUserBiometricPins(token as string, editingUser.id)
+      .then((pins) => { if (!cancelled) setBioPins(pins); })
+      .catch((e) => { if (!cancelled) setBioError(normalizeFetchError(e, 'Failed to load biometric pins')); })
+      .finally(() => { if (!cancelled) setBioLoading(false); });
+    return () => { cancelled = true; };
+  }, [editingUser?.id, token, bioReloadKey]);
+
+  const handleAddBioPin = async () => {
+    if (!token || !editingUser?.id) return;
+    if (!bioNew.deviceSn.trim()) { showToast('Enter the device serial number'); return; }
+    if (!bioNew.pin.trim()) { showToast('Enter the biometric ID'); return; }
+    setBioSaving(true);
+    try {
+      await createBiometricPin(token, {
+        user_id: editingUser.id,
+        device_sn: bioNew.deviceSn.trim(),
+        pin_on_device: bioNew.pin.trim(),
+      });
+      setBioNew({ deviceSn: '', pin: '' });
+      const pins = await listUserBiometricPins(token, editingUser.id);
+      setBioPins(pins);
+      showToast('Biometric ID added');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to add biometric ID');
+    } finally {
+      setBioSaving(false);
+    }
+  };
+
+  const handleDeleteBioPin = async (p: BiometricPin) => {
+    if (!token) return;
+    setBioBusyId(p.id);
+    try {
+      await deleteBiometricPin(token, p.device_sn, p.id);
+      setBioPins((prev) => prev.filter((x) => x.id !== p.id));
+      showToast('Biometric mapping removed');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to remove biometric mapping');
+    } finally {
+      setBioBusyId(null);
+    }
+  };
+
+  const handleToggleBioPin = async (p: BiometricPin) => {
+    if (!token) return;
+    setBioBusyId(p.id);
+    try {
+      await updateBiometricPin(token, p.device_sn, p.id, { is_active: !p.is_active });
+      const pins = await listUserBiometricPins(token, editingUser.id);
+      setBioPins(pins);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to update mapping');
+    } finally {
+      setBioBusyId(null);
+    }
+  };
+
+  const handleSaveBioPin = async (p: BiometricPin) => {
+    if (!token || !bioUpdateId || !bioUpdateField) return;
+    setBioBusyId(p.id);
+    try {
+      await updateBiometricPin(token, p.device_sn, p.id, {
+        pin_on_device: bioUpdateField.pin.trim(),
+        device_name: bioUpdateField.deviceName?.trim() || null,
+      });
+      setBioUpdateId(null);
+      setBioUpdateField(null);
+      const pins = await listUserBiometricPins(token, editingUser.id);
+      setBioPins(pins);
+      showToast('Biometric ID updated');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to update biometric ID');
+    } finally {
+      setBioBusyId(null);
+    }
+  };
 
   const [newPw, setNewPw] = useState('');
   const [adminPw, setAdminPw] = useState('');
@@ -640,36 +732,128 @@ export default function Staff() {
 
       {/* EDIT STAFF MODAL */}
       {editingUser && (
-        <Modal title="Edit Staff" onClose={() => setEditingUser(null)}>
-          <form onSubmit={handleEditSave} className="p-5 space-y-4">
-            <Field label="Username"><input type="text" required value={editingUser.username} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, username: e.target.value }))} className={inputClassName} /></Field>
-            <Field label="Email"><input type="email" required value={editingUser.email} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, email: e.target.value }))} className={inputClassName} /></Field>
-            <Field label="Phone"><input type="tel" value={editingUser.phone || ''} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, phone: e.target.value }))} placeholder="+91 98765 43210" className={inputClassName} /></Field>
-            <Field label="Role">
-              <SearchableSelect
-                value={editingUser.role_code ?? editingUser.role ?? ''}
-                onChange={(v) => setEditingUser((prev: any) => ({ ...prev, role_code: v }))}
-                disabled={rolesLoading}
-                className="w-full"
-                options={
-                  rolesLoading
-                    ? [{ value: '', label: 'Loading roles...' }]
-                    : rolesError
-                    ? [{ value: '', label: 'Failed to load roles' }]
-                    : roles.map((r) => ({ value: r.code, label: r.name }))
-                }
-              />
-              {rolesError && (
-                <p className="mt-1 text-xs text-red-600 flex items-center gap-2">
-                  {rolesError}
-                  <button type="button" onClick={fetchRoles} className="text-emerald-600 font-medium hover:underline">Retry</button>
+        <Modal title="Edit Staff" onClose={() => setEditingUser(null)} wide closeOnBackdropClick={false}>
+          <div className="p-5 space-y-4">
+            <form onSubmit={handleEditSave} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Username"><input type="text" required value={editingUser.username} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, username: e.target.value }))} className={inputClassName} /></Field>
+              <Field label="Email"><input type="email" required value={editingUser.email} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, email: e.target.value }))} className={inputClassName} /></Field>
+              <Field label="Phone"><input type="tel" value={editingUser.phone || ''} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, phone: e.target.value }))} placeholder="+91 98765 43210" className={inputClassName} /></Field>
+              <Field label="Role">
+                <SearchableSelect
+                  value={editingUser.role_code ?? editingUser.role ?? ''}
+                  onChange={(v) => setEditingUser((prev: any) => ({ ...prev, role_code: v }))}
+                  disabled={rolesLoading}
+                  className="w-full"
+                  options={
+                    rolesLoading
+                      ? [{ value: '', label: 'Loading roles...' }]
+                      : rolesError
+                      ? [{ value: '', label: 'Failed to load roles' }]
+                      : roles.map((r) => ({ value: r.code, label: r.name }))
+                  }
+                />
+                {rolesError && (
+                  <p className="mt-1 text-xs text-red-600 flex items-center gap-2">
+                    {rolesError}
+                    <button type="button" onClick={fetchRoles} className="text-emerald-600 font-medium hover:underline">Retry</button>
+                  </p>
+                )}
+              </Field>
+              <div className="col-span-1 sm:col-span-2">
+                <button type="submit" disabled={editLoading || (roles.length === 0 && !rolesError)} className="w-full py-2.5 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+                  <Save size={16} /> {editLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+
+            <div className="border-t border-zinc-100 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-bold text-zinc-700 uppercase tracking-wide flex items-center gap-1.5">
+                  <Fingerprint size={14} className="text-emerald-600" /> Biometric ID(s)
+                </h4>
+              </div>
+
+              {bioLoading && <p className="text-xs text-zinc-400">Loading biometric mappings...</p>}
+              {bioError && (
+                <p className="text-xs text-red-600 flex items-center gap-2">
+                  {bioError}
+                  <button type="button" onClick={() => setBioReloadKey((k) => k + 1)} className="text-emerald-600 font-medium hover:underline">Retry</button>
                 </p>
               )}
-            </Field>
-            <button type="submit" disabled={editLoading || (roles.length === 0 && !rolesError)} className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
-              <Save size={16} /> {editLoading ? 'Saving...' : 'Save Changes'}
-            </button>
-          </form>
+
+              {!bioLoading && !bioError && bioPins.length === 0 && (
+                <p className="text-xs text-zinc-400 mb-3">No biometric ID assigned yet. Add the device serial number (printed on the machine) and the staff member's PIN/ID on that device.</p>
+              )}
+
+              <div className="space-y-2">
+                {bioPins.map((p) => (
+                  <div key={p.id} className="flex items-center gap-2 p-2.5 bg-zinc-50 border border-zinc-100 rounded-xl">
+                    {bioUpdateId === p.id ? (
+                      <>
+                        <input type="text" value={bioUpdateField?.pin ?? ''}
+                          onChange={(e) => setBioUpdateField((prev) => prev ? { ...prev, pin: e.target.value } : prev)}
+                          placeholder="Biometric ID" className="px-2 py-1.5 bg-white border border-zinc-200 rounded-lg text-xs text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                          style={{ width: '110px' }}
+                        />
+                        <input type="text" value={bioUpdateField?.deviceName ?? ''}
+                          onChange={(e) => setBioUpdateField((prev) => prev ? { ...prev, deviceName: e.target.value } : prev)}
+                          placeholder="Device name (optional)" className="px-2 py-1.5 bg-white border border-zinc-200 rounded-lg text-xs text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                          style={{ flex: 1, minWidth: 0 }}
+                        />
+                        <button type="button" onClick={() => handleSaveBioPin(p)} disabled={bioBusyId === p.id}
+                          className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Save">
+                          <Save size={14} />
+                        </button>
+                        <button type="button" onClick={() => { setBioUpdateId(null); setBioUpdateField(null); }}
+                          className="p-1.5 text-zinc-400 hover:bg-zinc-100 rounded-lg transition-colors" title="Cancel">
+                          <X size={14} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-zinc-800">
+                            {p.device_name || p.device_sn}
+                            <span className="text-zinc-400 font-medium"> · {p.device_sn}</span>
+                          </p>
+                          <p className="text-[11px] text-zinc-500">ID: <span className="font-bold text-zinc-700">{p.pin_on_device}</span></p>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${p.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                          {p.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        <button type="button" onClick={() => handleToggleBioPin(p)} disabled={bioBusyId === p.id}
+                          className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title={p.is_active ? 'Deactivate' : 'Activate'}>
+                          <RotateCcw size={13} />
+                        </button>
+                        <button type="button" onClick={() => { setBioUpdateId(p.id); setBioUpdateField({ pin: p.pin_on_device, deviceName: p.device_name, isActive: p.is_active }); }}
+                          className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="Edit">
+                          <Edit2 size={13} />
+                        </button>
+                        <button type="button" onClick={() => handleDeleteBioPin(p)} disabled={bioBusyId === p.id}
+                          className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Remove">
+                          <Trash2 size={13} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 flex gap-2">
+                <input type="text" value={bioNew.deviceSn}
+                  onChange={(e) => setBioNew((prev) => ({ ...prev, deviceSn: e.target.value }))}
+                  placeholder="Device serial (e.g. SN12345)" className={inputClassName} style={{ flex: 1, minWidth: 0 }} />
+                <input type="text" value={bioNew.pin}
+                  onChange={(e) => setBioNew((prev) => ({ ...prev, pin: e.target.value }))}
+                  placeholder="Biometric ID" className={inputClassName} style={{ flex: 1, minWidth: 0 }} />
+                <button type="button" onClick={handleAddBioPin} disabled={bioSaving || bioLoading}
+                  className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors flex items-center gap-1.5 disabled:opacity-60 whitespace-nowrap">
+                  <Plus size={14} /> {bioSaving ? 'Adding...' : 'Add'}
+                </button>
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-2">Matches punches sent by the device to this staff member. The device serial is on the machine's label.</p>
+            </div>
+          </div>
         </Modal>
       )}
 

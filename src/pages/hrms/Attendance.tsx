@@ -6,7 +6,7 @@ import {
   CheckCircle2, Download, Shield, Search, MapPin, Loader2,
   Settings as SettingsIcon, Navigation, LogIn, LogOut,
   ChevronLeft, ChevronRight, ArrowUpDown, ChevronUp, ChevronDown, Inbox, XCircle, ClipboardList,
-  ThumbsUp, ThumbsDown, Bell, Pencil,
+  ThumbsUp, ThumbsDown, Bell, Pencil, Cpu,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getUsers, mapBackendRoleToFrontend } from '../../lib/api';
@@ -650,8 +650,8 @@ export default function Attendance() {
       r.date, r.staff_name, r.staff_email, r.check_in || '', r.check_out || '',
       r.hours_worked ? String(r.hours_worked) : '', r.overtime ? `+${r.overtime}h` : '',
       STATUS_LABELS[r.status] || r.status,
-      r.distance_from_office !== null ? String(r.distance_from_office) : 'Manual',
-      r.marked_by_name || '',
+      r.source === 'biometric' || r.device_id ? 'Biometric' : (r.distance_from_office !== null ? String(r.distance_from_office) : 'Manual'),
+      r.source === 'biometric' || r.device_id ? (r.device_id ?? 'Machine') : (r.marked_by_name || ''),
     ]);
     const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -1032,7 +1032,15 @@ export default function Attendance() {
                             )}
                           </td>
                           <td className="py-3 px-4 text-xs font-mono text-zinc-700">
-                            {r.punch_in_lat !== null && r.punch_in_lat !== undefined && r.punch_in_lng !== null && r.punch_in_lng !== undefined ? (
+                            {r.source === 'biometric' || r.device_id ? (
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-zinc-900 flex items-center gap-1">
+                                  <Cpu size={11} className="text-emerald-600 shrink-0" />
+                                  {r.device_id || 'Biometric'}
+                                </span>
+                                <span className="text-[10px] text-zinc-400 font-sans">via biometric terminal</span>
+                              </div>
+                            ) : r.punch_in_lat !== null && r.punch_in_lat !== undefined && r.punch_in_lng !== null && r.punch_in_lng !== undefined ? (
                               <div className="flex flex-col">
                                 <span className="font-semibold text-zinc-900 flex items-center gap-1">
                                   <MapPin size={11} className="text-emerald-600 shrink-0" />
@@ -1069,7 +1077,11 @@ export default function Attendance() {
                               {STATUS_LABELS[r.status] || r.status}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-xs text-zinc-500">{r.marked_by_name || 'self'}</td>
+                          <td className="px-4 py-3 text-xs text-zinc-500">
+                            {r.source === 'biometric' || r.device_id
+                              ? (r.device_id ? `Machine ${r.device_id}` : 'Biometric machine')
+                              : r.marked_by_name || 'self'}
+                          </td>
                           {canManage && (
                             <td className="px-4 py-3">
                               <button

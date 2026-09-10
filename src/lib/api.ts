@@ -638,6 +638,94 @@ export async function resetUserPassword(
   return res.json();
 }
 
+/** Biometric (ESSL/ZKTeco) PIN mapping between a staff member and a device. */
+export interface BiometricPin {
+  id: number;
+  user_id: number;
+  device_sn: string;
+  pin_on_device: string;
+  device_name: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** List biometric PIN mappings, filtered to one user if provided. Admin/manager token. */
+export async function listUserBiometricPins(token: string, userId?: number): Promise<BiometricPin[]> {
+  const base = getBaseUrl();
+  const url = userId != null ? `${base}/hrms/biometric/pins?user_id=${encodeURIComponent(String(userId))}` : `${base}/hrms/biometric/pins`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to load biometric pins'));
+  }
+  return res.json();
+}
+
+/** Create a biometric PIN mapping (device serial + PIN). Admin/manager token. */
+export async function createBiometricPin(
+  token: string,
+  data: { user_id: number; device_sn: string; pin_on_device: string; device_name?: string | null }
+): Promise<BiometricPin> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/hrms/biometric/pins`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      user_id: data.user_id,
+      device_sn: data.device_sn,
+      pin_on_device: data.pin_on_device,
+      device_name: data.device_name ?? null,
+    }),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to create biometric pin'));
+  }
+  return res.json();
+}
+
+/** Update a biometric PIN mapping (device serial + pin id). Admin/manager token. */
+export async function updateBiometricPin(
+  token: string,
+  deviceSn: string,
+  pinId: number,
+  data: { pin_on_device?: string; device_name?: string | null; is_active?: boolean }
+): Promise<BiometricPin> {
+  const base = getBaseUrl();
+  const body: Record<string, string | boolean | null> = {};
+  if (data.pin_on_device !== undefined) body.pin_on_device = data.pin_on_device;
+  if (data.device_name !== undefined) body.device_name = data.device_name;
+  if (data.is_active !== undefined) body.is_active = data.is_active;
+  const res = await fetch(`${base}/hrms/biometric/devices/${encodeURIComponent(deviceSn)}/pins/${pinId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to update biometric pin'));
+  }
+  return res.json();
+}
+
+/** Delete a biometric PIN mapping. Admin/manager token. */
+export async function deleteBiometricPin(token: string, deviceSn: string, pinId: number): Promise<void> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/hrms/biometric/devices/${encodeURIComponent(deviceSn)}/pins/${pinId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err as { detail?: string }, res.statusText || 'Failed to delete biometric pin'));
+  }
+}
+
 export interface ApiTask {
   id: number;
   task_number: string;

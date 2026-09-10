@@ -29,6 +29,8 @@ export interface AttendanceRecordOut {
   marked_by: number | null;
   marked_by_name: string | null;
   source: string;
+  device_id: string | null;
+  verify_type: string | null;
   created_at: string;
   updated_at: string;
 }
