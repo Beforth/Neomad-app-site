@@ -62,13 +62,13 @@ export interface LoginResponse {
   user: LoginResponseUser;
 }
 
-/** Map backend role_codes to frontend role (single). */
+/** Map backend role_codes to frontend role (single). Highest privilege wins. */
 export function mapBackendRoleToFrontend(roleCodes: string[]): 'admin' | 'manager' | 'delivery_boy' | 'staff' {
-  const code = roleCodes?.[0];
-  if (code === 'delivery') return 'delivery_boy';
-  if (code === 'super_admin' || code === 'admin') return 'admin';
-  if (code === 'manager') return 'manager';
-  if (code === 'staff') return 'staff';
+  const codes = new Set((roleCodes ?? []).map((c) => String(c)));
+  if (codes.has('super_admin') || codes.has('admin')) return 'admin';
+  if (codes.has('manager')) return 'manager';
+  if (codes.has('delivery')) return 'delivery_boy';
+  if (codes.has('staff')) return 'staff';
   return 'staff';
 }
 
@@ -1662,3 +1662,148 @@ export const SCHEDULE_TYPE_LABELS: Record<string, string> = {
 };
 
 export { getBaseUrl };
+
+// ---------------------------------------------------------------------------
+// IMAP IDLE
+// ---------------------------------------------------------------------------
+
+export interface ImapConfig {
+  id: number;
+  email: string;
+  imap_host: string;
+  imap_port: number;
+  is_active: boolean;
+  last_idle_at: string | null;
+  error_message: string | null;
+}
+
+export interface ImapStatusResponse {
+  running: boolean;
+  connected: boolean;
+  last_idle_at: string | null;
+  last_error: string | null;
+  emails_detected_total: number;
+  invoices_imported_total: number;
+  last_uid: number | null;
+}
+
+export interface ImapTestResponse {
+  success: boolean;
+  message: string;
+  email_count: number | null;
+}
+
+export async function getImapConfig(token: string): Promise<ImapConfig | null> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/config`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to load IMAP config'));
+  }
+  return res.json();
+}
+
+export async function saveImapConfig(
+  token: string,
+  body: { email: string; app_password: string; imap_host?: string; imap_port?: number },
+): Promise<ImapConfig> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/config`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to save IMAP config'));
+  }
+  return res.json();
+}
+
+export async function disconnectImap(token: string): Promise<void> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/config`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to disconnect IMAP'));
+  }
+}
+
+export async function getImapStatus(token: string): Promise<ImapStatusResponse> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/status`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to load IMAP status'));
+  }
+  return res.json();
+}
+
+export async function resetImapWatermark(token: string): Promise<{ ok: boolean; message: string }> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/reset-watermark`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to reset watermark'));
+  }
+  return res.json();
+}
+
+export async function testImapConnection(
+  token: string,
+  body: { email: string; app_password: string; imap_host?: string; imap_port?: number },
+): Promise<ImapTestResponse> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/test`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to test IMAP connection'));
+  }
+  return res.json();
+}
+
+export interface ImapSyncResponse {
+  success: boolean;
+  emails_synced: number;
+  invoices_imported: number;
+  message: string;
+}
+
+export async function syncImap(
+  token: string,
+  since: string,
+): Promise<ImapSyncResponse> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/imap/sync`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ since }),
+  });
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(getApiError(err, res.statusText || 'Failed to sync IMAP emails'));
+  }
+  return res.json();
+}

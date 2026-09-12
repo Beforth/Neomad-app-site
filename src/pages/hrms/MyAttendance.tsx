@@ -169,8 +169,10 @@ function TodayCard({ record }: { record: AttendanceRecordOut | null }) {
     );
   }
 
-  const late = record.status === 'late' && record.check_in
-    ? lateMins(record.check_in, record.shift_start || DEFAULT_SHIFT_START) : 0;
+  const late = record.check_in
+    ? lateMins(record.check_in, record.shift_start || DEFAULT_SHIFT_START)
+    : 0;
+  const isLate = record.status === 'late' || late > 30;
 
   const statusBg: Record<string, string> = {
     present:  'bg-emerald-500',
@@ -188,10 +190,15 @@ function TodayCard({ record }: { record: AttendanceRecordOut | null }) {
     >
       <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">Today · {todayLabel}</p>
       <div className="flex items-center gap-3 flex-wrap">
-        <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-xs font-bold ${statusBg[record.status]}`}>
+        <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-xs font-bold ${isLate ? statusBg.late : statusBg[record.status]}`}>
           <span className="w-1.5 h-1.5 rounded-full bg-white/50" />
-          {STATUS_LABELS[record.status]}
+          {isLate ? 'Late' : STATUS_LABELS[record.status]}
         </span>
+        {(record.source === 'admin' || record.marked_by != null) && (
+          <span className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-bold uppercase tracking-wide">
+            Admin
+          </span>
+        )}
         {record.check_in && (
           <span className="flex items-center gap-1 text-xs text-zinc-600">
             <LogIn size={13} className="text-emerald-500" />
@@ -222,6 +229,12 @@ function TodayCard({ record }: { record: AttendanceRecordOut | null }) {
           Shift {record.shift_start || DEFAULT_SHIFT_START}–{record.shift_end || DEFAULT_SHIFT_END}
         </span>
       </div>
+      {(record.source === 'admin' || record.marked_by != null) && (
+        <div className="mt-3 rounded-xl border border-amber-400 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900">
+          Admin marked your attendance{record.marked_by_name ? ` by ${record.marked_by_name}` : ''}
+          {record.check_in && record.check_out ? ' — Punch in & Punch out' : record.check_in ? ' — Punch in' : record.check_out ? ' — Punch out' : ''}.
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -332,8 +345,10 @@ function DayDetail({ date, record }: { date: string | null; record: AttendanceRe
     );
   }
 
-  const late = record.status === 'late' && record.check_in
-    ? lateMins(record.check_in, record.shift_start || DEFAULT_SHIFT_START) : 0;
+  const late = record.check_in
+    ? lateMins(record.check_in, record.shift_start || DEFAULT_SHIFT_START)
+    : 0;
+  const isLate = record.status === 'late' || late > 30;
 
   return (
     <motion.div
@@ -343,9 +358,14 @@ function DayDetail({ date, record }: { date: string | null; record: AttendanceRe
     >
       <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
         <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{label}</p>
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold ${STATUS_STYLES[record.status]}`}>
-          {STATUS_LABELS[record.status]}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold ${isLate ? STATUS_STYLES.late : STATUS_STYLES[record.status]}`}>
+            {isLate ? 'Late' : STATUS_LABELS[record.status]}
+          </span>
+          {(record.source === 'admin' || record.marked_by != null) && (
+            <span className="px-2 py-1 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-bold uppercase">Admin</span>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         {record.check_in ? (
@@ -390,6 +410,12 @@ function DayDetail({ date, record }: { date: string | null; record: AttendanceRe
           Shift {record.shift_start || DEFAULT_SHIFT_START}–{record.shift_end || DEFAULT_SHIFT_END}
         </span>
       </div>
+      {(record.source === 'admin' || record.marked_by != null) && (
+        <div className="mt-3 rounded-xl border border-amber-400 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900">
+          Admin marked your attendance{record.marked_by_name ? ` by ${record.marked_by_name}` : ''}
+          {record.check_in && record.check_out ? ' — Punch in & Punch out' : record.check_in ? ' — Punch in' : record.check_out ? ' — Punch out' : ''}.
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -34,6 +34,8 @@ interface Assignment {
   endDate: string;
   assignedAt: string;
   entitlements: { leaveTypeName: string; days?: number }[];
+  maxPaidLeaves?: number;
+  maxUnpaidLeaves?: number;
 }
 
 export default function LeavePolicyAssign() {
@@ -90,19 +92,24 @@ export default function LeavePolicyAssign() {
         setEndDate(prData[0].end_date);
       }
       setAssignments(
-        aData.map((a) => ({
-          id: a.id,
-          policyName: a.policy_name || `Policy #${a.policy_id}`,
-          employeeName: a.employee_name || a.employee_email || `User #${a.user_id}`,
-          assignBasis: a.assign_basis || 'user',
-          startDate: a.start_date,
-          endDate: a.end_date,
-          assignedAt: a.created_at ? a.created_at.split('T')[0] : a.start_date,
-          entitlements: (a.entitlements || []).map((e) => ({
-            leaveTypeName: e.leave_type_name || `Type #${e.leave_type_id}`,
-            days: e.days,
-          })),
-        }))
+        aData.map((a) => {
+          const pol = pData.find((p) => p.id === a.policy_id);
+          return {
+            id: a.id,
+            policyName: a.policy_name || `Policy #${a.policy_id}`,
+            employeeName: a.employee_name || a.employee_email || `User #${a.user_id}`,
+            assignBasis: a.assign_basis || 'user',
+            startDate: a.start_date,
+            endDate: a.end_date,
+            assignedAt: a.created_at ? a.created_at.split('T')[0] : a.start_date,
+            maxPaidLeaves: pol?.max_paid_leaves,
+            maxUnpaidLeaves: pol?.max_unpaid_leaves,
+            entitlements: (a.entitlements || []).map((e) => ({
+              leaveTypeName: e.leave_type_name || `Type #${e.leave_type_id}`,
+              days: e.days,
+            })),
+          };
+        })
       );
     } catch (e) {
       console.error('Failed to load assign options:', e);
@@ -463,7 +470,9 @@ export default function LeavePolicyAssign() {
                         </div>
                       ) : (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                          2 Paid / 3 LWP Monthly
+                          {a.maxPaidLeaves || a.maxUnpaidLeaves
+                            ? `${a.maxPaidLeaves || 0} Paid / ${a.maxUnpaidLeaves || 0} LWP Monthly`
+                            : 'Policy monthly caps'}
                         </span>
                       )}
                     </td>

@@ -72,7 +72,7 @@ import MyShifts from './pages/hrms/MyShifts';
 import MyExpenses from './pages/hrms/MyExpenses';
 import MyLeave from './pages/hrms/MyLeave';
 import { useNotifications } from './hooks/useNotifications';
-import { useStaffInvoiceAlerts } from './hooks/useSocket';
+import { useTrackingSocket, useStaffInvoiceAlerts } from './hooks/useSocket';
 import { useWebPush } from './hooks/useWebPush';
 import BottomNav from './components/BottomNav';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -192,6 +192,7 @@ function AppRoutes() {
   useNotifications();
   useWebPush();
   useStaffInvoiceAlerts(false);
+  useTrackingSocket(Boolean(user && (user.role === 'admin' || user.role === 'manager')));
 
   if (loading) return <div className="min-h-[100dvh] flex items-center justify-center bg-white font-bold text-zinc-400 animate-pulse">Loading...</div>;
 

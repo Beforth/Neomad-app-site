@@ -248,7 +248,16 @@ export default function Leave() {
                     <td className="px-5 py-3.5 text-zinc-600">
                       {req.start_date} to {req.end_date}
                     </td>
-                    <td className="px-5 py-3.5 font-bold text-zinc-800">{req.days} day(s)</td>
+                    <td className="px-5 py-3.5">
+                      <span className="font-bold text-zinc-800 block">{req.days} day(s)</span>
+                      {(req.paid_days > 0 || req.lwp_days > 0) && (
+                        <span className="text-[10px] text-zinc-500 font-medium">
+                          {req.paid_days > 0 ? `${req.paid_days} Paid` : ''}
+                          {req.paid_days > 0 && req.lwp_days > 0 ? ' · ' : ''}
+                          {req.lwp_days > 0 ? `${req.lwp_days} LWP` : ''}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-5 py-3.5 text-zinc-500 max-w-[200px] truncate">{req.reason || '—'}</td>
                     <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-2">

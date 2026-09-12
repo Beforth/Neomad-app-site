@@ -594,19 +594,41 @@ export default function Attendance() {
   };
 
   const handleGetCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setSettings(prev => ({
-            ...prev,
-            latitude: parseFloat(pos.coords.latitude.toFixed(4)),
-            longitude: parseFloat(pos.coords.longitude.toFixed(4)),
-          }));
-          showToast('Current location set as office.');
-        },
-        () => showToast('Failed to get current location.')
-      );
+    if (!navigator.geolocation) {
+      showToast('This browser cannot read GPS. Open Attendance settings on a phone at the office, then tap Use My Current Location.');
+      return;
     }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const latitude = pos.coords.latitude;
+        const longitude = pos.coords.longitude;
+        setSettings((prev) => ({ ...prev, latitude, longitude }));
+        if (!token) {
+          showToast('Location captured. Click Save Settings.');
+          return;
+        }
+        setSettingsSaving(true);
+        try {
+          await updateHrmsSettings(token, {
+            office_name: settings.officeName,
+            latitude,
+            longitude,
+            radius_meters: settings.radiusMeters,
+          });
+          showToast(`Office pin saved at ${latitude.toFixed(5)}, ${longitude.toFixed(5)}. Staff must pull to refresh the app.`);
+        } catch (error) {
+          showToast(error instanceof Error ? error.message : 'Location captured but save failed. Click Save Settings.');
+        } finally {
+          setSettingsSaving(false);
+        }
+      },
+      (err) => {
+        if (err.code === 1) showToast('Location permission denied. Allow location for this site and try again.');
+        else if (err.code === 3) showToast('Location timed out. Try again on a phone at the office.');
+        else showToast('Failed to get current location. Try again on a phone at the office.');
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+    );
   };
 
   const filtered = useMemo(() => {
@@ -1470,28 +1492,39 @@ export default function Attendance() {
                   className={inputClassName} />
               </div>
             </div>
-            <button type="button" onClick={handleGetCurrentLocation}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-sm font-medium transition-colors">
+            <button type="button" onClick={handleGetCurrentLocation} disabled={settingsSaving}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-sm font-medium transition-colors disabled:opacity-60">
               <Navigation size={16} />
-              Use My Current Location
+              {settingsSaving ? 'Saving office pin…' : 'Use My Current Location (saves immediately)'}
             </button>
+            <p className="text-[11px] text-zinc-500">
+              Do this while standing at the office, on a phone if possible. A computer can save the wrong pin (often ~2 km off). Staff then pull-to-refresh the app.
+            </p>
             <div>
               <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
                 Geo-Fence Radius ({settings.radiusMeters}m)
               </label>
-              <input type="range" min="100" max="5000" step="100" value={settings.radiusMeters}
+              <input type="range" min="0" max="5000" step="100" value={settings.radiusMeters}
                 onChange={(e) => setSettings(s => ({ ...s, radiusMeters: parseInt(e.target.value) }))}
                 className="w-full accent-emerald-600" />
               <div className="flex justify-between text-xs text-zinc-400 mt-1">
-                <span>100m</span>
+                <span>0m</span>
                 <span>5000m</span>
               </div>
             </div>
             <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3">
               <p className="text-xs text-zinc-500">
-                Employees must be within <strong className="text-zinc-700">{settings.radiusMeters}m</strong> of
-                <strong className="text-zinc-700"> {settings.officeName}</strong> to punch in/out.
-                Admins and managers can override this for manual attendance marking.
+                {settings.radiusMeters <= 0 ? (
+                  <>
+                    Radius is <strong className="text-zinc-700">0m</strong> — geo-fence is off and staff can punch from anywhere.
+                  </>
+                ) : (
+                  <>
+                    Employees must be within <strong className="text-zinc-700">{settings.radiusMeters}m</strong> of
+                    <strong className="text-zinc-700"> {settings.officeName}</strong> to punch in/out.
+                  </>
+                )}
+                {' '}Admins and managers can override this for manual attendance marking.
               </p>
             </div>
             <div className="flex gap-3 pt-2">

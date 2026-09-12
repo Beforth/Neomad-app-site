@@ -206,9 +206,9 @@ export default function LeaveApplyForm() {
                         Assigned Policy: {myPolicy.policy_name}
                       </div>
                       <div className="flex items-center gap-2 text-[10px] font-extrabold text-emerald-800 bg-white/80 px-2 py-0.5 rounded-md border border-emerald-200">
-                        <span>Max Paid: {myPolicy.max_paid_leaves ? `${myPolicy.max_paid_leaves} Days/mo` : 'Not Limited'}</span>
+                        <span>Max Paid: {myPolicy.max_paid_leaves ? `${myPolicy.max_paid_leaves} Days/mo` : '2 Days/mo'}</span>
                         <span>·</span>
-                        <span>Max Unpaid: {myPolicy.max_unpaid_leaves ? `${myPolicy.max_unpaid_leaves} Days/mo` : 'Not Limited'}</span>
+                        <span>Max Unpaid: {myPolicy.max_unpaid_leaves ? `${myPolicy.max_unpaid_leaves} Days/mo` : '3 Days/mo'}</span>
                       </div>
                     </div>
                     {myPolicy.entitlements && myPolicy.entitlements.length > 0 && (
@@ -367,9 +367,19 @@ export default function LeaveApplyForm() {
                               </div>
                             </div>
 
-                            {preview.lwp_days > 0 && (
+                            {preview.lwp_days > 0 && preview.paid_days > 0 && (
                               <p className="text-[11px] text-amber-700 font-medium bg-amber-50/80 p-2 rounded-lg border border-amber-200/60">
-                                💡 Note: Only 2 paid leaves are allowed per month. The remaining {preview.lwp_days} day(s) will be granted as Leave Without Pay (LWP).
+                                Monthly policy: {preview.paid_days} day(s) paid from this type; {preview.lwp_days} day(s) counted as LWP.
+                              </p>
+                            )}
+                            {preview.lwp_days > 0 && preview.paid_days === 0 && (
+                              <p className="text-[11px] text-amber-700 font-medium bg-amber-50/80 p-2 rounded-lg border border-amber-200/60">
+                                Note: {preview.lwp_days} day(s) are unpaid (LWP).
+                              </p>
+                            )}
+                            {preview.lwp_days === 0 && preview.paid_days > 0 && (
+                              <p className="text-[11px] text-emerald-700 font-medium bg-emerald-50/80 p-2 rounded-lg border border-emerald-200/60">
+                                These {preview.paid_days} day(s) count as paid under this month's paid-leave cap.
                               </p>
                             )}
                           </div>

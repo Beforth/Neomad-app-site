@@ -137,8 +137,8 @@ export default function ShiftAssignNew() {
     if (!form.date_from) { showToast('Please select a date'); return; }
 
     const dateFrom = form.date_from;
-    const dateTo = form.date_to || dateFrom;
-    const working_days = workingDaysInRange(dateFrom, dateTo);
+    const dateTo = form.date_to.trim() ? form.date_to.trim() : null;
+    const working_days = workingDaysInRange(dateFrom, dateTo || dateFrom);
 
     const payload = {
       staff_id: staffId,

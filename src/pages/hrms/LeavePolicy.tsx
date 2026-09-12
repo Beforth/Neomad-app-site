@@ -48,6 +48,8 @@ interface Assignment {
   assignedAt: string;
   status?: string;
   entitlements: { leaveTypeName: string; days?: number }[];
+  maxPaidLeaves?: number;
+  maxUnpaidLeaves?: number;
 }
 
 interface AllocationRecord {
@@ -63,10 +65,10 @@ interface AllocationRecord {
 }
 
 const generalRules = [
-  { label: 'Monthly Paid Cap', value: 'Max 2 paid leave days / month' },
+  { label: 'Paid Leave Types', value: 'PL / ML count fully as paid' },
+  { label: 'LWP', value: 'Only when Leave Without Pay type is selected' },
   { label: 'Planned Leave Notice', value: 'Prior notice before leave date' },
   { label: 'Max Consecutive Days', value: 'As per entitlement' },
-  { label: 'Emergency Exception', value: 'Waives 2-day monthly limit on approval' },
   { label: 'Probation Leave', value: 'Medical Leave allowed' },
   { label: 'Leave Encashment', value: 'As per policy' },
 ];
@@ -174,17 +176,22 @@ export default function LeavePolicy() {
         })
       );
       setAssignments(
-        aData.map((a) => ({
-          id: a.id,
-          policyName: a.policy_name || 'Policy #' + a.policy_id,
-          employeeName: a.employee_name || a.employee_email || 'Employee #' + a.user_id,
-          assignedAt: a.start_date,
-          status: a.status || 'active',
-          entitlements: (a.entitlements || []).map((e) => ({
-            leaveTypeName: e.leave_type_name || `Type #${e.leave_type_id}`,
-            days: e.days,
-          })),
-        }))
+        aData.map((a) => {
+          const pol = pData.find((p) => p.id === a.policy_id);
+          return {
+            id: a.id,
+            policyName: a.policy_name || 'Policy #' + a.policy_id,
+            employeeName: a.employee_name || a.employee_email || 'Employee #' + a.user_id,
+            assignedAt: a.start_date,
+            status: a.status || 'active',
+            maxPaidLeaves: pol?.max_paid_leaves,
+            maxUnpaidLeaves: pol?.max_unpaid_leaves,
+            entitlements: (a.entitlements || []).map((e) => ({
+              leaveTypeName: e.leave_type_name || `Type #${e.leave_type_id}`,
+              days: e.days,
+            })),
+          };
+        })
       );
       setAllocations(
         allocData.map((a) => ({
@@ -437,7 +444,15 @@ export default function LeavePolicy() {
           { label: 'Active Policies', value: policies.filter((p) => p.status === 'active').length, icon: FileText, color: 'bg-zinc-900 text-white' },
           { label: 'Assigned Employees', value: assignments.length, icon: Users, color: 'bg-emerald-50 text-emerald-700 border border-emerald-100' },
           { label: 'Allocated Records', value: allocations.length, icon: CheckCircle, color: 'bg-indigo-50 text-indigo-700 border border-indigo-100' },
-          { label: 'Paid Leave Cap', value: '2 Days / Month', icon: Calendar, color: 'bg-amber-50 text-amber-700 border border-amber-100' },
+          {
+            label: 'Paid Leave Cap',
+            value: (() => {
+              const p = policies.find((x) => x.status === 'active') ?? policies[0];
+              return p?.max_paid_leaves ? `${p.max_paid_leaves} Days / Month` : 'From policy';
+            })(),
+            icon: Calendar,
+            color: 'bg-amber-50 text-amber-700 border border-amber-100',
+          },
         ].map((card, i) => (
           <motion.div
             key={card.label}
@@ -602,9 +617,9 @@ export default function LeavePolicy() {
                           </td>
                           <td className="px-4 py-3 text-xs text-zinc-500">{p.effectiveDate || '—'}</td>
                           <td className="px-4 py-3 text-xs whitespace-nowrap">
-                            <span className="font-semibold text-emerald-700">{p.max_paid_leaves ? `${p.max_paid_leaves} Paid/mo` : 'Unlimited Paid'}</span>
+                            <span className="font-semibold text-emerald-700">{p.max_paid_leaves ? `${p.max_paid_leaves} Paid/mo` : '2 Paid/mo'}</span>
                             <span className="text-zinc-300 mx-1">·</span>
-                            <span className="font-semibold text-zinc-600">{p.max_unpaid_leaves ? `${p.max_unpaid_leaves} Unpaid/mo` : 'Unlimited Unpaid'}</span>
+                            <span className="font-semibold text-zinc-600">{p.max_unpaid_leaves ? `${p.max_unpaid_leaves} Unpaid/mo` : '3 Unpaid/mo'}</span>
                           </td>
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${p.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500'}`}>
@@ -658,9 +673,25 @@ export default function LeavePolicy() {
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-zinc-900">{p.name}</span>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${p.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500'}`}>
-                          {p.status}
-                        </span>
+                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${p.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                            {p.status}
+                          </span>
+                          <button
+                            onClick={() => navigate(`/hrms/leave/policy/edit/${p.id}`)}
+                            className="p-1 text-zinc-500 hover:text-blue-600 rounded"
+                            title="Edit Policy"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => removePolicy(p.id, p.name)}
+                            className="p-1 text-rose-600 rounded"
+                            title="Delete Policy"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                       <p className="text-xs text-zinc-500 line-clamp-2">{p.description || 'No description'}</p>
                       <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1">
@@ -801,9 +832,11 @@ export default function LeavePolicy() {
                                 ))}
                               </div>
                             ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                2 Paid / 3 LWP Monthly
-                              </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          {a.maxPaidLeaves || a.maxUnpaidLeaves
+                            ? `${a.maxPaidLeaves || 0} Paid / ${a.maxUnpaidLeaves || 0} LWP Monthly`
+                            : 'Policy monthly caps'}
+                        </span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-xs text-zinc-500">{a.assignedAt}</td>

@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Search, XCircle, ChevronLeft, ChevronRight,
-  Download, RefreshCw, AlertCircle, Plus, CheckCircle2,
+  Download, RefreshCw, AlertCircle, Plus, CheckCircle2, X,
 } from 'lucide-react';
 import { getUsers, createInvoice, updateInvoice, uploadSignedCopy } from '../lib/api';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -48,8 +48,17 @@ export default function Invoices() {
   const [dateFilter, setDateFilter] = useState('');
   const [sortBy, setSortBy] = useState('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [pageSize] = useState(20);
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+
+  const updatePage = useCallback((newPage: number) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('page', String(newPage));
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
   const [availableAssignees, setAvailableAssignees] = useState<{ id: number; name: string }[]>([]);
   const [assignModalInvId, setAssignModalInvId] = useState<number | null>(null);
   const [assignTarget, setAssignTarget] = useState('');
@@ -66,14 +75,39 @@ export default function Invoices() {
   const [completeUploadedUrl, setCompleteUploadedUrl] = useState('');
   const [completeBusy, setCompleteBusy] = useState(false);
   const [completeError, setCompleteError] = useState('');
+  const [completeReplace, setCompleteReplace] = useState(false);
+
+  const [previewImage, setPreviewImage] = useState<{ url: string; number: string } | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300);
     return () => clearTimeout(t);
   }, [search]);
 
+  const prevFiltersRef = useRef({
+    searchDebounced, statusFilter, typeFilter, boyFilter, dateFilter, sortBy, sortOrder, invoiceTab,
+  });
+
   useEffect(() => {
-    setPage(1);
+    const prev = prevFiltersRef.current;
+    const changed =
+      searchDebounced !== prev.searchDebounced ||
+      statusFilter !== prev.statusFilter ||
+      typeFilter !== prev.typeFilter ||
+      boyFilter !== prev.boyFilter ||
+      dateFilter !== prev.dateFilter ||
+      sortBy !== prev.sortBy ||
+      sortOrder !== prev.sortOrder ||
+      invoiceTab !== prev.invoiceTab;
+    prevFiltersRef.current = {
+      searchDebounced, statusFilter, typeFilter, boyFilter, dateFilter, sortBy, sortOrder, invoiceTab,
+    };
+    if (!changed) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('page', '1');
+      return next;
+    }, { replace: true });
   }, [searchDebounced, statusFilter, typeFilter, boyFilter, dateFilter, sortBy, sortOrder, invoiceTab]);
 
   useEffect(() => {
@@ -96,7 +130,11 @@ export default function Invoices() {
           },
         })
       );
-      setPage(1);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('page', '1');
+        return next;
+      }, { replace: true });
     };
     window.addEventListener(NEW_INVOICE_EVENT, onNewInvoice);
     return () => window.removeEventListener(NEW_INVOICE_EVENT, onNewInvoice);
@@ -142,9 +180,17 @@ export default function Invoices() {
 
   useEffect(() => {
     if (items.length === 0 && totalCount > 0 && page > 1) {
-      setPage((p) => Math.max(1, p - 1));
+      updatePage(Math.max(1, page - 1));
     }
-  }, [items.length, totalCount, page]);
+  }, [items.length, totalCount, page, updatePage]);
+
+  // Re-fetch metrics when date filter changes and panel is open
+  useEffect(() => {
+    if (!showMetrics) return;
+    setMetricsLoading(true);
+    const dateParams = dateFilter ? { date_from: dateFilter, date_to: dateFilter } : undefined;
+    appApi.getInvoiceMetrics(dateParams).then(m => { setInvoiceMetrics(m); setMetricsLoading(false); }).catch(() => setMetricsLoading(false));
+  }, [dateFilter, showMetrics]);
 
   useEffect(() => {
     if (!token || (user?.role !== 'admin' && user?.role !== 'manager')) return;
@@ -175,16 +221,16 @@ export default function Invoices() {
   const openInvoiceDetail = useCallback(
     (inv: ApiInvoice) => {
       dispatch(clearInvoicesError());
-      navigate(`/invoices/${inv.id}`);
+      navigate(`/invoices/${inv.id}?page=${page}`);
     },
-    [dispatch, navigate]
+    [dispatch, navigate, page]
   );
 
   const openSignedPreview = useCallback(
-    (invId: number) => {
-      navigate(`/invoices/${invId}/signed-preview`);
+    (imageUrl: string, invoiceNumber: string) => {
+      setPreviewImage({ url: imageUrl, number: invoiceNumber });
     },
-    [navigate]
+    []
   );
 
   const downloadInvoice = useCallback((inv: ApiInvoice) => {
@@ -273,6 +319,18 @@ export default function Invoices() {
       setCompleteFile(null);
       setCompleteUploadedUrl('');
       setCompleteError('');
+      setCompleteReplace(false);
+    },
+    []
+  );
+
+  const openReupload = useCallback(
+    (inv: ApiInvoice) => {
+      setCompleteTarget(inv);
+      setCompleteFile(null);
+      setCompleteUploadedUrl('');
+      setCompleteError('');
+      setCompleteReplace(true);
     },
     []
   );
@@ -400,7 +458,7 @@ export default function Invoices() {
             type="button"
             onClick={() => {
               setInvoiceTab('active');
-              setPage(1);
+              updatePage(1);
             }}
             className={`px-3 py-1.5 rounded-md text-xs font-bold ${invoiceTab === 'active' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'}`}
           >
@@ -410,7 +468,7 @@ export default function Invoices() {
             type="button"
             onClick={() => {
               setInvoiceTab('deleted');
-              setPage(1);
+              updatePage(1);
             }}
             className={`px-3 py-1.5 rounded-md text-xs font-bold ${invoiceTab === 'deleted' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'}`}
           >
@@ -468,9 +526,10 @@ export default function Invoices() {
           className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none cursor-pointer"
         />
         <button onClick={() => {
-          if (!showMetrics && !invoiceMetrics) {
+          if (!showMetrics || !invoiceMetrics) {
             setMetricsLoading(true);
-            appApi.getInvoiceMetrics().then(m => { setInvoiceMetrics(m); setMetricsLoading(false); });
+            const dateParams = dateFilter ? { date_from: dateFilter, date_to: dateFilter } : undefined;
+            appApi.getInvoiceMetrics(dateParams).then(m => { setInvoiceMetrics(m); setMetricsLoading(false); });
           }
           setShowMetrics(v => !v);
         }} className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-bold text-zinc-600 hover:bg-zinc-100 transition-colors flex items-center gap-1.5">
@@ -633,6 +692,7 @@ export default function Invoices() {
                       onRequestDelete={openDelete}
                       onRequestRecoverDeleted={invoiceTab === 'deleted' ? openRecoverDeleted : undefined}
                       onMarkComplete={openMarkComplete}
+                      onReupload={invoice.signed_copy_url ? openReupload : undefined}
                     />
                   );
                 })
@@ -670,7 +730,7 @@ export default function Invoices() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={() => updatePage(Math.max(1, page - 1))}
             disabled={page <= 1 || listLoading || isRefreshing}
             className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             aria-label="Previous page"
@@ -679,7 +739,7 @@ export default function Invoices() {
           </button>
           <button
             type="button"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onClick={() => updatePage(Math.min(totalPages, page + 1))}
             disabled={page >= totalPages || listLoading || isRefreshing}
             className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             aria-label="Next page"
@@ -842,17 +902,26 @@ export default function Invoices() {
 
               {(() => {
                 const existingCopy = completeTarget.signed_copy_url;
-                if (existingCopy) {
+                if (existingCopy && !completeReplace && !completeUploadedUrl) {
                   return (
-                    <p className="text-xs text-emerald-600 flex items-center gap-1">
-                      <CheckCircle2 size={14} /> Signed copy already uploaded
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-xs text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 size={14} /> Signed copy already uploaded
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setCompleteReplace(true)}
+                        className="text-xs font-bold text-amber-600 hover:text-amber-700 underline"
+                      >
+                        Replace with a different image
+                      </button>
+                    </div>
                   );
                 }
                 if (completeUploadedUrl) {
                   return (
                     <p className="text-xs text-emerald-600 flex items-center gap-1">
-                      <CheckCircle2 size={14} /> Signed copy uploaded
+                      <CheckCircle2 size={14} /> New signed copy uploaded
                     </p>
                   );
                 }
@@ -874,7 +943,7 @@ export default function Invoices() {
                   Cancel
                 </button>
                 <button
-                  disabled={completeBusy || (!completeFile && !completeUploadedUrl && !completeTarget.signed_copy_url)}
+                  disabled={completeBusy || (!completeFile && !completeUploadedUrl && (!completeTarget.signed_copy_url || completeReplace))}
                   onClick={async () => {
                     if (!token) return;
                     setCompleteBusy(true);
@@ -914,6 +983,39 @@ export default function Invoices() {
                   {completeBusy ? 'Completing…' : <><CheckCircle2 size={14} /> Complete</>}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/60 backdrop-blur-sm"
+          onClick={() => setPreviewImage(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="bg-white rounded-2xl border border-zinc-200 shadow-2xl w-full max-w-3xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/40">
+              <span className="text-xs font-bold text-zinc-600">Signed copy — {previewImage.number}</span>
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+                aria-label="Close preview"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-4 flex justify-center bg-zinc-50/30 max-h-[80vh] overflow-auto">
+              <img
+                src={previewImage.url}
+                alt={`Signed copy — ${previewImage.number}`}
+                className="max-w-full h-auto object-contain rounded-lg"
+              />
             </div>
           </div>
         </div>

@@ -10,21 +10,30 @@ import {
   deleteStoreGeoSetting,
   deleteWorkingLocation,
   disconnectGmail,
+  disconnectImap,
   getGmailAuthUrl,
   getGmailDelayRecords,
   getGmailMonitorSettings,
   getGmailStatus,
+  getImapConfig,
+  getImapStatus,
   listGmailEmails,
   listStoreGeoSettings,
   listWorkingLocations,
   markGmailEmailRead,
+  saveImapConfig,
+  syncImap,
   syncRecentGmailEmails,
+  resetImapWatermark,
+  testImapConnection,
   toggleGmailEmailStar,
   updateGmailMonitorSettings,
   updateStoreGeoSetting,
   updateWorkingLocation,
   type GmailDelayRecord,
   type GmailEmail,
+  type ImapConfig,
+  type ImapStatusResponse,
   type StoreGeoSetting,
   type WorkingLocation,
 } from '../lib/api';
@@ -57,6 +66,16 @@ export default function Profile() {
 
   const [syncResult, setSyncResult] = useState<'success' | 'error' | null>(null);
   const [syncMessage, setSyncMessage] = useState('');
+  const [imapConfig, setImapConfig] = useState<ImapConfig | null>(null);
+  const [imapStatus, setImapStatus] = useState<ImapStatusResponse | null>(null);
+  const [imapForm, setImapForm] = useState({ email: '', app_password: '', imap_host: 'imap.gmail.com', imap_port: '993' });
+  const [imapSaving, setImapSaving] = useState(false);
+  const [imapTesting, setImapTesting] = useState(false);
+  const [imapTestResult, setImapTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [imapMsg, setImapMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [imapSyncing, setImapSyncing] = useState(false);
+  const [imapSyncDate, setImapSyncDate] = useState('');
+  const [imapSyncResult, setImapSyncResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
   const [pwMsg, setPwMsg] = useState('');
@@ -94,6 +113,107 @@ export default function Profile() {
     }
   };
 
+  const loadImap = async () => {
+    if (!token) return;
+    try {
+      const [cfg, status] = await Promise.all([getImapConfig(token), getImapStatus(token)]);
+      setImapConfig(cfg);
+      setImapStatus(status);
+      if (cfg) {
+        setImapForm({
+          email: cfg.email || '',
+          app_password: '',
+          imap_host: cfg.imap_host || 'imap.gmail.com',
+          imap_port: String(cfg.imap_port || 993),
+        });
+      }
+    } catch {
+      // silent
+    }
+  };
+
+  const handleSaveImap = async () => {
+    if (!token) return;
+    setImapSaving(true);
+    setImapMsg(null);
+    try {
+      await saveImapConfig(token, {
+        email: imapForm.email,
+        app_password: imapForm.app_password,
+        imap_host: imapForm.imap_host,
+        imap_port: parseInt(imapForm.imap_port) || 993,
+      });
+      setImapMsg({ type: 'success', text: 'IMAP config saved. The listener will connect on next cycle.' });
+      await loadImap();
+    } catch (err) {
+      setImapMsg({ type: 'error', text: err instanceof Error ? err.message : 'Failed to save' });
+    } finally {
+      setImapSaving(false);
+    }
+  };
+
+  const handleTestImap = async () => {
+    if (!token) return;
+    setImapTesting(true);
+    setImapTestResult(null);
+    try {
+      const res = await testImapConnection(token, {
+        email: imapForm.email,
+        app_password: imapForm.app_password,
+        imap_host: imapForm.imap_host,
+        imap_port: parseInt(imapForm.imap_port) || 993,
+      });
+      setImapTestResult(res);
+    } catch (err) {
+      setImapTestResult({ success: false, message: err instanceof Error ? err.message : 'Test failed' });
+    } finally {
+      setImapTesting(false);
+    }
+  };
+
+  const handleDisconnectImap = async () => {
+    if (!token) return;
+    try {
+      await disconnectImap(token);
+      setImapConfig(null);
+      setImapStatus(null);
+      setImapMsg({ type: 'success', text: 'IMAP disconnected' });
+    } catch (err) {
+      setImapMsg({ type: 'error', text: err instanceof Error ? err.message : 'Disconnect failed' });
+    }
+  };
+
+  const handleSyncImap = async () => {
+    if (!token || !imapSyncDate) return;
+    setImapSyncing(true);
+    setImapSyncResult(null);
+    try {
+      const res = await syncImap(token, imapSyncDate);
+      setImapSyncResult({ type: res.success ? 'success' : 'error', text: res.message });
+      if (res.success) {
+        const s = await getImapStatus(token);
+        setImapStatus(s);
+      }
+    } catch (err) {
+      setImapSyncResult({ type: 'error', text: err instanceof Error ? err.message : 'Sync failed' });
+    } finally {
+      setImapSyncing(false);
+      setTimeout(() => setImapSyncResult(null), 5000);
+    }
+  };
+
+  const handleResetImapWatermark = async () => {
+    if (!token) return;
+    try {
+      await resetImapWatermark(token);
+      const s = await getImapStatus(token);
+      setImapStatus(s);
+      setImapMsg({ type: 'success', text: 'Watermark reset. IDLE listener will re-scan all emails on next cycle.' });
+    } catch (err) {
+      setImapMsg({ type: 'error', text: err instanceof Error ? err.message : 'Reset failed' });
+    }
+  };
+
   const loadEmails = async () => {
     if (!token || !gmailConnected) {
       setEmails([]);
@@ -119,6 +239,7 @@ export default function Profile() {
 
   useEffect(() => {
     loadGmail();
+    loadImap();
   }, [token]);
 
   useEffect(() => {
@@ -176,6 +297,7 @@ export default function Profile() {
         setSyncResult('success');
         setSyncMessage('Gmail connected successfully. Initial email sync completed.');
         loadGmail();
+        loadImap();
         loadEmails();
       })
       .catch((err) => {
@@ -355,8 +477,8 @@ export default function Profile() {
       setGeoMsg({ type: 'error', text: 'Longitude must be between -180 and 180.' });
       return;
     }
-    if (!Number.isFinite(radiusMeters) || radiusMeters <= 0 || radiusMeters > 10000) {
-      setGeoMsg({ type: 'error', text: 'Radius must be between 1 and 10000 meters.' });
+    if (!Number.isFinite(radiusMeters) || radiusMeters < 0 || radiusMeters > 10000) {
+      setGeoMsg({ type: 'error', text: 'Radius must be between 0 and 10000 meters.' });
       return;
     }
     setGeoSaving(true);
@@ -451,8 +573,8 @@ export default function Profile() {
       setWlMsg({ type: 'error', text: 'Longitude must be between -180 and 180.' });
       return;
     }
-    if (!Number.isFinite(radiusMeters) || radiusMeters <= 0 || radiusMeters > 10000) {
-      setWlMsg({ type: 'error', text: 'Radius must be between 1 and 10000 meters.' });
+    if (!Number.isFinite(radiusMeters) || radiusMeters < 0 || radiusMeters > 10000) {
+      setWlMsg({ type: 'error', text: 'Radius must be between 0 and 10000 meters.' });
       return;
     }
     setWlSaving(true);
@@ -519,10 +641,13 @@ export default function Profile() {
     }
   };
 
-  const sectionTabs = [
+  type SectionId = 'account' | 'geofence' | 'locations' | 'gmail';
+  const sectionTabs: { id: SectionId; label: string; icon: any }[] = [
     { id: 'account', label: 'Account', icon: ShieldCheck },
-  ] as const;
-  type SectionId = (typeof sectionTabs)[number]['id'];
+    ...(canManageStoreGeo ? [{ id: 'geofence' as const, label: 'Geofence', icon: MapPin }] : []),
+    ...(canManageWorkLoc ? [{ id: 'locations' as const, label: 'Working Locations', icon: MapPin }] : []),
+    ...(user?.role === 'admin' ? [{ id: 'gmail' as const, label: 'Gmail / Inbox', icon: Mail }] : []),
+  ];
   const [activeSection, setActiveSection] = useState<SectionId>('account');
 
   return (
@@ -670,6 +795,310 @@ export default function Profile() {
         )}
 
 
+        {activeSection === 'geofence' && (
+          <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden">
+            <div className="px-6 py-5 border-b border-zinc-100">
+              <h2 className="text-lg font-bold text-zinc-900">Store Geofence</h2>
+              <p className="text-sm text-zinc-500 mt-0.5">
+                Delivery geofence used for store radius alerts (latitude, longitude, radius).
+              </p>
+            </div>
+            <div className="px-6 py-5">
+              <form onSubmit={handleSaveStoreGeo} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input type="number" step="any" placeholder="Latitude"
+                    value={geoForm.latitude}
+                    onChange={(e) => setGeoForm((prev) => ({ ...prev, latitude: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={geoLoading || geoSaving} />
+                  <input type="number" step="any" placeholder="Longitude"
+                    value={geoForm.longitude}
+                    onChange={(e) => setGeoForm((prev) => ({ ...prev, longitude: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={geoLoading || geoSaving} />
+                  <input type="number" min="0" max="10000" placeholder="Radius (meters)"
+                    value={geoForm.radius_meters}
+                    onChange={(e) => setGeoForm((prev) => ({ ...prev, radius_meters: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={geoLoading || geoSaving} />
+                </div>
+                {geoMsg && (
+                  <div className={`text-sm font-medium ${geoMsg.type === 'success' ? 'text-emerald-600' : 'text-red-600'}`}>{geoMsg.text}</div>
+                )}
+                <div className="flex gap-2">
+                  <button type="submit" disabled={geoLoading || geoSaving}
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60">
+                    {geoSaving ? 'Saving...' : editingGeoId ? 'Update Geofence' : 'Add Geofence'}
+                  </button>
+                  {editingGeoId && (
+                    <button type="button" onClick={cancelEditGeo} disabled={geoLoading || geoSaving}
+                      className="px-4 py-2.5 rounded-lg border border-zinc-300 text-zinc-700 text-sm font-semibold hover:bg-zinc-50 disabled:opacity-60">
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </form>
+              <div className="mt-6 space-y-2">
+                <h4 className="text-sm font-semibold text-zinc-900">Configured Geofences</h4>
+                {geoList.length === 0 ? (
+                  <p className="text-sm text-zinc-500">No store geofence added yet.</p>
+                ) : geoList.map((g) => (
+                  <div key={g.id} className="rounded-lg border border-zinc-200 px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="text-sm text-zinc-700">
+                      Lat: {g.latitude}, Lng: {g.longitude}, Radius: {g.radius_meters}m
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button type="button" onClick={() => startEditGeo(g)} disabled={geoSaving}
+                        className="px-3 py-1.5 rounded-lg border border-zinc-300 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60">Edit</button>
+                      <button type="button" onClick={() => handleDeleteGeo(g.id)} disabled={geoSaving}
+                        className="px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60">Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'locations' && (
+          <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden">
+            <div className="px-6 py-5 border-b border-zinc-100">
+              <h2 className="text-lg font-bold text-zinc-900">Working Locations</h2>
+              <p className="text-sm text-zinc-500 mt-0.5">
+                Staff users must be within the configured radius of a working location.
+              </p>
+            </div>
+            <div className="px-6 py-5">
+              <form onSubmit={handleSaveWorkLoc} className="space-y-4">
+                <input type="text" placeholder="Location name (e.g. Nashik Office)"
+                  value={wlForm.name}
+                  onChange={(e) => setWlForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                  disabled={wlLoading || wlSaving} />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input type="number" step="any" placeholder="Latitude"
+                    value={wlForm.latitude}
+                    onChange={(e) => setWlForm((prev) => ({ ...prev, latitude: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={wlLoading || wlSaving} />
+                  <input type="number" step="any" placeholder="Longitude"
+                    value={wlForm.longitude}
+                    onChange={(e) => setWlForm((prev) => ({ ...prev, longitude: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={wlLoading || wlSaving} />
+                  <input type="number" min="0" max="10000" placeholder="Radius (meters)"
+                    value={wlForm.radius_meters}
+                    onChange={(e) => setWlForm((prev) => ({ ...prev, radius_meters: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    disabled={wlLoading || wlSaving} />
+                </div>
+                {wlMsg && (
+                  <div className={`text-sm font-medium ${wlMsg.type === 'success' ? 'text-emerald-600' : 'text-red-600'}`}>{wlMsg.text}</div>
+                )}
+                <div className="flex gap-2">
+                  <button type="submit" disabled={wlLoading || wlSaving}
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60">
+                    {wlSaving ? 'Saving...' : editingWlId ? 'Update Location' : 'Add Location'}
+                  </button>
+                  {editingWlId && (
+                    <button type="button" onClick={cancelEditWl} disabled={wlLoading || wlSaving}
+                      className="px-4 py-2.5 rounded-lg border border-zinc-300 text-zinc-700 text-sm font-semibold hover:bg-zinc-50 disabled:opacity-60">
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </form>
+              <div className="mt-6 space-y-2">
+                <h4 className="text-sm font-semibold text-zinc-900">Configured Locations</h4>
+                {wlList.length === 0 ? (
+                  <p className="text-sm text-zinc-500">No working locations added yet.</p>
+                ) : wlList.map((w) => (
+                  <div key={w.id} className="rounded-lg border border-zinc-200 px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="text-sm text-zinc-700">
+                      <span className="font-semibold">{w.name}</span> &mdash; Lat: {w.latitude}, Lng: {w.longitude}, Radius: {w.radius_meters}m
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button type="button" onClick={() => startEditWl(w)} disabled={wlSaving}
+                        className="px-3 py-1.5 rounded-lg border border-zinc-300 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60">Edit</button>
+                      <button type="button" onClick={() => handleDeleteWl(w.id)} disabled={wlSaving}
+                        className="px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60">Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'gmail' && (
+          <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden">
+            <div className="px-6 py-5 border-b border-zinc-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-zinc-900">Invoice Inbox (IMAP)</h2>
+                  <p className="text-sm text-zinc-500 mt-0.5">Auto-import invoices from shared inbox via IMAP IDLE</p>
+                </div>
+                <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
+                  imapConfig?.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-500'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${imapStatus?.connected ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                  {imapStatus?.connected ? 'Connected' : imapConfig?.is_active ? 'Reconnecting...' : 'Not Configured'}
+                </span>
+              </div>
+            </div>
+            <div className="px-6 py-5">
+              <AnimatePresence>
+                {imapMsg && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className={`mb-4 rounded-lg p-3 flex items-center gap-3 text-sm font-medium ${
+                      imapMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                    }`}
+                  >
+                    {imapMsg.type === 'success' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                    {imapMsg.text}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <div className="space-y-4">
+                <p className="text-sm text-zinc-500 leading-relaxed">
+                  Connect a <strong className="text-zinc-700">shared Gmail inbox</strong> via IMAP. New emails with PDF attachments are detected instantly (no polling delay) and automatically imported as invoices.
+                </p>
+                <p className="text-xs text-zinc-400">
+                  Generate a Gmail App Password at <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">myaccount.google.com/apppasswords</a> (requires 2FA enabled).
+                </p>
+
+                {imapConfig?.is_active ? (
+                  <>
+                    {imapStatus && (
+                      <div className="bg-zinc-50 rounded-lg p-4 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm">@</div>
+                          <div>
+                            <p className="text-sm font-bold text-zinc-900">{imapConfig.email}</p>
+                            <p className="text-xs text-zinc-500">{imapConfig.imap_host}:{imapConfig.imap_port}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-zinc-500 border-t border-zinc-100 pt-3">
+                          <span>Emails detected: <strong className="text-zinc-700">{imapStatus.emails_detected_total}</strong></span>
+                          <span>Invoices imported: <strong className="text-zinc-700">{imapStatus.invoices_imported_total}</strong></span>
+                        </div>
+                        {imapStatus.last_idle_at && (
+                          <div className="flex items-center gap-2 text-xs text-zinc-500">
+                            <Clock size={12} />
+                            <span>Last idle: {new Date(imapStatus.last_idle_at).toLocaleString()}</span>
+                          </div>
+                        )}
+                        {imapStatus.last_uid != null && imapStatus.last_uid > 0 && (
+                          <div className="flex items-center gap-2 text-xs text-zinc-400">
+                            <span>Watermark UID: <strong className="text-zinc-600">{imapStatus.last_uid}</strong></span>
+                          </div>
+                        )}
+                        {imapStatus.last_error && (
+                          <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+                            <AlertTriangle size={14} />
+                            <span>{imapStatus.last_error}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="bg-zinc-50 rounded-lg p-4 space-y-3">
+                      <p className="text-xs font-bold text-zinc-600 uppercase tracking-wider">Sync Past Emails</p>
+                      <p className="text-xs text-zinc-500">Backfill emails from a specific time. New emails since IMAP connected are already imported automatically.</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="datetime-local"
+                          value={imapSyncDate}
+                          onChange={(e) => setImapSyncDate(e.target.value)}
+                          className="flex-1 px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                        />
+                        <button
+                          onClick={handleSyncImap}
+                          disabled={imapSyncing || !imapSyncDate}
+                          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <RefreshCw size={14} className={imapSyncing ? 'animate-spin' : ''} />
+                          {imapSyncing ? 'Syncing...' : 'Sync'}
+                        </button>
+                      </div>
+                      {imapSyncResult && (
+                        <div className={`text-xs font-medium rounded-lg p-2 ${
+                          imapSyncResult.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                        }`}>
+                          {imapSyncResult.text}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button onClick={handleResetImapWatermark}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 rounded-lg font-bold text-sm hover:bg-amber-100 transition-colors">
+                        <RefreshCw size={15} />
+                        Reset Watermark
+                      </button>
+                      <button onClick={handleDisconnectImap}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-lg font-bold text-sm hover:bg-red-100 transition-colors">
+                        <XCircle size={15} />
+                        Disconnect
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Email address</label>
+                        <input type="email" value={imapForm.email} onChange={(e) => setImapForm({ ...imapForm, email: e.target.value })}
+                          placeholder="neomedsoftware@gmail.com"
+                          className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">App Password</label>
+                        <input type="password" value={imapForm.app_password} onChange={(e) => setImapForm({ ...imapForm, app_password: e.target.value })}
+                          placeholder="xxxx xxxx xxxx xxxx"
+                          className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">IMAP Host</label>
+                          <input type="text" value={imapForm.imap_host} onChange={(e) => setImapForm({ ...imapForm, imap_host: e.target.value })}
+                            className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                        </div>
+                        <div className="w-24">
+                          <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Port</label>
+                          <input type="number" value={imapForm.imap_port} onChange={(e) => setImapForm({ ...imapForm, imap_port: e.target.value })}
+                            className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={handleTestImap} disabled={imapTesting || !imapForm.email || !imapForm.app_password}
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-100 text-zinc-700 rounded-lg font-bold text-sm hover:bg-zinc-200 transition-colors disabled:opacity-60">
+                        <RefreshCw size={15} className={imapTesting ? 'animate-spin' : ''} />
+                        {imapTesting ? 'Testing...' : 'Test Connection'}
+                      </button>
+                      <button onClick={handleSaveImap} disabled={imapSaving || !imapForm.email || !imapForm.app_password}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-500 text-white rounded-lg font-bold text-sm hover:bg-emerald-600 transition-colors disabled:opacity-60">
+                        {imapSaving ? 'Saving...' : 'Connect'}
+                      </button>
+                    </div>
+                    {imapTestResult && (
+                      <div className={`rounded-lg p-3 text-sm font-medium ${
+                        imapTestResult.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                      }`}>
+                        {imapTestResult.success ? <CheckCircle2 size={14} className="inline mr-2" /> : <XCircle size={14} className="inline mr-2" />}
+                        {imapTestResult.message}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 text-center">
           <Link to="/privacy-policy" className="text-xs font-semibold text-zinc-400 hover:text-emerald-600 transition-colors">

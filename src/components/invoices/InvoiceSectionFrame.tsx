@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { ChevronLeft } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 /** Matches the main Invoices list page (`Invoices.tsx`) title block (same pattern as `TaskSectionFrame`). */
 export const INVOICES_PAGE_TITLE = 'Invoices';
@@ -11,17 +11,21 @@ export function InvoiceSectionFrame({
   right,
   children,
 }: {
-  /** Line under the subtitle, e.g. “Invoice detail · INV-001 · Hospital”. */
+  /** Line under the subtitle, e.g. "Invoice detail · INV-001 · Hospital". */
   context?: ReactNode;
   right?: ReactNode;
   children: ReactNode;
 }) {
+  const location = useLocation();
+  const backPage = new URLSearchParams(location.search).get('page');
+  const backTo = backPage && backPage !== '1' ? `/invoices?page=${backPage}` : '/invoices';
+
   return (
     <div className="space-y-6 w-full">
       <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="min-w-0 flex-1">
           <Link
-            to="/invoices"
+            to={backTo}
             className="inline-flex items-center gap-0.5 text-xs font-bold text-zinc-500 hover:text-zinc-900 transition-colors mb-2 -ml-0.5"
           >
             <ChevronLeft size={18} className="shrink-0" aria-hidden />

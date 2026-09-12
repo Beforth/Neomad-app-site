@@ -1,6 +1,7 @@
 import {
   assignInvoice,
   createInvoice,
+  createTask as createTaskApi,
   getBaseUrl,
   getInvoices as getInvoicesApi,
   getUsers as getUsersApi,
@@ -257,13 +258,8 @@ export async function getDeliveryCompletedHistoryPage(
 export const appApi = {
   getUsers: async () => {
     const token = getTokenOrThrow();
-    try {
-      const users = await getUsersApi(token);
-      return users.map(toFrontendUser);
-    } catch {
-      const users = await getUsersApi(token, { role_code: 'delivery' });
-      return users.map(toFrontendUser);
-    }
+    const users = await getUsersApi(token);
+    return users.map(toFrontendUser);
   },
 
   getDeliveryOpenInvoices: async (token: string) => getDeliveryOpenInvoices(token),
@@ -302,12 +298,20 @@ export const appApi = {
     return { success: true };
   },
 
-  getStats: async () => {
-    return authedGet('/invoices/stats');
+  getStats: async (params?: { date_from?: string; date_to?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.date_from) sp.set('date_from', params.date_from);
+    if (params?.date_to) sp.set('date_to', params.date_to);
+    const qs = sp.toString();
+    return authedGet(`/invoices/stats${qs ? `?${qs}` : ''}`);
   },
 
-  getInvoiceMetrics: async () => {
-    const d: any = await authedGet('/invoices/metrics');
+  getInvoiceMetrics: async (params?: { date_from?: string; date_to?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.date_from) sp.set('date_from', params.date_from);
+    if (params?.date_to) sp.set('date_to', params.date_to);
+    const qs = sp.toString();
+    const d: any = await authedGet(`/invoices/metrics${qs ? `?${qs}` : ''}`);
     return {
       totalCount: d.total_count,
       todayCount: d.today_count,
@@ -360,12 +364,8 @@ export const appApi = {
 
   createTask: async (data: any) => {
     const token = getTokenOrThrow();
-    const now = new Date();
-    const taskNo = `TASK-${now.getFullYear()}-${String(now.getTime()).slice(-6)}`;
-    const task = await createInvoice(token, {
-      invoice_number: taskNo,
-      hospital_name: data.hospital_name || data.task_name || 'Task',
-      amount: Number(data.amount || 0),
+    const task = await createTaskApi(token, {
+      title: data.hospital_name || data.task_name || data.title || 'Task',
       description: data.description || '',
       assigned_to: data.assigned_to ? Number(data.assigned_to) : undefined,
     });
