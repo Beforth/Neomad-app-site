@@ -62,13 +62,13 @@ export interface LoginResponse {
   user: LoginResponseUser;
 }
 
-/** Map backend role_codes to frontend role (single). */
+/** Map backend role_codes to frontend role (single). Highest privilege wins. */
 export function mapBackendRoleToFrontend(roleCodes: string[]): 'admin' | 'manager' | 'delivery_boy' | 'staff' {
-  const code = roleCodes?.[0];
-  if (code === 'delivery') return 'delivery_boy';
-  if (code === 'super_admin' || code === 'admin') return 'admin';
-  if (code === 'manager') return 'manager';
-  if (code === 'staff') return 'staff';
+  const codes = new Set((roleCodes ?? []).map((c) => String(c)));
+  if (codes.has('super_admin') || codes.has('admin')) return 'admin';
+  if (codes.has('manager')) return 'manager';
+  if (codes.has('delivery')) return 'delivery_boy';
+  if (codes.has('staff')) return 'staff';
   return 'staff';
 }
 

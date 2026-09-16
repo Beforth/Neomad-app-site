@@ -397,9 +397,18 @@ export default function LeaveRequest() {
                         {formatDate(r.startDate)}{r.startDate !== r.endDate ? ` – ${formatDate(r.endDate)}` : ''}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg bg-zinc-100 text-xs font-bold text-zinc-800">
-                          {r.days} d
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-zinc-100 text-xs font-bold text-zinc-800">
+                            {r.days} d
+                          </span>
+                          {(r.paidDays > 0 || r.lwpDays > 0) && (
+                            <span className="text-[10px] font-semibold text-zinc-500 mt-0.5">
+                              {r.paidDays > 0 ? `${r.paidDays} Paid` : ''}
+                              {r.paidDays > 0 && r.lwpDays > 0 ? ' · ' : ''}
+                              {r.lwpDays > 0 ? `${r.lwpDays} LWP` : ''}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-zinc-500 max-w-[180px] truncate">{r.reason}</td>
                       <td className="px-4 py-3">{statusBadge(r.status)}</td>

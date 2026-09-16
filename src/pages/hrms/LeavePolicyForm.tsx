@@ -133,8 +133,8 @@ export default function LeavePolicyForm() {
         name: name.trim(),
         description: description || undefined,
         effective_date: effectiveDate,
-        max_paid_leaves: maxPaidLeaves === '' ? 0 : Number(maxPaidLeaves),
-        max_unpaid_leaves: maxUnpaidLeaves === '' ? 0 : Number(maxUnpaidLeaves),
+        max_paid_leaves: maxPaidLeaves === '' ? 2 : Number(maxPaidLeaves),
+        max_unpaid_leaves: maxUnpaidLeaves === '' ? 3 : Number(maxUnpaidLeaves),
         status,
         entitlements: entitlements.map((e) => ({
           leave_type_id: e.leaveTypeId,
@@ -240,7 +240,7 @@ export default function LeavePolicyForm() {
                 <input
                   type="number"
                   min={0}
-                  placeholder="e.g. 1 or 2"
+                  placeholder="e.g. 2"
                   value={maxPaidLeaves}
                   onChange={(e) => setMaxPaidLeaves(e.target.value === '' ? '' : Number(e.target.value))}
                   className={inputClass}
@@ -251,7 +251,7 @@ export default function LeavePolicyForm() {
                 <input
                   type="number"
                   min={0}
-                  placeholder="e.g. 2 or 5"
+                  placeholder="e.g. 3"
                   value={maxUnpaidLeaves}
                   onChange={(e) => setMaxUnpaidLeaves(e.target.value === '' ? '' : Number(e.target.value))}
                   className={inputClass}
@@ -411,7 +411,7 @@ export default function LeavePolicyForm() {
             disabled={saving || !name.trim()}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Save size={16} /> {saving ? 'Saving...' : 'Create Policy'}
+            <Save size={16} /> {saving ? 'Saving...' : isEdit ? 'Update Policy' : 'Create Policy'}
           </button>
         </motion.div>
       </form>

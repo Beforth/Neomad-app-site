@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Tag, Calendar, ArrowRightLeft, Clock,
-  Search, XCircle, ArrowUpDown, ChevronUp, ChevronDown, Inbox, Loader2,
+  Search, XCircle, ArrowUpDown, ChevronUp, ChevronDown, Inbox, Loader2, Pencil,
 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
 import { useAuth } from '../../context/AuthContext';
@@ -127,8 +127,8 @@ export default function LeavePolicyDetail() {
 
   const statCards = [
     { label: 'Total Types', value: entitlements.length, icon: Tag, color: 'bg-blue-50 text-blue-600' },
-    { label: 'Max Paid / Month', value: policy.max_paid_leaves ? `${policy.max_paid_leaves} Days/mo` : 'Not Limited', icon: Calendar, color: 'bg-emerald-50 text-emerald-600' },
-    { label: 'Max Unpaid / Month', value: policy.max_unpaid_leaves ? `${policy.max_unpaid_leaves} Days/mo` : 'Not Limited', icon: Calendar, color: 'bg-zinc-100 text-zinc-700' },
+    { label: 'Max Paid / Month', value: policy.max_paid_leaves ? `${policy.max_paid_leaves} Days/mo` : '2 Days/mo', icon: Calendar, color: 'bg-emerald-50 text-emerald-600' },
+    { label: 'Max Unpaid / Month', value: policy.max_unpaid_leaves ? `${policy.max_unpaid_leaves} Days/mo` : '3 Days/mo', icon: Calendar, color: 'bg-zinc-100 text-zinc-700' },
     { label: 'Carry Forward', value: entitlements.filter((r) => r.carryForward).length, icon: ArrowRightLeft, color: 'bg-amber-50 text-amber-600' },
   ];
 
@@ -137,22 +137,30 @@ export default function LeavePolicyDetail() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-3"
+        className="flex flex-wrap items-center justify-between gap-4"
       >
-        <button
-          onClick={() => navigate('/hrms/leave/policy')}
-          className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
-        </button>
-        <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{policy.name}</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">
-            {policy.status === 'active' ? 'Active' : 'Inactive'}
-            {policy.effective_date ? ` · Effective ${policy.effective_date}` : ''}
-            {policy.description ? ` · ${policy.description}` : ''}
-          </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/hrms/leave/policy')}
+            className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
+          </button>
+          <div>
+            <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{policy.name}</h1>
+            <p className="text-xs text-zinc-500 font-medium mt-0.5">
+              {policy.status === 'active' ? 'Active' : 'Inactive'}
+              {policy.effective_date ? ` · Effective ${policy.effective_date}` : ''}
+              {policy.description ? ` · ${policy.description}` : ''}
+            </p>
+          </div>
         </div>
+        <button
+          onClick={() => navigate(`/hrms/leave/policy/edit/${policy.id}`)}
+          className="flex items-center gap-2 px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+        >
+          <Pencil size={14} /> Edit Policy
+        </button>
       </motion.div>
 
       {/* Stat Cards */}

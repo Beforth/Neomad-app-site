@@ -126,7 +126,7 @@ export default function Expenses() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [sortBy, setSortBy] = useState<SortKey>('created');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
   const [toast, setToast] = useState('');
   const [confirmModal, setConfirmModal] = useState<{ expenseId: number; action: 'approve' | 'reject' } | null>(null);
@@ -232,7 +232,7 @@ export default function Expenses() {
 
   function toggleSort(key: SortKey) {
     if (sortBy === key) setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
-    else { setSortBy(key); setSortOrder('asc'); }
+    else { setSortBy(key); setSortOrder('desc'); }
   }
 
   const totalAmount = expenses.reduce((s, e) => s + expenseTotal(e), 0);
