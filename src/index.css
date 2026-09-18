@@ -22,6 +22,15 @@
     -moz-appearance: none;
     appearance: none;
   }
+
+  /* ...but radios and checkboxes need it: without the native appearance they
+     render as blank boxes with no checked state, so they look unselectable. */
+  input[type="radio"],
+  input[type="checkbox"] {
+    -webkit-appearance: auto;
+    -moz-appearance: auto;
+    appearance: auto;
+  }
   
   /* Smooth scrolling for mobile */
   html {

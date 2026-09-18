@@ -16,7 +16,6 @@ export default function LeaveApplyForm() {
     endDate: '',
     reason: '',
     isInformed: true,
-    isEmergency: false,
   });
   const [preview, setPreview] = useState<LeavePreviewOut | null>(null);
   const [previewError, setPreviewError] = useState('');
@@ -69,7 +68,6 @@ export default function LeaveApplyForm() {
           start_date: form.startDate,
           end_date: form.endDate,
           is_informed: form.isInformed,
-          is_emergency: form.isEmergency,
         });
         setPreview(res);
       } catch (e) {
@@ -80,7 +78,7 @@ export default function LeaveApplyForm() {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [form.leaveTypeId, form.startDate, form.endDate, form.isInformed, form.isEmergency, token]);
+  }, [form.leaveTypeId, form.startDate, form.endDate, form.isInformed, token]);
 
   const leaveTypeOptions = leaveTypes.map((t) => ({
     value: String(t.id),
@@ -105,7 +103,6 @@ export default function LeaveApplyForm() {
         end_date: form.endDate,
         reason: form.reason || undefined,
         is_informed: form.isInformed,
-        is_emergency: form.isEmergency,
       });
       setSubmitted(true);
       setTimeout(() => navigate('/hrms/leave/requests'), 1200);
@@ -302,18 +299,6 @@ export default function LeaveApplyForm() {
                       <span className="text-[13px] font-semibold text-[#1f2430]">
                         Informed in Advance
                         <span className="block text-[11px] font-normal text-[#6b7280]">Applied before the leave start date</span>
-                      </span>
-                    </label>
-                    <label className="flex items-center gap-2.5 p-3 border border-[#e7e9ec] rounded-[10px] cursor-pointer hover:bg-zinc-50 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={form.isEmergency}
-                        onChange={(e) => setForm((prev) => ({ ...prev, isEmergency: e.target.checked }))}
-                        className="w-4 h-4 accent-rose-600"
-                      />
-                      <span className="text-[13px] font-semibold text-[#1f2430]">
-                        Emergency Leave
-                        <span className="block text-[11px] font-normal text-[#6b7280]">Mark this request as an emergency</span>
                       </span>
                     </label>
                   </div>

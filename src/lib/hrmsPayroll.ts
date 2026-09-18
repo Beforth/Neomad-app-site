@@ -60,6 +60,8 @@ export interface PayInputs {
   overtimeAmount: number;
   advanceDeduction?: number;
   mediclaimDeduction?: number;
+  /** Approved expense claims repaid this month. Paid on top of net, not part of gross. */
+  expenseReimbursement?: number;
 }
 
 export interface PayEntry extends PayInputs {
@@ -76,6 +78,9 @@ export interface PayEntry extends PayInputs {
   gross: number;
   deductions: PayLineItem[];
   totalDeductions: number;
+  /** Shown as its own payslip block — outside gross, so free of PF/ESIC/PT/TDS. */
+  reimbursements: PayLineItem[];
+  totalReimbursements: number;
   netPay: number;
   employerPf?: number;
   employerEsic?: number;
@@ -323,10 +328,13 @@ interface EntryOut {
   overtime_amount?: number;
   advance_deduction?: number;
   mediclaim_deduction?: number;
+  expense_reimbursement?: number;
   earnings: PayLineItem[];
   deductions: PayLineItem[];
   gross: number;
   total_deductions: number;
+  reimbursements?: PayLineItem[];
+  total_reimbursements?: number;
   net_pay: number;
   employer_pf?: number;
   employer_esic?: number;
@@ -444,10 +452,13 @@ export function toUiEntry(api: EntryOut): PayEntry {
     overtimeAmount: Number(api.overtime_amount) || 0,
     advanceDeduction: Number(api.advance_deduction) || 0,
     mediclaimDeduction: Number(api.mediclaim_deduction) || 0,
+    expenseReimbursement: Number(api.expense_reimbursement) || 0,
     earnings: api.earnings || [],
     deductions: api.deductions || [],
     gross: Number(api.gross) || 0,
     totalDeductions: Number(api.total_deductions) || 0,
+    reimbursements: api.reimbursements || [],
+    totalReimbursements: Number(api.total_reimbursements) || 0,
     netPay: Number(api.net_pay) || 0,
     employerPf: Number(api.employer_pf) || 0,
     employerEsic: Number(api.employer_esic) || 0,
@@ -793,6 +804,7 @@ export async function updatePayrollEntry(
     overtimeAmount: number;
     advanceDeduction: number;
     mediclaimDeduction: number;
+    expenseReimbursement: number;
     paymentMode: PaymentMode;
     paymentRef: string;
     note: string;
@@ -808,6 +820,7 @@ export async function updatePayrollEntry(
   if (body.overtimeAmount != null) payload.overtime_amount = body.overtimeAmount;
   if (body.advanceDeduction != null) payload.advance_deduction = body.advanceDeduction;
   if (body.mediclaimDeduction != null) payload.mediclaim_deduction = body.mediclaimDeduction;
+  if (body.expenseReimbursement != null) payload.expense_reimbursement = body.expenseReimbursement;
   if (body.paymentMode != null) payload.payment_mode = body.paymentMode;
   if (body.paymentRef != null) payload.payment_ref = body.paymentRef;
   if (body.note != null) payload.note = body.note;

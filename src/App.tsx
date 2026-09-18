@@ -38,7 +38,6 @@ import ExpenseForm from './pages/hrms/ExpenseForm';
 import ExpenseDetail from './pages/hrms/ExpenseDetail';
 import EmployeeExpenses from './pages/hrms/EmployeeExpenses';
 import SalaryAdvances from './pages/hrms/SalaryAdvances';
-import Incentives from './pages/hrms/Incentives';
 import ApprovalTemplate from './pages/hrms/ApprovalTemplate';
 import Payroll from './pages/hrms/Payroll';
 import MyPayroll from './pages/hrms/MyPayroll';
@@ -64,6 +63,7 @@ import LeaveAllocation from './pages/hrms/LeaveAllocation';
 import Staff from './pages/hrms/Staff';
 import StaffDetail from './pages/hrms/StaffDetail';
 import StaffCreate from './pages/hrms/StaffCreate';
+import Departments from './pages/hrms/Departments';
 import StaffEdit from './pages/hrms/StaffEdit';
 import HrmsDashboard from './pages/hrms/HrmsDashboard';
 import EmployeeDashboard from './pages/hrms/EmployeeDashboard';
@@ -91,6 +91,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/dashboard': 'HRMS Dashboard',
   '/hrms/attendance': 'Attendance',
   '/hrms/staff': 'Staff',
+  '/hrms/departments': 'Departments',
   '/hrms/shifts': 'Shifts',
   '/hrms/shifts/new': 'New Shift Type',
   '/hrms/shifts/edit/:id': 'Edit Shift Type',
@@ -100,7 +101,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/expenses': 'Expenses',
   '/hrms/expenses/new': 'Add Expense',
   '/hrms/expenses/:id': 'Expense Detail',
-  '/hrms/incentives': 'Incentives',
   '/hrms/approval-template': 'Approval Template',
   '/hrms/payroll': 'Payroll',
   '/hrms/payroll/structures': 'Payroll',
@@ -234,6 +234,7 @@ function AppRoutes() {
             <Route path="/hrms/dashboard" element={isEmployee ? <EmployeeDashboard /> : <HrmsDashboard />} />
             <Route path="/hrms/attendance" element={isEmployee ? <MyAttendance /> : <Attendance />} />
             <Route path="/hrms/my-shifts" element={isEmployee ? <MyShifts /> : <Navigate to="/hrms/shifts/assign/calendar" replace />} />
+            <Route path="/hrms/departments" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <Departments />} />
             <Route path="/hrms/staff/new" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <StaffCreate />} />
             <Route path="/hrms/staff/:staffId/edit" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <StaffEdit />} />
             <Route path="/hrms/staff/:staffId" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <StaffDetail />} />
@@ -252,7 +253,6 @@ function AppRoutes() {
             <Route path="/hrms/shifts/assign" element={<Navigate to="/hrms/shifts/assign/calendar" replace />} />
             <Route path="/hrms/expenses" element={isEmployee ? <MyExpenses /> : <Expenses />} />
             <Route path="/hrms/advances" element={<SalaryAdvances />} />
-            <Route path="/hrms/incentives" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <Incentives />} />
             <Route path="/hrms/approval-template" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <ApprovalTemplate />} />
             <Route path="/hrms/payroll" element={isEmployee ? <MyPayroll /> : <Payroll />} />
             <Route path="/hrms/payroll/structures" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <Payroll />} />

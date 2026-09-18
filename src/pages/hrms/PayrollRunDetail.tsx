@@ -216,6 +216,7 @@ export default function PayrollRunDetail() {
         overtimeAmount: editForm.overtimeAmount,
         advanceDeduction: editForm.advanceDeduction,
         mediclaimDeduction: editForm.mediclaimDeduction,
+        expenseReimbursement: editForm.expenseReimbursement,
         paymentMode: editForm.paymentMode,
         note: editForm.note,
       });
@@ -449,7 +450,16 @@ export default function PayrollRunDetail() {
                       </td>
                       <td className="px-4 py-3 text-xs font-bold text-zinc-900">{formatINR(e.gross)}</td>
                       <td className="px-4 py-3 text-xs text-rose-500">{formatINR(e.totalDeductions)}</td>
-                      <td className="px-4 py-3 text-xs font-extrabold text-emerald-600">{formatINR(e.netPay)}</td>
+                      <td className="px-4 py-3 text-xs font-extrabold text-emerald-600">
+                        {formatINR(e.netPay)}
+                        {/* Without this the row reads as broken arithmetic: the
+                            reimbursement is in Net but deliberately not in Gross. */}
+                        {(e.expenseReimbursement || 0) > 0 && (
+                          <span className="block mt-0.5 text-[10px] font-semibold text-zinc-400 whitespace-nowrap">
+                            incl. +{formatINR(e.expenseReimbursement || 0)} reimb.
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${ENTRY_STATUS_BADGE[e.status].base}`}>
                           {ENTRY_STATUS_BADGE[e.status].label}
@@ -588,6 +598,12 @@ export default function PayrollRunDetail() {
                 </Field>
                 <Field label="Mediclaim Premium (₹)">
                   <input type="number" className={inputClass} value={editForm.mediclaimDeduction || 0} onChange={(e) => setEditForm({ ...editForm, mediclaimDeduction: num(e.target.value) })} />
+                </Field>
+                <Field label="Expense Reimbursement (₹)">
+                  <input type="number" className={inputClass} value={editForm.expenseReimbursement || 0} onChange={(e) => setEditForm({ ...editForm, expenseReimbursement: num(e.target.value) })} />
+                  <p className="mt-1 text-[10px] text-zinc-400 leading-snug">
+                    Filled from approved expense claims dated in this month. Added after deductions, so it is not taxed.
+                  </p>
                 </Field>
                 <Field label="Payment Mode">
                   <SearchableSelect

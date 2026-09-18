@@ -41,6 +41,35 @@ export interface AttendanceSummaryOut {
   absent_today: number;
 }
 
+export interface AttendanceWeeklyPointOut {
+  date: string;
+  day: string;
+  present: number;
+  absent: number;
+}
+
+export interface AttendanceWeeklyOut {
+  points: AttendanceWeeklyPointOut[];
+  attendance_rate: number;
+}
+
+export interface DepartmentCountOut {
+  name: string;
+  count: number;
+}
+
+export interface DepartmentDistributionOut {
+  departments: DepartmentCountOut[];
+  unassigned: number;
+}
+
+export interface ActivityItemOut {
+  kind: 'check_in' | 'expense' | 'leave' | 'join' | string;
+  actor: string | null;
+  text: string;
+  at: string;
+}
+
 export interface AttendanceMySummaryOut {
   attendance_rate: number;
   hours_worked_month: number;
@@ -264,6 +293,51 @@ export async function getAttendanceSummary(token: string): Promise<AttendanceSum
   } catch (e) {
     if (e instanceof Error && e.message.startsWith('Request failed')) throw e;
     throw new Error(normalizeFetchError(e, 'Failed to load attendance summary'));
+  }
+}
+
+/** Rolling present/absent series ending today, plus the period attendance rate. */
+export async function getAttendanceWeekly(token: string, days = 7): Promise<AttendanceWeeklyOut> {
+  const base = getBaseUrl();
+  try {
+    const res = await fetch(`${base}/hrms/attendance/weekly?days=${days}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw await apiError(res);
+    return res.json() as Promise<AttendanceWeeklyOut>;
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('Request failed')) throw e;
+    throw new Error(normalizeFetchError(e, 'Failed to load weekly attendance'));
+  }
+}
+
+/** Active headcount grouped by department, largest first. */
+export async function getStaffDepartments(token: string): Promise<DepartmentDistributionOut> {
+  const base = getBaseUrl();
+  try {
+    const res = await fetch(`${base}/hrms/staff/departments`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw await apiError(res);
+    return res.json() as Promise<DepartmentDistributionOut>;
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('Request failed')) throw e;
+    throw new Error(normalizeFetchError(e, 'Failed to load department distribution'));
+  }
+}
+
+/** Recent HRMS activity, derived server-side from check-ins, expenses, leave and joins. */
+export async function getRecentActivity(token: string, limit = 8): Promise<ActivityItemOut[]> {
+  const base = getBaseUrl();
+  try {
+    const res = await fetch(`${base}/hrms/activity/recent?limit=${limit}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw await apiError(res);
+    return res.json() as Promise<ActivityItemOut[]>;
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('Request failed')) throw e;
+    throw new Error(normalizeFetchError(e, 'Failed to load recent activity'));
   }
 }
 

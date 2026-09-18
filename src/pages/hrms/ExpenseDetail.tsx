@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   ArrowLeft, IndianRupee, Pen, CheckCircle2, XCircle, X, Trash2, RotateCcw,
+  Download, Loader2,
   Banknote, CreditCard, Smartphone, Landmark, FileText, Clock, Receipt,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +13,7 @@ import {
   expenseAmount, expenseTax, expenseTotal, formatINR,
   getExpense, resolveExpense, deleteExpense, resubmitExpense, updateExpense,
 } from '../../lib/hrmsExpenses';
+import { exportExpensePdf } from '../../lib/hrmsExports';
 
 const STATUS_BADGE: Record<ExpenseStatus, { base: string; label: string }> = {
   draft: { base: 'bg-zinc-100 text-zinc-500', label: 'Draft' },
@@ -46,10 +48,26 @@ export default function ExpenseDetail() {
   const [resubmitTarget, setResubmitTarget] = useState<Expense | null>(null);
   const [resubmitReceipt, setResubmitReceipt] = useState('');
   const [resubmitting, setResubmitting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const showToast = (msg: string) => {
     setToast(msg);
     window.setTimeout(() => setToast(''), 2500);
+  };
+
+  // Summary table on page one, then one page per attached receipt. Built on the
+  // server because the receipts are stored there as data URLs.
+  const handleExportPdf = async () => {
+    if (!token || !expense || exporting) return;
+    setExporting(true);
+    try {
+      const { filename } = await exportExpensePdf(token, expense.id);
+      showToast(`Downloaded ${filename}`);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Export failed.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const load = useCallback(async () => {
@@ -231,6 +249,12 @@ export default function ExpenseDetail() {
             {CATEGORY_LABELS[expense.category]} expense on {expense.date}
           </p>
         </div>
+        <button onClick={handleExportPdf} disabled={exporting}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-zinc-600 border border-zinc-200 text-xs font-bold hover:bg-zinc-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          title="Download this claim with its receipts as a PDF">
+          {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          {exporting ? 'Preparing…' : 'Export PDF'}
+        </button>
         {!isEmployee && expense.status === 'pending' && (
           <div className="flex items-center gap-1">
             <button onClick={() => { setNotesModal('approve'); setNotes(''); setApproveAmount(total); }}

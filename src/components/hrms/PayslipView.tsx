@@ -45,6 +45,7 @@ export default function PayslipView({
   const penalty = entry.latePenalty || getDeduction('penalty', 0);
   const mediclaim = entry.mediclaimDeduction || getDeduction('mediclaim', 0);
   const totalDeduction = entry.totalDeductions || (pf + esic + pt + advances + penalty + mediclaim);
+  const reimbursement = Number(entry.totalReimbursements ?? entry.expenseReimbursement ?? 0) || 0;
 
   const employerPf = entry.employerPf || Math.round(pf * 1.0833) || (basic > 15000 ? 1950 : Math.round(basic * 0.13));
   const employerEsic = entry.employerEsic || Math.round(esic * 4.33) || (basic <= 21000 ? Math.round(totalSalary * 0.0325) : 0);
@@ -163,6 +164,28 @@ export default function PayslipView({
           </tbody>
         </table>
       </div>
+
+      {/* 3b. Reimbursement — shown separately so Total Salary minus Total Deduction
+           still reconciles. It sits outside gross on purpose: repaying a receipt
+           is not wages, so it carries no PF, ESIC, professional tax or TDS. */}
+      {reimbursement > 0 && (
+        <div className="border-b border-zinc-900 bg-white px-3 py-2 flex items-center justify-between text-xs font-bold text-zinc-900">
+          <span className="uppercase tracking-wide">
+            Salary Payable
+            <span className="ml-2 font-semibold normal-case text-zinc-500">(after deductions)</span>
+          </span>
+          <span>{formatINR(Math.max(0, totalSalary - totalDeduction))}</span>
+        </div>
+      )}
+      {reimbursement > 0 && (
+        <div className="border-b border-zinc-900 bg-white px-3 py-2 flex items-center justify-between text-xs font-bold text-emerald-800">
+          <span className="uppercase tracking-wide">
+            + Expense Reimbursement
+            <span className="ml-2 font-semibold normal-case text-zinc-500">(not taxable)</span>
+          </span>
+          <span>{formatINR(reimbursement)}</span>
+        </div>
+      )}
 
       {/* 4. Net Salary Bar */}
       <div className="border-b border-zinc-900 bg-zinc-100 p-3 flex items-center justify-between font-black text-sm">

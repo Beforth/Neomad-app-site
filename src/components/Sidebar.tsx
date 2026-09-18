@@ -1,8 +1,9 @@
 import {
   LayoutDashboard, FileText, MapPin, BarChart3, Users,
   UserCircle, LogOut, Menu, X, Bell, Package, History, Settings as SettingsIcon,
-  ChevronDown, Truck, CalendarCheck, Clock, Receipt, Trophy, Check,
+  ChevronDown, Truck, CalendarCheck, Clock, Receipt, Check,
   Wallet, Banknote, CalendarOff, CalendarClock, ClipboardCheck as ClipboardCheckIcon,
+  Building2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
@@ -42,11 +43,11 @@ const HRMS_ITEMS: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/hrms/dashboard', roles: ['admin', 'manager', 'staff', 'delivery_boy'] },
   { icon: CalendarCheck, label: 'Attendance', path: '/hrms/attendance', roles: ['admin', 'manager', 'staff', 'delivery_boy'] },
   { icon: Users, label: 'Staff', path: '/hrms/staff', roles: ['admin', 'manager'] },
+  { icon: Building2, label: 'Departments', path: '/hrms/departments', roles: ['admin', 'manager'] },
   { icon: Wallet, label: 'Expenses', roles: ['admin', 'manager', 'staff', 'delivery_boy'], children: [
     { label: 'Business Claims', path: '/hrms/expenses' },
     { label: 'Salary Advances', path: '/hrms/expenses?tab=advances' },
   ]},
-  { icon: Trophy, label: 'Incentives', path: '/hrms/incentives', roles: ['admin', 'manager'] },
   { icon: Banknote, label: 'Payroll', path: '/hrms/payroll', roles: ['staff', 'delivery_boy'] },
   { icon: Banknote, label: 'Payroll', roles: ['admin', 'manager'], children: [
     { label: 'Pay Cycles', path: '/hrms/payroll' },

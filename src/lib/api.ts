@@ -83,6 +83,7 @@ export interface ApiUser {
   email: string;
   full_name: string | null;
   phone?: string | null;
+  department?: string | null;
   is_active: boolean;
   role_codes: string[];
 }
@@ -557,7 +558,7 @@ export async function getDeliveryPathSegment(
 /** Create user. Requires admin token. role_code: any valid role from GET /roles (e.g. admin, staff, manager, delivery, super_admin). */
 export async function createUser(
   token: string,
-  data: { email: string; password: string; full_name?: string | null; phone?: string | null; role_code: string },
+  data: { email: string; password: string; full_name?: string | null; phone?: string | null; department?: string | null; role_code: string },
 ): Promise<ApiUser> {
   const base = getBaseUrl();
   const res = await fetch(`${base}/users`, {
@@ -571,6 +572,7 @@ export async function createUser(
       password: data.password,
       full_name: data.full_name || undefined,
       phone: data.phone || undefined,
+      department: data.department || undefined,
       role_code: data.role_code,
     }),
   });
@@ -586,13 +588,14 @@ export async function createUser(
 export async function updateUser(
   token: string,
   userId: number,
-  data: { full_name?: string | null; email?: string; phone?: string | null; role_code?: string; is_active?: boolean },
+  data: { full_name?: string | null; email?: string; phone?: string | null; department?: string | null; role_code?: string; is_active?: boolean },
 ): Promise<ApiUser> {
   const base = getBaseUrl();
   const body: Record<string, string | boolean | null> = {};
   if (data.full_name !== undefined) body.full_name = data.full_name ?? '';
   if (data.email !== undefined) body.email = data.email;
   if (data.phone !== undefined) body.phone = data.phone ?? null;
+  if (data.department !== undefined) body.department = data.department ?? null;
   if (data.role_code !== undefined) body.role_code = data.role_code;
   if (data.is_active !== undefined) body.is_active = data.is_active;
   const res = await fetch(`${base}/users/${userId}`, {

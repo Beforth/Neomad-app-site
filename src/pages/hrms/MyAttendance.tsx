@@ -14,6 +14,7 @@ import {
   monthStart, padZ, toDateStr,
   countWorkingDays,
 } from '../../lib/hrmsAttendance';
+import { exportAttendanceXlsx } from '../../lib/hrmsExports';
 import { DEFAULT_SHIFT_SETTINGS } from '../../lib/api';
 import type { ShiftSettings } from '../../lib/api';
 import { toUiSettings } from '../../lib/hrmsShifts';
@@ -473,6 +474,7 @@ export default function MyAttendance() {
   const [records, setRecords] = useState<AttendanceRecordOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
+  const [exporting, setExporting] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   // Shift settings — loaded from backend API
@@ -943,26 +945,29 @@ export default function MyAttendance() {
     else { setSortKey(key); setSortDir(key === 'date' ? 'desc' : 'asc'); }
   };
 
-  const handleExport = () => {
-    const headers = ['Date', 'Status', 'Check In', 'Check Out', 'Hours', 'Shift', 'Late (min)'];
-    const rows = filteredRecords.map(r => [
-      r.date,
-      STATUS_LABELS[r.status],
-      r.check_in || '',
-      r.check_out || '',
-      r.hours_worked ? String(r.hours_worked) : '',
-      `${r.shift_start || DEFAULT_SHIFT_START}–${r.shift_end || DEFAULT_SHIFT_END}`,
-      r.status === 'late' && r.check_in ? String(lateMins(r.check_in, r.shift_start || DEFAULT_SHIFT_START)) : '',
-    ]);
-    const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `attendance-${dateFrom}-to-${dateTo}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('Attendance exported as CSV.');
+  // Server-side so the export covers the whole selected range rather than the
+  // rows currently rendered. The backend scopes it to this user automatically.
+  const handleExport = async () => {
+    if (!token || exporting) return;
+    setExporting(true);
+    try {
+      await exportAttendanceXlsx(token, {
+        from_date: dateFrom,
+        to_date: dateTo,
+        status: statusFilter,
+        // Required: the server only auto-scopes non-admins, so without this an
+        // admin or manager opening their own page would export everybody.
+        staff_id: user?.id,
+        // An employee's own punch locations add nothing here and would make the
+        // download wait on a third-party lookup.
+        include_area: false,
+      });
+      showToast('Attendance exported as Excel.');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Export failed.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const openPunch = () => {
@@ -1151,10 +1156,10 @@ export default function MyAttendance() {
             <CalendarDays size={14} />
             Calendar View
           </button>
-          <button onClick={handleExport}
-            className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm">
-            <Download size={14} />
-            Export CSV
+          <button onClick={handleExport} disabled={exporting}
+            className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
+            {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            {exporting ? 'Exporting…' : 'Export Excel'}
           </button>
           <button onClick={openPunch}
             className="flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">

@@ -13,6 +13,7 @@ import { getUsers, mapBackendRoleToFrontend } from '../../lib/api';
 import { appApi, APP_NOTIFICATIONS_UPDATED_EVENT } from '../../lib/appApi';
 import SearchableSelect from '../../components/SearchableSelect';
 import { toDateStr } from '../../lib/hrmsAttendance';
+import { exportAttendanceXlsx } from '../../lib/hrmsExports';
 import {
   getAttendanceRecords,
   getAttendanceSummary,
@@ -142,6 +143,7 @@ export default function Attendance() {
   const [records, setRecords] = useState<AttendanceRecordOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const [dateFrom, setDateFrom] = useState(monthStartStr());
   const [dateTo, setDateTo] = useState(todayStr());
@@ -666,22 +668,28 @@ export default function Attendance() {
     };
   }, [summary]);
 
-  const handleExport = () => {
-    const headers = ['Date', 'Staff', 'Email', 'Check In', 'Check Out', 'Hours', 'Overtime', 'Status', 'Distance (m)', 'Marked By'];
-    const rows = filtered.map(r => [
-      r.date, r.staff_name, r.staff_email, r.check_in || '', r.check_out || '',
-      r.hours_worked ? String(r.hours_worked) : '', r.overtime ? `+${r.overtime}h` : '',
-      STATUS_LABELS[r.status] || r.status,
-      r.source === 'biometric' || r.device_id ? 'Biometric' : (r.distance_from_office !== null ? String(r.distance_from_office) : 'Manual'),
-      r.source === 'biometric' || r.device_id ? (r.device_id ?? 'Machine') : (r.marked_by_name || ''),
-    ]);
-    const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `attendance-${dateFrom}-to-${dateTo}.csv`; a.click();
-    URL.revokeObjectURL(url);
-    showToast('Attendance exported as CSV.');
+  // Exported by the server so the file covers the whole filtered date range,
+  // not just the rows this page has loaded, and can include punch area names.
+  const handleExport = async () => {
+    if (!token || exporting) return;
+    setExporting(true);
+    try {
+      const { geocodePending } = await exportAttendanceXlsx(token, {
+        from_date: dateFrom,
+        to_date: dateTo,
+        status: statusFilter,
+        search: searchDebounced || undefined,
+      });
+      showToast(
+        geocodePending > 0
+          ? `Exported. ${geocodePending} punch location(s) show coordinates — they are being looked up now and will have area names next time.`
+          : 'Attendance exported as Excel.',
+      );
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Export failed.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -718,10 +726,10 @@ export default function Attendance() {
               Office Settings
             </button>
           )}
-          <button onClick={handleExport}
-            className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm">
-            <Download size={14} />
-            Export CSV
+          <button onClick={handleExport} disabled={exporting}
+            className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
+            {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            {exporting ? 'Exporting…' : 'Export Excel'}
           </button>
           <button onClick={() => { setPunchMode('in'); setPunchStaffId(currentUser?.id ? String(currentUser.id) : ''); setPunchDates([toDateStr(new Date())]); setPunchTime(timeNow()); resetGeoState(); setShowPunchModal(true); }}
             className="flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
@@ -1514,15 +1522,32 @@ export default function Attendance() {
             </p>
             <div>
               <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
-                Geo-Fence Radius ({settings.radiusMeters}m)
+                Geo-Fence Radius
               </label>
-              <input type="range" min="0" max="5000" step="100" value={settings.radiusMeters}
-                onChange={(e) => setSettings(s => ({ ...s, radiusMeters: parseInt(e.target.value) }))}
-                className="w-full accent-emerald-600" />
+              <div className="flex items-center gap-3">
+                <input type="range" min="0" max="5000" step="1" value={settings.radiusMeters}
+                  onChange={(e) => setSettings(s => ({ ...s, radiusMeters: parseInt(e.target.value) || 0 }))}
+                  className="flex-1 accent-emerald-600" />
+                <div className="flex items-center gap-1 shrink-0">
+                  <input type="number" min="0" max="5000" step="1" value={settings.radiusMeters}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === '') { setSettings(s => ({ ...s, radiusMeters: 0 })); return; }
+                      const n = Math.round(Number(raw));
+                      if (Number.isNaN(n)) return;
+                      setSettings(s => ({ ...s, radiusMeters: Math.min(5000, Math.max(0, n)) }));
+                    }}
+                    className="w-20 px-2 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm text-right" />
+                  <span className="text-xs font-medium text-zinc-500">m</span>
+                </div>
+              </div>
               <div className="flex justify-between text-xs text-zinc-400 mt-1">
                 <span>0m</span>
                 <span>5000m</span>
               </div>
+              <p className="text-[11px] text-zinc-500 mt-1">
+                Type an exact value in the box for a tight fence (e.g. 1m or 2m), or drag to adjust.
+              </p>
             </div>
             <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3">
               <p className="text-xs text-zinc-500">

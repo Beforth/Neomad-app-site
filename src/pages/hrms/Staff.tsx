@@ -5,11 +5,12 @@ import {
   UserPlus, Shield, Trash2, Edit2, CheckCircle2,
   XCircle, Search, Key, X, Save, Eye, EyeOff, ChevronLeft, ChevronRight,
   Users, UserCheck, UserX, Plus, ArrowUpDown, ChevronUp,
-  ChevronDown, Inbox, Fingerprint, RotateCcw
+  ChevronDown, Inbox, Fingerprint, RotateCcw, Download, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getUsers, getRoles, createUser, updateUser, resetUserPassword, deleteBiometricPin, createBiometricPin, updateBiometricPin, listUserBiometricPins, mapBackendRoleToFrontend, normalizeFetchError, type BiometricPin } from '../../lib/api';
 import SearchableSelect from '../../components/SearchableSelect';
+import { exportEmployeesXlsx } from '../../lib/hrmsExports';
 
 const ROLE_COLORS: Record<string, string> = {
   super_admin: 'bg-rose-50 text-rose-700',
@@ -30,7 +31,7 @@ const STATUS_LABELS: Record<string, string> = {
   inactive: 'Inactive',
 };
 
-function toTableUser(u: { id: number; email: string; full_name: string | null; phone?: string | null; is_active: boolean; role_codes: string[] }) {
+function toTableUser(u: { id: number; email: string; full_name: string | null; phone?: string | null; department?: string | null; is_active: boolean; role_codes: string[] }) {
   const username = u.full_name || u.email.split('@')[0];
   const role = mapBackendRoleToFrontend(u.role_codes);
   const role_code = u.role_codes?.[0] ?? 'user';
@@ -39,6 +40,7 @@ function toTableUser(u: { id: number; email: string; full_name: string | null; p
     username,
     email: u.email,
     phone: u.phone ?? undefined,
+    department: u.department ?? undefined,
     role,
     role_code,
     status: (u.is_active ? 'active' : 'inactive') as 'active' | 'inactive',
@@ -124,7 +126,6 @@ export default function Staff() {
     return sortOrder === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />;
   }
 
-  const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [resetUser, setResetUser] = useState<any | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<any | null>(null);
@@ -230,10 +231,8 @@ export default function Staff() {
   const [roles, setRoles] = useState<{ id: number; name: string; code: string }[]>([]);
   const [rolesLoading, setRolesLoading] = useState(false);
   const [rolesError, setRolesError] = useState<string | null>(null);
-  const [newUser, setNewUser] = useState({ username: '', email: '', phone: '', password: '', role: 'staff' });
   const [toast, setToast] = useState('');
-  const [addLoading, setAddLoading] = useState(false);
-  const [editLoading, setEditLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchStaff();
@@ -270,7 +269,6 @@ export default function Staff() {
     try {
       const data = await getRoles(token);
       setRoles(data);
-      setNewUser((prev) => ({ ...prev, role: prev.role || data.find((r) => r.code !== 'user')?.code || 'staff' }));
     } catch (e) {
       setRoles([]);
       setRolesError(normalizeFetchError(e, 'Failed to load roles'));
@@ -279,54 +277,30 @@ export default function Staff() {
     }
   };
 
+  // Exports the full employee master for the current filters, not just this
+  // page — the browser never holds every column the workbook carries.
+  const handleExport = async () => {
+    if (!token || exporting) return;
+    setExporting(true);
+    try {
+      const { filename } = await exportEmployeesXlsx(token, {
+        search: searchDebounced || undefined,
+        role_code: roleFilter !== 'all' ? roleFilter : undefined,
+      });
+      showToast(`Downloaded ${filename}`);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Export failed.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(''), 2500);
   };
 
-  const handleAddUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token) return;
-    setAddLoading(true);
-    try {
-      await createUser(token, {
-        full_name: newUser.username.trim() || undefined,
-        email: newUser.email,
-        phone: newUser.phone.trim() || undefined,
-        password: newUser.password,
-        role_code: newUser.role,
-      });
-      setShowAddModal(false);
-      setNewUser({ username: '', email: '', phone: '', password: '', role: roles.find((r) => r.code !== 'user')?.code || 'staff' });
-      fetchStaff();
-      showToast('Staff created successfully');
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Failed to create staff');
-    } finally {
-      setAddLoading(false);
-    }
-  };
 
-  const handleEditSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !editingUser?.id) return;
-    setEditLoading(true);
-    try {
-      await updateUser(token, editingUser.id, {
-        full_name: editingUser.username?.trim() || undefined,
-        email: editingUser.email,
-        phone: editingUser.phone ?? undefined,
-        role_code: editingUser.role_code ?? editingUser.role,
-      });
-      setEditingUser(null);
-      fetchStaff();
-      showToast('Staff updated successfully');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to update staff');
-    } finally {
-      setEditLoading(false);
-    }
-  };
 
   const handleToggleStatus = async (u: any) => {
     if (!token) return;
@@ -428,15 +402,22 @@ export default function Staff() {
           <p className="text-xs text-zinc-500 font-medium mt-0.5">Manage your team members</p>
         </div>
         {canManage && (
-          <button
-            onClick={() => {
-              setShowAddModal(true);
-              setNewUser((prev) => ({ ...prev, role: prev.role || roles.find((r) => r.code !== 'user')?.code || 'staff' }));
-            }}
-            className="self-start sm:self-auto flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm"
-          >
-            <Plus size={16} />Add Staff
-          </button>
+          <div className="self-start sm:self-auto flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+              {exporting ? 'Exporting…' : 'Export Excel'}
+            </button>
+            <button
+              onClick={() => navigate('/hrms/staff/new')}
+              className="flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm"
+            >
+              <Plus size={16} />Add Staff
+            </button>
+          </div>
         )}
       </motion.header>
 
@@ -573,9 +554,13 @@ export default function Staff() {
                     {canManage && (
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <button onClick={() => setEditingUser({ ...s })}
+                          <button onClick={() => navigate(`/hrms/staff/${s.id}/edit`)}
                             className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="Edit Staff">
                             <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => setEditingUser({ ...s })}
+                            className="p-1.5 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Biometric ID(s)">
+                            <Fingerprint size={14} />
                           </button>
                           {!isSelf && (
                             <button onClick={() => { setResetUser(s); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }}
@@ -633,7 +618,8 @@ export default function Staff() {
                 </div>
                 {canManage && (
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setEditingUser({ ...s })} className="p-2 text-zinc-400 hover:text-zinc-700"><Edit2 size={16} /></button>
+                    <button onClick={() => navigate(`/hrms/staff/${s.id}/edit`)} className="p-2 text-zinc-400 hover:text-zinc-700"><Edit2 size={16} /></button>
+                    <button onClick={() => setEditingUser({ ...s })} className="p-2 text-zinc-400 hover:text-emerald-600" title="Biometric ID(s)"><Fingerprint size={16} /></button>
                     <button onClick={() => { setResetUser(s); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }} className="p-2 text-zinc-400 hover:text-blue-600"><Key size={16} /></button>
                     <button onClick={() => setDeleteConfirm(s)} className="p-2 text-zinc-400 hover:text-red-600"><Trash2 size={16} /></button>
                   </div>
@@ -688,83 +674,10 @@ export default function Staff() {
         )}
       </motion.div>
 
-      {/* ADD STAFF MODAL */}
-      {showAddModal && (
-        <Modal title="Add New Staff" onClose={() => setShowAddModal(false)} closeOnBackdropClick={false}>
-          <form onSubmit={handleAddUser} className="p-5 space-y-4">
-            <Field label="Username"><input type="text" required value={newUser.username} onChange={(e) => setNewUser((prev) => ({ ...prev, username: e.target.value }))} placeholder="johndoe" className={inputClassName} /></Field>
-            <Field label="Email"><input type="email" required value={newUser.email} onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))} placeholder="john@example.com" className={inputClassName} /></Field>
-            <Field label="Phone"><input type="tel" value={newUser.phone} onChange={(e) => setNewUser((prev) => ({ ...prev, phone: e.target.value }))} placeholder="+91 98765 43210" className={inputClassName} /></Field>
-            <Field label="Password"><input type="password" required value={newUser.password} onChange={(e) => setNewUser((prev) => ({ ...prev, password: e.target.value }))} placeholder="Min. 6 characters" className={inputClassName} /></Field>
-            <Field label="Role">
-              <SearchableSelect
-                value={newUser.role}
-                onChange={(v) => setNewUser((prev) => ({ ...prev, role: v }))}
-                disabled={rolesLoading}
-                className="w-full"
-                options={
-                  rolesLoading
-                    ? [{ value: '', label: 'Loading roles...' }]
-                    : rolesError
-                    ? [{ value: '', label: 'Failed to load roles' }]
-                    : roles.length === 0
-                    ? [{ value: '', label: 'No roles' }]
-                    : roles.filter((r) => r.code !== 'user').map((r) => ({ value: r.code, label: r.name }))
-                }
-              />
-              {rolesError && (
-                <p className="mt-1 text-xs text-red-600 flex items-center gap-2">
-                  {rolesError}
-                  <button type="button" onClick={fetchRoles} className="text-emerald-600 font-medium hover:underline">Retry</button>
-                </p>
-              )}
-            </Field>
-            <button
-              type="submit"
-              disabled={addLoading || !newUser.role || roles.filter((r) => r.code !== 'user').length === 0}
-              className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-            >
-              <Save size={16} /> {addLoading ? 'Creating...' : 'Create Staff'}
-            </button>
-          </form>
-        </Modal>
-      )}
-
-      {/* EDIT STAFF MODAL */}
+      {/* BIOMETRIC ID MODAL — profile editing lives on /hrms/staff/:id/edit */}
       {editingUser && (
-        <Modal title="Edit Staff" onClose={() => setEditingUser(null)} wide closeOnBackdropClick={false}>
+        <Modal title={`Biometric ID(s) — ${editingUser.username ?? ''}`} onClose={() => setEditingUser(null)} wide closeOnBackdropClick={false}>
           <div className="p-5 space-y-4">
-            <form onSubmit={handleEditSave} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Username"><input type="text" required value={editingUser.username} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, username: e.target.value }))} className={inputClassName} /></Field>
-              <Field label="Email"><input type="email" required value={editingUser.email} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, email: e.target.value }))} className={inputClassName} /></Field>
-              <Field label="Phone"><input type="tel" value={editingUser.phone || ''} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, phone: e.target.value }))} placeholder="+91 98765 43210" className={inputClassName} /></Field>
-              <Field label="Role">
-                <SearchableSelect
-                  value={editingUser.role_code ?? editingUser.role ?? ''}
-                  onChange={(v) => setEditingUser((prev: any) => ({ ...prev, role_code: v }))}
-                  disabled={rolesLoading}
-                  className="w-full"
-                  options={
-                    rolesLoading
-                      ? [{ value: '', label: 'Loading roles...' }]
-                      : rolesError
-                      ? [{ value: '', label: 'Failed to load roles' }]
-                      : roles.map((r) => ({ value: r.code, label: r.name }))
-                  }
-                />
-                {rolesError && (
-                  <p className="mt-1 text-xs text-red-600 flex items-center gap-2">
-                    {rolesError}
-                    <button type="button" onClick={fetchRoles} className="text-emerald-600 font-medium hover:underline">Retry</button>
-                  </p>
-                )}
-              </Field>
-              <div className="col-span-1 sm:col-span-2">
-                <button type="submit" disabled={editLoading || (roles.length === 0 && !rolesError)} className="w-full py-2.5 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
-                  <Save size={16} /> {editLoading ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
 
             <div className="border-t border-zinc-100 pt-4">
               <div className="flex items-center justify-between mb-3">
