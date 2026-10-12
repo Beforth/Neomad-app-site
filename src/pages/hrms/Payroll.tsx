@@ -11,6 +11,15 @@ import {
 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
 import { formatINR } from '../../lib/hrmsExpenses';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input, fieldClass } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { Segmented } from '@/components/ui/segmented';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import {
   PayModel, RunStatus, SalaryStructure, PayrollRun, PayrollSettings,
   listSalaryStructures, getSalaryStructureHistory, createSalaryStructure, updateSalaryStructure, deleteSalaryStructure,
@@ -27,10 +36,10 @@ type SortKey = 'month' | 'net';
 const PAGE_SIZE = 8;
 
 const RUN_STATUS_BADGE: Record<RunStatus, { base: string; label: string }> = {
-  draft: { base: 'bg-zinc-100 text-zinc-500', label: 'Draft' },
-  calculated: { base: 'bg-amber-50 text-amber-600', label: 'Calculated' },
-  approved: { base: 'bg-blue-50 text-blue-600', label: 'Approved' },
-  paid: { base: 'bg-emerald-50 text-emerald-600', label: 'Paid' },
+  draft: { base: 'bg-secondary text-muted-foreground', label: 'Draft' },
+  calculated: { base: 'bg-warning/10 text-warning', label: 'Calculated' },
+  approved: { base: 'bg-info/10 text-info', label: 'Approved' },
+  paid: { base: 'bg-accent text-primary', label: 'Paid' },
 };
 
 const STATUS_OPTIONS = [
@@ -47,11 +56,11 @@ const PAY_MODEL_BADGE: Record<PayModel, { base: string; label: string }> = {
 };
 
 const ROLE_BADGE: Record<string, { base: string; label: string }> = {
-  super_admin: { base: 'bg-rose-50 text-rose-700', label: 'Super Admin' },
+  super_admin: { base: 'bg-destructive/10 text-destructive', label: 'Super Admin' },
   admin: { base: 'bg-purple-50 text-purple-700', label: 'Admin' },
-  manager: { base: 'bg-blue-50 text-blue-700', label: 'Manager' },
-  staff: { base: 'bg-emerald-50 text-emerald-700', label: 'Staff' },
-  delivery_boy: { base: 'bg-zinc-50 text-zinc-600', label: 'Delivery Boy' },
+  manager: { base: 'bg-info/10 text-info', label: 'Manager' },
+  staff: { base: 'bg-accent text-accent-foreground', label: 'Staff' },
+  delivery_boy: { base: 'bg-muted text-foreground/70', label: 'Delivery Boy' },
 };
 
 interface StructureForm {
@@ -93,12 +102,12 @@ const emptyForm: StructureForm = {
 
 function num(s: string) { return Math.max(0, Number(s) || 0); }
 
-const inputClass = 'w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all';
+const inputClass = fieldClass;
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{label}</label>
+      <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">{label}</label>
       {children}
     </div>
   );
@@ -241,9 +250,9 @@ export default function Payroll() {
   const runPaid = runs.filter((r) => r.status === 'paid').length;
 
   const runStatCards = [
-    { label: 'Total Pay Cycles', value: runs.length, icon: FileText, color: 'bg-blue-50 text-blue-600' },
-    { label: 'In Progress', value: runInProgress, icon: Clock, color: 'bg-amber-50 text-amber-600' },
-    { label: 'Paid', value: runPaid, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
+    { label: 'Total Pay Cycles', value: runs.length, icon: FileText, color: 'bg-info/10 text-info' },
+    { label: 'In Progress', value: runInProgress, icon: Clock, color: 'bg-warning/10 text-warning' },
+    { label: 'Paid', value: runPaid, icon: CheckCircle2, color: 'bg-accent text-primary' },
     { label: 'Net Payout', value: formatINR(runTotal), icon: IndianRupee, color: 'bg-purple-50 text-purple-600', small: true },
   ];
 
@@ -363,10 +372,10 @@ export default function Payroll() {
   const monthlyGross = structures.filter((s) => s.active && s.payModel === 'monthly').reduce((sum, s) => sum + grossMonthly(s), 0);
 
   const structStatCards = [
-    { label: 'Employees', value: structures.length, icon: Users, color: 'bg-blue-50 text-blue-600' },
+    { label: 'Employees', value: structures.length, icon: Users, color: 'bg-info/10 text-info' },
     { label: 'Monthly', value: monthlyCount, icon: Calendar, color: 'bg-purple-50 text-purple-600' },
     { label: 'Shift', value: shiftCount, icon: Repeat, color: 'bg-cyan-50 text-cyan-600' },
-    { label: 'Monthly Payroll', value: formatINR(monthlyGross), icon: IndianRupee, color: 'bg-emerald-50 text-emerald-600', small: true },
+    { label: 'Monthly Payroll', value: formatINR(monthlyGross), icon: IndianRupee, color: 'bg-accent text-primary', small: true },
   ];
 
   const structFiltered = useMemo(() => {
@@ -497,35 +506,27 @@ export default function Payroll() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="fixed top-5 right-5 z-[9999] bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium"
+          className="fixed top-5 right-5 z-[9999] bg-foreground text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium"
         >
-          <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
+          <CheckCircle2 size={16} className="text-primary" /> {toast}
         </motion.div>
       )}
 
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Payroll</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">Salary structures, pay cycles and payouts</p>
-        </div>
-        {section === 'runs' && (
-          <button onClick={() => { setGenMonth(currentMonthStr()); setGenOpen(true); }} className="self-start sm:self-auto flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+      <PageHeader title="Payroll" description="Salary structures, pay cycles and payouts" actions={<>
+{section === 'runs' && (
+          <Button variant="dark" size="sm" className="self-start sm:self-auto" onClick={() => { setGenMonth(currentMonthStr()); setGenOpen(true); }} >
             <Plus size={14} />Generate Run
-          </button>
+          </Button>
         )}
         {section === 'structures' && (
-          <button onClick={openCreate} className="self-start sm:self-auto flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+          <Button variant="dark" size="sm" className="self-start sm:self-auto" onClick={openCreate} >
             <Plus size={14} />Add Structure
-          </button>
+          </Button>
         )}
-      </motion.header>
+</>} />
 
       {loading && (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm font-medium text-zinc-500">
+        <div className="flex items-center justify-center gap-2 py-16 text-sm font-medium text-muted-foreground">
           <Loader2 size={18} className="animate-spin" /> Loading payroll…
         </div>
       )}
@@ -539,16 +540,16 @@ export default function Payroll() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm"
+                className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
               >
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${card.color}`}>
                   <card.icon size={18} />
                 </div>
                 <div className="min-w-0">
-                  <p className={`${card.small ? 'text-sm' : 'text-lg'} font-extrabold text-zinc-900 leading-none truncate`}>
+                  <p className={`${card.small ? 'text-sm' : 'text-lg'} font-semibold text-foreground leading-none truncate`}>
                     {card.value}
                   </p>
-                  <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">
+                  <p className="text-xs font-medium text-muted-foreground/70 mt-1 truncate">
                     {card.label}
                   </p>
                 </div>
@@ -556,70 +557,55 @@ export default function Payroll() {
             ))}
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center"
-          >
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative flex-1 min-w-[180px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-              <input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+              <Input data-search="" className="w-full pl-9 pr-4"
                 type="text"
                 placeholder="Search by month..."
                 value={runSearch}
                 onChange={(e) => setRunSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+                
               />
             </div>
             <div className="w-[160px]">
               <SearchableSelect value={runStatusFilter} onChange={setRunStatusFilter} options={STATUS_OPTIONS} placeholder="Status" />
             </div>
             {runHasFilters && (
-              <button onClick={() => { setRunSearch(''); setRunStatusFilter('all'); }} className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors">
+              <button onClick={() => { setRunSearch(''); setRunStatusFilter('all'); }} className="text-xs text-muted-foreground/70 hover:text-foreground/85 flex items-center gap-1 transition-colors">
                 <XCircle size={12} />Clear
               </button>
             )}
-          </motion.div>
+          </div>
 
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+            className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
           >
             {runPaged.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-                  <Inbox size={24} className="text-zinc-300" />
-                </div>
-                <h3 className="text-sm font-bold text-zinc-900 mb-1">
-                  {runs.length === 0 ? 'No pay cycles yet' : 'No results found'}
-                </h3>
-                <p className="text-xs text-zinc-400 max-w-xs">
-                  {runs.length === 0 ? 'Click "Generate Run" to create a payroll period.' : 'Try adjusting your search or filters'}
-                </p>
-              </div>
+              <EmptyState icon={<Inbox />} title={runs.length === 0 ? 'No pay cycles yet' : 'No results found'} description={runs.length === 0 ? 'Click "Generate Run" to create a payroll period.' : 'Try adjusting your search or filters'} className="border-0" />
             ) : (
               <>
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-zinc-50/50 border-b border-zinc-100">
-                      <tr>
-                        <th onClick={() => toggleRunSort('month')} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600 select-none">
-                          <span className="flex items-center gap-1">Period{runSortBy !== 'month' ? <ArrowUpDown size={12} className="text-zinc-300" /> : runSortOrder === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />}</span>
-                        </th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Employees</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Gross</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Deductions</th>
-                        <th onClick={() => toggleRunSort('net')} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600 select-none">
-                          <span className="flex items-center gap-1">Net Pay{runSortBy !== 'net' ? <ArrowUpDown size={12} className="text-zinc-300" /> : runSortOrder === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />}</span>
-                        </th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Status</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-50">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead onClick={() => toggleRunSort('month')} className="uppercase whitespace-nowrap cursor-pointer hover:text-foreground/70 select-none">
+                          <span className="flex items-center gap-1">Period{runSortBy !== 'month' ? <ArrowUpDown size={12} className="text-muted-foreground/50" /> : runSortOrder === 'asc' ? <ChevronUp size={12} className="text-foreground" /> : <ChevronDown size={12} className="text-foreground" />}</span>
+                        </TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Employees</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Gross</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Deductions</TableHead>
+                        <TableHead onClick={() => toggleRunSort('net')} className="uppercase whitespace-nowrap cursor-pointer hover:text-foreground/70 select-none">
+                          <span className="flex items-center gap-1">Net Pay{runSortBy !== 'net' ? <ArrowUpDown size={12} className="text-muted-foreground/50" /> : runSortOrder === 'asc' ? <ChevronUp size={12} className="text-foreground" /> : <ChevronDown size={12} className="text-foreground" />}</span>
+                        </TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Status</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {runPaged.map((r, i) => {
                         const totals = runTotals(r);
                         return (
@@ -629,61 +615,61 @@ export default function Payroll() {
                             animate={{ opacity: 1 }}
                             transition={{ delay: i * 0.02 }}
                             onClick={() => navigate(`/hrms/payroll/run/${r.id}`)}
-                            className="hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                            className="border-b transition-colors hover:bg-muted/70 cursor-pointer"
                           >
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              <p className="text-xs font-bold text-zinc-900">{monthLabel(r.month)}</p>
-                              <p className="text-[10px] text-zinc-400">Created {new Date(r.createdAt).toLocaleDateString()}</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-zinc-100 text-[11px] font-bold text-zinc-700">
+                            <TableCell className="whitespace-nowrap">
+                              <p className="text-xs font-semibold text-foreground">{monthLabel(r.month)}</p>
+                              <p className="text-[11px] text-muted-foreground/70">Created {new Date(r.createdAt).toLocaleDateString()}</p>
+                            </TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-secondary text-[11px] font-semibold text-foreground/85">
                                 {r.entries.length}
                               </span>
-                            </td>
-                            <td className="px-4 py-3 text-xs font-bold text-zinc-900">{formatINR(totals.gross)}</td>
-                            <td className="px-4 py-3 text-xs text-rose-500">{formatINR(totals.ded)}</td>
-                            <td className="px-4 py-3 text-xs font-extrabold text-emerald-600">{formatINR(totals.net)}</td>
-                            <td className="px-4 py-3">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${RUN_STATUS_BADGE[r.status].base}`}>
+                            </TableCell>
+                            <TableCell className="font-semibold text-foreground">{formatINR(totals.gross)}</TableCell>
+                            <TableCell className="text-destructive">{formatINR(totals.ded)}</TableCell>
+                            <TableCell className="font-semibold text-primary">{formatINR(totals.net)}</TableCell>
+                            <TableCell>
+                              <Badge className={`${RUN_STATUS_BADGE[r.status].base}`}>
                                 {RUN_STATUS_BADGE[r.status].label}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3" onClick={(ev) => ev.stopPropagation()}>
+                              </Badge>
+                            </TableCell>
+                            <TableCell onClick={(ev) => ev.stopPropagation()}>
                               <div className="flex items-center gap-1">
-                                <button onClick={() => navigate(`/hrms/payroll/run/${r.id}`)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="View">
+                                <Button variant="ghost" size="icon-sm" onClick={() => navigate(`/hrms/payroll/run/${r.id}`)}  title="View">
                                   <Eye size={14} />
-                                </button>
+                                </Button>
                                 {(r.status === 'draft' || r.status === 'calculated') && (
-                                  <button onClick={() => handleCalculateRun(r)} className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title={r.status === 'draft' ? 'Calculate' : 'Recalculate'}>
+                                  <Button variant="ghost" size="icon-sm" className="hover:text-warning hover:bg-warning/10" onClick={() => handleCalculateRun(r)}  title={r.status === 'draft' ? 'Calculate' : 'Recalculate'}>
                                     <Zap size={14} />
-                                  </button>
+                                  </Button>
                                 )}
                                 {r.status === 'calculated' && (
-                                  <button onClick={() => handleApproveRun(r)} className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors" title="Approve">
+                                  <Button variant="ghost" size="icon-sm" className="hover:text-primary hover:bg-accent" onClick={() => handleApproveRun(r)}  title="Approve">
                                     <CheckCircle2 size={14} />
-                                  </button>
+                                  </Button>
                                 )}
                                 {r.status === 'approved' && (
-                                  <button onClick={() => handlePayRun(r)} className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Mark Paid">
+                                  <Button variant="ghost" size="icon-sm" className="hover:text-info hover:bg-info/10" onClick={() => handlePayRun(r)}  title="Mark Paid">
                                     <Banknote size={14} />
-                                  </button>
+                                  </Button>
                                 )}
-                                <button onClick={() => setConfirmRegenerateRun(r)} className="p-1.5 text-zinc-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors" title="Regenerate with all active structures">
+                                <Button variant="ghost" size="icon-sm" onClick={() => setConfirmRegenerateRun(r)}  title="Regenerate with all active structures">
                                   <Repeat size={14} />
-                                </button>
-                                <button onClick={() => setConfirmDeleteRun(r)} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                                </Button>
+                                <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" onClick={() => setConfirmDeleteRun(r)}  title="Delete">
                                   <Trash2 size={14} />
-                                </button>
+                                </Button>
                               </div>
-                            </td>
+                            </TableCell>
                           </motion.tr>
                         );
                       })}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
 
-                <div className="md:hidden divide-y divide-zinc-100">
+                <div className="md:hidden divide-y divide-border">
                   {runPaged.map((r, i) => {
                     const totals = runTotals(r);
                     return (
@@ -697,45 +683,45 @@ export default function Payroll() {
                       >
                         <div className="flex items-start justify-between">
                           <div>
-                            <p className="text-xs font-bold text-zinc-900">{monthLabel(r.month)}</p>
-                            <p className="text-[10px] text-zinc-400">{r.entries.length} employees</p>
+                            <p className="text-xs font-semibold text-foreground">{monthLabel(r.month)}</p>
+                            <p className="text-[11px] text-muted-foreground/70">{r.entries.length} employees</p>
                           </div>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${RUN_STATUS_BADGE[r.status].base}`}>
+                          <Badge className={`shrink-0 ${RUN_STATUS_BADGE[r.status].base}`}>
                             {RUN_STATUS_BADGE[r.status].label}
-                          </span>
+                          </Badge>
                         </div>
-                        <div className="flex items-center gap-2 text-[10px] text-zinc-500">
-                          <span className="text-zinc-900 font-bold">{formatINR(totals.gross)}</span>
+                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                          <span className="text-foreground font-semibold">{formatINR(totals.gross)}</span>
                           <span>·</span>
-                          <span className="text-rose-500">-{formatINR(totals.ded)}</span>
+                          <span className="text-destructive">-{formatINR(totals.ded)}</span>
                           <span>·</span>
-                          <span className="text-emerald-600 font-extrabold">{formatINR(totals.net)}</span>
+                          <span className="text-primary font-semibold">{formatINR(totals.net)}</span>
                         </div>
                         <div className="flex items-center gap-1 pt-1" onClick={(ev) => ev.stopPropagation()}>
-                          <button onClick={() => navigate(`/hrms/payroll/run/${r.id}`)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="View">
+                          <Button variant="ghost" size="icon-sm" onClick={() => navigate(`/hrms/payroll/run/${r.id}`)}  title="View">
                             <Eye size={14} />
-                          </button>
+                          </Button>
                           {(r.status === 'draft' || r.status === 'calculated') && (
-                            <button onClick={() => handleCalculateRun(r)} className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title={r.status === 'draft' ? 'Calculate' : 'Recalculate'}>
+                            <Button variant="ghost" size="icon-sm" className="hover:text-warning hover:bg-warning/10" onClick={() => handleCalculateRun(r)}  title={r.status === 'draft' ? 'Calculate' : 'Recalculate'}>
                               <Zap size={14} />
-                            </button>
+                            </Button>
                           )}
                           {r.status === 'calculated' && (
-                            <button onClick={() => handleApproveRun(r)} className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors" title="Approve">
+                            <Button variant="ghost" size="icon-sm" className="hover:text-primary hover:bg-accent" onClick={() => handleApproveRun(r)}  title="Approve">
                               <CheckCircle2 size={14} />
-                            </button>
+                            </Button>
                           )}
                           {r.status === 'approved' && (
-                            <button onClick={() => handlePayRun(r)} className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Mark Paid">
+                            <Button variant="ghost" size="icon-sm" className="hover:text-info hover:bg-info/10" onClick={() => handlePayRun(r)}  title="Mark Paid">
                               <Banknote size={14} />
-                            </button>
+                            </Button>
                           )}
-                          <button onClick={() => setConfirmRegenerateRun(r)} className="p-1.5 text-zinc-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors" title="Regenerate">
+                          <Button variant="ghost" size="icon-sm" onClick={() => setConfirmRegenerateRun(r)}  title="Regenerate">
                             <Repeat size={14} />
-                          </button>
-                          <button onClick={() => setConfirmDeleteRun(r)} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                          </Button>
+                          <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" onClick={() => setConfirmDeleteRun(r)}  title="Delete">
                             <Trash2 size={14} />
-                          </button>
+                          </Button>
                         </div>
                       </motion.div>
                     );
@@ -743,19 +729,19 @@ export default function Payroll() {
                 </div>
 
                 {runFiltered.length > PAGE_SIZE && (
-                  <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-zinc-100">
-                    <p className="text-xs text-zinc-500">
-                      Showing <span className="font-bold text-zinc-900">{runStartRow}</span>–
-                      <span className="font-bold text-zinc-900">{runEndRow}</span> of{' '}
-                      <span className="font-bold text-zinc-900">{runFiltered.length}</span> pay cycles
+                  <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-border">
+                    <p className="text-xs text-muted-foreground">
+                      Showing <span className="font-semibold text-foreground">{runStartRow}</span>–
+                      <span className="font-semibold text-foreground">{runEndRow}</span> of{' '}
+                      <span className="font-semibold text-foreground">{runFiltered.length}</span> pay cycles
                     </p>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => setRunPage((p) => Math.max(1, p - 1))} disabled={runPage <= 1} className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                        <ChevronLeft size={16} className="text-zinc-600" />
-                      </button>
-                      <button onClick={() => setRunPage((p) => Math.min(runTotalPages, p + 1))} disabled={runPage >= runTotalPages} className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                        <ChevronRight size={16} className="text-zinc-600" />
-                      </button>
+                      <Button variant="outline" size="icon-sm" onClick={() => setRunPage((p) => Math.max(1, p - 1))} disabled={runPage <= 1} >
+                        <ChevronLeft size={16} className="text-foreground/70" />
+                      </Button>
+                      <Button variant="outline" size="icon-sm" onClick={() => setRunPage((p) => Math.min(runTotalPages, p + 1))} disabled={runPage >= runTotalPages} >
+                        <ChevronRight size={16} className="text-foreground/70" />
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -774,16 +760,16 @@ export default function Payroll() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm"
+                className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
               >
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${card.color}`}>
                   <card.icon size={18} />
                 </div>
                 <div className="min-w-0">
-                  <p className={`${card.small ? 'text-sm' : 'text-lg'} font-extrabold text-zinc-900 leading-none truncate`}>
+                  <p className={`${card.small ? 'text-sm' : 'text-lg'} font-semibold text-foreground leading-none truncate`}>
                     {card.value}
                   </p>
-                  <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">
+                  <p className="text-xs font-medium text-muted-foreground/70 mt-1 truncate">
                     {card.label}
                   </p>
                 </div>
@@ -791,20 +777,15 @@ export default function Payroll() {
             ))}
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center"
-          >
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative flex-1 min-w-[180px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-              <input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+              <Input data-search="" className="w-full pl-9 pr-4"
                 type="text"
                 placeholder="Search employees..."
                 value={structSearch}
                 onChange={(e) => setStructSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+                
               />
             </div>
             <div className="w-[160px]">
@@ -820,46 +801,36 @@ export default function Payroll() {
               />
             </div>
             {structHasFilters && (
-              <button onClick={() => { setStructSearch(''); setPayModelFilter('all'); }} className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors">
+              <button onClick={() => { setStructSearch(''); setPayModelFilter('all'); }} className="text-xs text-muted-foreground/70 hover:text-foreground/85 flex items-center gap-1 transition-colors">
                 <XCircle size={12} />Clear
               </button>
             )}
-          </motion.div>
+          </div>
 
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+            className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
           >
             {structPaged.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-                  <Inbox size={24} className="text-zinc-300" />
-                </div>
-                <h3 className="text-sm font-bold text-zinc-900 mb-1">
-                  {structures.length === 0 ? 'No salary structures yet' : 'No results found'}
-                </h3>
-                <p className="text-xs text-zinc-400 max-w-xs">
-                  {structures.length === 0 ? 'Click "Add Structure" to set up an employee salary.' : 'Try adjusting your search or filters'}
-                </p>
-              </div>
+              <EmptyState icon={<Inbox />} title={structures.length === 0 ? 'No salary structures yet' : 'No results found'} description={structures.length === 0 ? 'Click "Add Structure" to set up an employee salary.' : 'Try adjusting your search or filters'} className="border-0" />
             ) : (
               <>
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-zinc-50/50 border-b border-zinc-100">
-                      <tr>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Employee</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Role</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Pay Model</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Earnings</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Deductions</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Active</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-50">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="uppercase whitespace-nowrap">Employee</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Role</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Pay Model</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Earnings</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Deductions</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Active</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {structPaged.map((s, i) => {
                         const rb = ROLE_BADGE[s.role] || ROLE_BADGE.staff;
                         return (
@@ -868,72 +839,72 @@ export default function Payroll() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: i * 0.02 }}
-                            className="hover:bg-zinc-50/50 transition-colors"
+                            className="border-b transition-colors hover:bg-muted/70"
                           >
-                            <td className="px-4 py-3">
-                              <p className="text-xs font-bold text-zinc-900">{s.employeeName}</p>
-                              <p className="text-[10px] text-zinc-400">Since {s.effectiveFrom}</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${rb.base}`}>
+                            <TableCell>
+                              <p className="text-xs font-semibold text-foreground">{s.employeeName}</p>
+                              <p className="text-[11px] text-muted-foreground/70">Since {s.effectiveFrom}</p>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={`${rb.base}`}>
                                 {rb.label}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${PAY_MODEL_BADGE[s.payModel].base}`}>
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={`${PAY_MODEL_BADGE[s.payModel].base}`}>
                                 {PAY_MODEL_BADGE[s.payModel].label}
-                              </span>
-                            </td>
-                             <td className="px-4 py-3">
-                              <span className="text-xs font-bold text-zinc-900">
+                              </Badge>
+                            </TableCell>
+                             <TableCell>
+                              <span className="text-xs font-semibold text-foreground">
                                 {s.payModel === 'monthly' ? (s.ctc > 0 ? `${formatINR(s.ctc)} CTC` : `${formatINR(grossMonthly(s))}/mo`) : `₹${s.shiftRate}/day`}
                               </span>
                               {s.payModel === 'monthly' && s.ctc > 0 && (
-                                <p className="text-[10px] text-zinc-400">Rate: {formatINR(grossMonthly(s))}/mo</p>
+                                <p className="text-[11px] text-muted-foreground/70">Rate: {formatINR(grossMonthly(s))}/mo</p>
                               )}
                               {s.payModel === 'shift' && (
-                                <p className="text-[10px] text-zinc-400">OT ₹{s.overtimeRate}/hr</p>
+                                <p className="text-[11px] text-muted-foreground/70">OT ₹{s.overtimeRate}/hr</p>
                               )}
-                            </td>
-                            <td className="px-4 py-3">
-                              <p className="text-[10px] text-zinc-500">
+                            </TableCell>
+                            <TableCell>
+                              <p className="text-[11px] text-muted-foreground">
                                 {s.deductions.pfEnabled ? `PF ${s.deductions.pfPercent}%` : ''}
                                 {s.deductions.esicEnabled ? ' · ESIC' : ''}
                                 {s.deductions.ptEnabled ? ` · PT ${s.deductions.pt}` : ''}
                                 {s.deductions.tdsEnabled ? ` · TDS ${s.deductions.tds}` : ''}
                               </p>
-                            </td>
-                            <td className="px-4 py-3">
+                            </TableCell>
+                            <TableCell>
                               <button
                                 onClick={() => toggleActive(s)}
                                 className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize transition-all border
-                                  ${s.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200'
-                                            : 'bg-red-50 text-red-700 border-red-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'}`}
+                                  ${s.active ? 'bg-accent text-accent-foreground border-primary/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20'
+                                            : 'bg-destructive/10 text-destructive border-destructive/20 hover:bg-accent hover:text-accent-foreground hover:border-primary/20'}`}
                               >
                                 {s.active ? 'Active' : 'Inactive'}
                               </button>
-                            </td>
-                            <td className="px-4 py-3">
+                            </TableCell>
+                            <TableCell>
                               <div className="flex items-center gap-1.5">
-                                <button onClick={() => openHistory(s)} className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-[10px] font-bold transition-all" title="View Salary Revision History">
+                                <Button variant="soft" size="xs" className="bg-info/10 text-info hover:bg-info/15 border-info/25" onClick={() => openHistory(s)}  title="View Salary Revision History">
                                   <Clock size={12} /> History
-                                </button>
-                                <button onClick={() => openEdit(s)} className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit Structure">
+                                </Button>
+                                <Button variant="ghost" size="icon-sm" className="hover:text-warning hover:bg-warning/10" onClick={() => openEdit(s)}  title="Edit Structure">
                                   <Pen size={14} />
-                                </button>
-                                <button onClick={() => setConfirmDeleteStruct(s)} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete Structure">
+                                </Button>
+                                <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" onClick={() => setConfirmDeleteStruct(s)}  title="Delete Structure">
                                   <Trash2 size={14} />
-                                </button>
+                                </Button>
                               </div>
-                            </td>
+                            </TableCell>
                           </motion.tr>
                         );
                       })}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
 
-                <div className="md:hidden divide-y divide-zinc-100">
+                <div className="md:hidden divide-y divide-border">
                   {structPaged.map((s, i) => {
                     const rb = ROLE_BADGE[s.role] || ROLE_BADGE.staff;
                     return (
@@ -946,34 +917,34 @@ export default function Payroll() {
                       >
                         <div className="flex items-start justify-between">
                           <div>
-                            <p className="text-xs font-bold text-zinc-900">{s.employeeName}</p>
-                            <p className="text-[10px] text-zinc-400 mt-1">
-                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold mr-1 ${rb.base}`}>{rb.label}</span>
-                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${PAY_MODEL_BADGE[s.payModel].base}`}>{PAY_MODEL_BADGE[s.payModel].label}</span>
+                            <p className="text-xs font-semibold text-foreground">{s.employeeName}</p>
+                            <p className="text-[11px] text-muted-foreground/70 mt-1">
+                              <Badge className={`mr-1 ${rb.base}`}>{rb.label}</Badge>
+                              <Badge className={`${PAY_MODEL_BADGE[s.payModel].base}`}>{PAY_MODEL_BADGE[s.payModel].label}</Badge>
                             </p>
                           </div>
                           <button
                             onClick={() => toggleActive(s)}
                             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize transition-all border
-                              ${s.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}
+                              ${s.active ? 'bg-accent text-accent-foreground border-primary/20' : 'bg-destructive/10 text-destructive border-destructive/20'}`}
                           >
                             {s.active ? 'Active' : 'Inactive'}
                           </button>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className="text-xs font-extrabold text-zinc-900">
+                          <p className="text-xs font-semibold text-foreground">
                             {s.payModel === 'monthly' ? formatINR(grossMonthly(s)) + '/mo' : '₹' + s.shiftRate + '/day'}
                           </p>
                           <div className="flex items-center gap-1.5">
-                            <button onClick={() => openHistory(s)} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-[10px] font-bold transition-all" title="History">
+                            <Button variant="soft" size="xs" className="bg-info/10 text-info hover:bg-info/15 border-info/25" onClick={() => openHistory(s)}  title="History">
                               <Clock size={12} /> History
-                            </button>
-                            <button onClick={() => openEdit(s)} className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
+                            </Button>
+                            <Button variant="ghost" size="icon-sm" className="hover:text-warning hover:bg-warning/10" onClick={() => openEdit(s)}  title="Edit">
                               <Pen size={14} />
-                            </button>
-                            <button onClick={() => setConfirmDeleteStruct(s)} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                            </Button>
+                            <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" onClick={() => setConfirmDeleteStruct(s)}  title="Delete">
                               <Trash2 size={14} />
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       </motion.div>
@@ -982,19 +953,19 @@ export default function Payroll() {
                 </div>
 
                 {structFiltered.length > PAGE_SIZE && (
-                  <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-zinc-100">
-                    <p className="text-xs text-zinc-500">
-                      Showing <span className="font-bold text-zinc-900">{structStartRow}</span>–
-                      <span className="font-bold text-zinc-900">{structEndRow}</span> of{' '}
-                      <span className="font-bold text-zinc-900">{structFiltered.length}</span> structures
+                  <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-border">
+                    <p className="text-xs text-muted-foreground">
+                      Showing <span className="font-semibold text-foreground">{structStartRow}</span>–
+                      <span className="font-semibold text-foreground">{structEndRow}</span> of{' '}
+                      <span className="font-semibold text-foreground">{structFiltered.length}</span> structures
                     </p>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => setStructPage((p) => Math.max(1, p - 1))} disabled={structPage <= 1} className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                        <ChevronLeft size={16} className="text-zinc-600" />
-                      </button>
-                      <button onClick={() => setStructPage((p) => Math.min(structTotalPages, p + 1))} disabled={structPage >= structTotalPages} className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                        <ChevronRight size={16} className="text-zinc-600" />
-                      </button>
+                      <Button variant="outline" size="icon-sm" onClick={() => setStructPage((p) => Math.max(1, p - 1))} disabled={structPage <= 1} >
+                        <ChevronLeft size={16} className="text-foreground/70" />
+                      </Button>
+                      <Button variant="outline" size="icon-sm" onClick={() => setStructPage((p) => Math.min(structTotalPages, p + 1))} disabled={structPage >= structTotalPages} >
+                        <ChevronRight size={16} className="text-foreground/70" />
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -1010,110 +981,100 @@ export default function Payroll() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           onSubmit={handleSettingsSave}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm p-6 space-y-6"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] p-6 space-y-6"
         >
           <div>
-            <h2 className="text-sm font-bold text-zinc-900 flex items-center gap-2"><Building2 size={15} />Company</h2>
-            <p className="text-[10px] text-zinc-400 font-medium mt-0.5">Shown on payslips and payment records</p>
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2"><Building2 size={15} />Company</h2>
+            <p className="text-[11px] text-muted-foreground/70 font-medium mt-0.5">Shown on payslips and payment records</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Company Name">
-              <input className={inputClass} value={settings.companyName} onChange={(e) => setSetting('companyName', e.target.value)} />
+              <Input  value={settings.companyName} onChange={(e) => setSetting('companyName', e.target.value)} />
             </Field>
             <Field label="Company Address">
-              <input className={inputClass} value={settings.companyAddress} onChange={(e) => setSetting('companyAddress', e.target.value)} />
+              <Input  value={settings.companyAddress} onChange={(e) => setSetting('companyAddress', e.target.value)} />
             </Field>
             <Field label="PF Number">
-              <input className={inputClass} value={settings.pfNumber} onChange={(e) => setSetting('pfNumber', e.target.value)} />
+              <Input  value={settings.pfNumber} onChange={(e) => setSetting('pfNumber', e.target.value)} />
             </Field>
             <Field label="ESIC Number">
-              <input className={inputClass} value={settings.esicNumber} onChange={(e) => setSetting('esicNumber', e.target.value)} />
+              <Input  value={settings.esicNumber} onChange={(e) => setSetting('esicNumber', e.target.value)} />
             </Field>
             <Field label="PAN Number">
-              <input className={inputClass} value={settings.panNumber} onChange={(e) => setSetting('panNumber', e.target.value)} />
+              <Input  value={settings.panNumber} onChange={(e) => setSetting('panNumber', e.target.value)} />
             </Field>
           </div>
 
-          <div className="border-t border-zinc-100 pt-6">
-            <h2 className="text-sm font-bold text-zinc-900">Default Deductions</h2>
-            <p className="text-[10px] text-zinc-400 font-medium mt-0.5">Used when creating new salary structures</p>
+          <div className="border-t border-border pt-6">
+            <h2 className="text-sm font-semibold text-foreground">Default Deductions</h2>
+            <p className="text-[11px] text-muted-foreground/70 font-medium mt-0.5">Used when creating new salary structures</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Field label="PF %">
-              <input type="number" className={inputClass} value={settings.defaultPfPercent} onChange={(e) => setSetting('defaultPfPercent', num(e.target.value))} />
+              <Input type="number"  value={settings.defaultPfPercent} onChange={(e) => setSetting('defaultPfPercent', num(e.target.value))} />
             </Field>
             <Field label="ESIC %">
-              <input type="number" className={inputClass} value={settings.defaultEsicPercent} onChange={(e) => setSetting('defaultEsicPercent', num(e.target.value))} />
+              <Input type="number"  value={settings.defaultEsicPercent} onChange={(e) => setSetting('defaultEsicPercent', num(e.target.value))} />
             </Field>
             <Field label="ESIC Cap (₹)">
-              <input type="number" className={inputClass} value={settings.defaultEsicCap} onChange={(e) => setSetting('defaultEsicCap', num(e.target.value))} />
+              <Input type="number"  value={settings.defaultEsicCap} onChange={(e) => setSetting('defaultEsicCap', num(e.target.value))} />
             </Field>
             <Field label="PT (₹)">
-              <input type="number" className={inputClass} value={settings.defaultPt} onChange={(e) => setSetting('defaultPt', num(e.target.value))} />
+              <Input type="number"  value={settings.defaultPt} onChange={(e) => setSetting('defaultPt', num(e.target.value))} />
             </Field>
             <Field label="Default TDS (₹)">
-              <input type="number" className={inputClass} value={settings.defaultTds} onChange={(e) => setSetting('defaultTds', num(e.target.value))} />
+              <Input type="number"  value={settings.defaultTds} onChange={(e) => setSetting('defaultTds', num(e.target.value))} />
             </Field>
           </div>
 
           <div className="flex justify-end">
-            <button type="submit" className="flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+            <Button variant="dark" size="sm" type="submit" >
               <Save size={14} />Save Settings
-            </button>
+            </Button>
           </div>
         </motion.form>
       )}
 
       {genOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-          onClick={() => setGenOpen(false)} role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
-          >
-            <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
-              <h3 className="font-bold text-zinc-900">Generate Payroll Run</h3>
-              <button type="button" onClick={() => setGenOpen(false)} className="text-zinc-400 hover:text-zinc-600 transition-colors">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => setGenOpen(false))(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-md overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-5 border-b border-border flex items-center justify-between">
+              <h3 className="font-semibold text-foreground">Generate Payroll Run</h3>
+              <button type="button" onClick={() => setGenOpen(false)} className="text-muted-foreground/70 hover:text-foreground/70 transition-colors">
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleGenerate} className="p-5 space-y-4">
               <Field label="Pay Period">
-                <input
+                <Input
                   type="month"
                   value={genMonth}
                   onChange={(e) => setGenMonth(e.target.value)}
-                  className={inputClass}
+                  
                 />
               </Field>
-              <p className="text-[10px] text-zinc-400">
+              <p className="text-[11px] text-muted-foreground/70">
                 Creates a draft run for {activeCount(structures)} active employee(s). Click Calculate to pull attendance days, late penalties, and overtime.
               </p>
-              <button
+              <Button variant="dark" size="lg" className="w-full"
                 type="submit"
-                className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
+                
               >
                 <Zap size={16} />Generate Run
-              </button>
+              </Button>
             </form>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {structOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-          onClick={() => setStructOpen(false)} role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden max-h-[90dvh] flex flex-col"
-          >
-            <div className="p-5 border-b border-zinc-100 flex items-center justify-between shrink-0">
-              <h3 className="font-bold text-zinc-900">{editingId ? 'Edit Salary Structure' : 'Add Salary Structure'}</h3>
-              <button type="button" onClick={() => setStructOpen(false)} className="text-zinc-400 hover:text-zinc-600 transition-colors">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => setStructOpen(false))(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-2xl overflow-hidden max-h-[90dvh] flex flex-col">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-5 border-b border-border flex items-center justify-between shrink-0">
+              <h3 className="font-semibold text-foreground">{editingId ? 'Edit Salary Structure' : 'Add Salary Structure'}</h3>
+              <button type="button" onClick={() => setStructOpen(false)} className="text-muted-foreground/70 hover:text-foreground/70 transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -1129,40 +1090,36 @@ export default function Payroll() {
                   />
                 </Field>
                 {form.userId && (
-                  <div className="mt-2 flex items-center gap-2 text-xs font-medium text-zinc-500">
+                  <div className="mt-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
                     <span>Role (Auto-fetched):</span>
-                    <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold ${ROLE_BADGE[form.role]?.base || 'bg-zinc-100 text-zinc-700'}`}>
+                    <Badge className={`${ROLE_BADGE[form.role]?.base || 'bg-secondary text-foreground/85'}`}>
                       {ROLE_BADGE[form.role]?.label || form.role}
-                    </span>
+                    </Badge>
                   </div>
                 )}
               </div>
 
               <Field label="Pay Model">
-                <div className="flex gap-1 bg-zinc-100 p-1 rounded-xl w-fit">
-                  <button type="button" onClick={() => setForm({ ...form, payModel: 'monthly' })} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ${form.payModel === 'monthly' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
-                    Monthly Salary
-                  </button>
-                  <button type="button" onClick={() => setForm({ ...form, payModel: 'shift' })} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ${form.payModel === 'shift' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
-                    Shift / Daily
-                  </button>
-                </div>
+                <Segmented className="w-fit" value={String(form.payModel)} onValueChange={(v) => { ({ ['monthly']: (() => setForm({ ...form, payModel: 'monthly' })), ['shift']: (() => setForm({ ...form, payModel: 'shift' })) } as Record<string, () => void>)[v]?.(); }} options={[
+  { value: 'monthly', label: <>Monthly Salary</> },
+  { value: 'shift', label: <>Shift / Daily</> }
+]} />
               </Field>
 
               {form.payModel === 'monthly' ? (
                 <div className="space-y-4">
-                  <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 space-y-2">
+                  <div className="bg-accent/70 border border-primary/20 rounded-xl p-3.5 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                        <Zap size={14} className="text-emerald-600" />
+                      <span className="text-xs font-semibold text-accent-foreground flex items-center gap-1.5">
+                        <Zap size={14} className="text-primary" />
                         CTC Auto-Breakdown Calculator
                       </span>
-                      <span className="text-[10px] font-medium text-emerald-700">Auto-populates 60% Basic, 30% HRA, 20% Conveyance</span>
+                      <span className="text-[11px] font-medium text-accent-foreground">Auto-populates 60% Basic, 30% HRA, 20% Conveyance</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">₹</span>
-                        <input
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">₹</span>
+                        <Input
                           type="number"
                           placeholder="Enter total CTC (e.g. 48400)"
                           className={`${inputClass} pl-7`}
@@ -1188,38 +1145,38 @@ export default function Payroll() {
                     </div>
                   </div>
 
-                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Monthly Earnings (Editable)</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Monthly Earnings (Editable)</p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <Field label="Basic">
-                      <input type="number" className={inputClass} value={form.basic} onChange={(e) => setForm({ ...form, basic: e.target.value })} />
+                      <Input type="number"  value={form.basic} onChange={(e) => setForm({ ...form, basic: e.target.value })} />
                     </Field>
                     <Field label="HRA">
-                      <input type="number" className={inputClass} value={form.hra} onChange={(e) => setForm({ ...form, hra: e.target.value })} />
+                      <Input type="number"  value={form.hra} onChange={(e) => setForm({ ...form, hra: e.target.value })} />
                     </Field>
                     <Field label="Conveyance">
-                      <input type="number" className={inputClass} value={form.conveyance} onChange={(e) => setForm({ ...form, conveyance: e.target.value })} />
+                      <Input type="number"  value={form.conveyance} onChange={(e) => setForm({ ...form, conveyance: e.target.value })} />
                     </Field>
                     <Field label="Special Allowance">
-                      <input type="number" className={inputClass} value={form.specialAllowance} onChange={(e) => setForm({ ...form, specialAllowance: e.target.value })} />
+                      <Input type="number"  value={form.specialAllowance} onChange={(e) => setForm({ ...form, specialAllowance: e.target.value })} />
                     </Field>
                   </div>
                 </div>
               ) : (
                 <div>
-                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Shift Rates (₹)</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Shift Rates (₹)</p>
                   <div className="grid grid-cols-2 gap-4">
                     <Field label="Shift Rate / day">
-                      <input type="number" className={inputClass} value={form.shiftRate} onChange={(e) => setForm({ ...form, shiftRate: e.target.value })} />
+                      <Input type="number"  value={form.shiftRate} onChange={(e) => setForm({ ...form, shiftRate: e.target.value })} />
                     </Field>
                     <Field label="Overtime Rate / hr">
-                      <input type="number" className={inputClass} value={form.overtimeRate} onChange={(e) => setForm({ ...form, overtimeRate: e.target.value })} />
+                      <Input type="number"  value={form.overtimeRate} onChange={(e) => setForm({ ...form, overtimeRate: e.target.value })} />
                     </Field>
                   </div>
                 </div>
               )}
 
-              <div className="border-t border-zinc-100 pt-5">
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Deductions</p>
+              <div className="border-t border-border pt-5">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Deductions</p>
                 <div className="space-y-3">
                   {([
                     { key: 'pfEnabled', label: 'Provident Fund (PF)' },
@@ -1231,39 +1188,39 @@ export default function Payroll() {
                       <button
                         type="button"
                         onClick={() => setForm({ ...form, [key]: !form[key] })}
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${form[key] ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-50 text-zinc-400 border-zinc-200'}`}
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all border ${form[key] ? 'bg-accent text-accent-foreground border-primary/20' : 'bg-muted text-muted-foreground/70 border-border'}`}
                       >
                         <CheckCircle2 size={11} />{label}
                       </button>
                       <div className="flex items-center gap-3">
                         {key === 'pfEnabled' && (
                           <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-zinc-700">%</span>
-                            <input type="number" className={`${inputClass} w-20 pl-8`} value={form.pfPercent} onChange={(e) => setForm({ ...form, pfPercent: e.target.value })} />
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-foreground/85">%</span>
+                            <Input type="number" className={`${inputClass} w-20 pl-8`} value={form.pfPercent} onChange={(e) => setForm({ ...form, pfPercent: e.target.value })} />
                           </div>
                         )}
                         {key === 'esicEnabled' && (
                           <>
                             <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-zinc-700">%</span>
-                              <input type="number" className={`${inputClass} w-20 pl-8`} value={form.esicPercent} onChange={(e) => setForm({ ...form, esicPercent: e.target.value })} />
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-foreground/85">%</span>
+                              <Input type="number" className={`${inputClass} w-20 pl-8`} value={form.esicPercent} onChange={(e) => setForm({ ...form, esicPercent: e.target.value })} />
                             </div>
                             <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-zinc-700">₹</span>
-                              <input type="number" className={`${inputClass} w-24 pl-8`} value={form.esicCap} onChange={(e) => setForm({ ...form, esicCap: e.target.value })} />
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-foreground/85">₹</span>
+                              <Input type="number" className={`${inputClass} w-24 pl-8`} value={form.esicCap} onChange={(e) => setForm({ ...form, esicCap: e.target.value })} />
                             </div>
                           </>
                         )}
                         {key === 'ptEnabled' && (
                           <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-zinc-700">₹</span>
-                            <input type="number" className={`${inputClass} w-20 pl-8`} value={form.pt} onChange={(e) => setForm({ ...form, pt: e.target.value })} />
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-foreground/85">₹</span>
+                            <Input type="number" className={`${inputClass} w-20 pl-8`} value={form.pt} onChange={(e) => setForm({ ...form, pt: e.target.value })} />
                           </div>
                         )}
                         {key === 'tdsEnabled' && (
                           <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-zinc-700">₹</span>
-                            <input type="number" className={`${inputClass} w-20 pl-8`} value={form.tds} onChange={(e) => setForm({ ...form, tds: e.target.value })} />
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-foreground/85">₹</span>
+                            <Input type="number" className={`${inputClass} w-20 pl-8`} value={form.tds} onChange={(e) => setForm({ ...form, tds: e.target.value })} />
                           </div>
                         )}
                       </div>
@@ -1272,28 +1229,25 @@ export default function Payroll() {
                 </div>
               </div>
 
-              <button
+              <Button variant="dark" size="lg" className="w-full"
                 type="submit"
                 disabled={!form.userId}
-                className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                
               >
                 <Save size={16} />{editingId ? 'Update Structure' : 'Create Structure'}
-              </button>
+              </Button>
             </form>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {confirmDeleteRun && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm" role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
-          >
+        <Dialog open onOpenChange={(open) => { if (!open) (() => {})(); }}>
+<DialogContent hideClose aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="gap-0 p-0 max-w-sm overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
             <div className="p-5">
-              <h3 className="font-bold text-zinc-900 mb-1">Delete run?</h3>
-              <p className="text-xs text-zinc-500">
+              <h3 className="font-semibold text-foreground mb-1">Delete run?</h3>
+              <p className="text-xs text-muted-foreground">
                 Permanently removes {monthLabel(confirmDeleteRun.month)}
                 {confirmDeleteRun.status === 'paid' || confirmDeleteRun.status === 'approved'
                   ? ` (currently ${confirmDeleteRun.status})`
@@ -1302,120 +1256,111 @@ export default function Payroll() {
               </p>
             </div>
             <div className="px-5 pb-5 flex gap-2">
-              <button onClick={() => setConfirmDeleteRun(null)} className="flex-1 py-2.5 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition-colors">
+              <Button variant="secondary" size="sm" className="flex-1" onClick={() => setConfirmDeleteRun(null)} >
                 Cancel
-              </button>
-              <button onClick={handleDeleteRun} className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 transition-colors">
+              </Button>
+              <Button variant="destructive" size="sm" className="flex-1" onClick={handleDeleteRun} >
                 Delete
-              </button>
+              </Button>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {confirmRegenerateRun && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm" role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
-          >
+        <Dialog open onOpenChange={(open) => { if (!open) (() => {})(); }}>
+<DialogContent hideClose aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="gap-0 p-0 max-w-sm overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
             <div className="p-5">
-              <h3 className="font-bold text-zinc-900 mb-1">Regenerate run?</h3>
-              <p className="text-xs text-zinc-500">
+              <h3 className="font-semibold text-foreground mb-1">Regenerate run?</h3>
+              <p className="text-xs text-muted-foreground">
                 Rebuilds {monthLabel(confirmRegenerateRun.month)} from all active salary structures
                 ({activeCount(structures)} employees), resets to draft, and replaces existing entries.
               </p>
             </div>
             <div className="px-5 pb-5 flex gap-2">
-              <button onClick={() => setConfirmRegenerateRun(null)} className="flex-1 py-2.5 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition-colors">
+              <Button variant="secondary" size="sm" className="flex-1" onClick={() => setConfirmRegenerateRun(null)} >
                 Cancel
-              </button>
-              <button onClick={handleRegenerateRun} className="flex-1 py-2.5 bg-violet-600 text-white rounded-xl text-xs font-bold hover:bg-violet-700 transition-colors">
+              </Button>
+              <Button size="sm" className="flex-1 bg-violet-600 text-white hover:bg-violet-700 hover:text-white" onClick={handleRegenerateRun} >
                 Regenerate
-              </button>
+              </Button>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {confirmDeleteStruct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm" role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
-          >
+        <Dialog open onOpenChange={(open) => { if (!open) (() => {})(); }}>
+<DialogContent hideClose aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="gap-0 p-0 max-w-sm overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
             <div className="p-5">
-              <h3 className="font-bold text-zinc-900 mb-1">Delete structure?</h3>
-              <p className="text-xs text-zinc-500">This removes the salary structure for {confirmDeleteStruct.employeeName}. Existing runs keep their snapshots.</p>
+              <h3 className="font-semibold text-foreground mb-1">Delete structure?</h3>
+              <p className="text-xs text-muted-foreground">This removes the salary structure for {confirmDeleteStruct.employeeName}. Existing runs keep their snapshots.</p>
             </div>
             <div className="px-5 pb-5 flex gap-2">
-              <button onClick={() => setConfirmDeleteStruct(null)} className="flex-1 py-2.5 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition-colors">
+              <Button variant="secondary" size="sm" className="flex-1" onClick={() => setConfirmDeleteStruct(null)} >
                 Cancel
-              </button>
-              <button onClick={handleDeleteStruct} className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 transition-colors">
+              </Button>
+              <Button variant="destructive" size="sm" className="flex-1" onClick={handleDeleteStruct} >
                 Delete
-              </button>
+              </Button>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {historyUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm" role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden flex flex-col max-h-[85vh]"
-          >
-            <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => {})(); }}>
+<DialogContent hideClose aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="gap-0 p-0 max-w-xl overflow-hidden flex flex-col max-h-[85vh]">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-5 border-b border-border flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-zinc-900 text-sm">Salary Structure History</h3>
-                <p className="text-xs text-zinc-500 font-medium">Revisions & audit trail for {historyUser.name}</p>
+                <h3 className="font-semibold text-foreground text-sm">Salary Structure History</h3>
+                <p className="text-xs text-muted-foreground font-medium">Revisions & audit trail for {historyUser.name}</p>
               </div>
-              <button onClick={() => setHistoryUser(null)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+              <Button variant="ghost" size="icon-sm" onClick={() => setHistoryUser(null)} >
                 <X size={16} />
-              </button>
+              </Button>
             </div>
 
             <div className="p-5 overflow-y-auto space-y-4 flex-1">
               {loadingHistory ? (
-                <div className="flex items-center justify-center py-10 text-xs font-medium text-zinc-500 gap-2">
+                <div className="flex items-center justify-center py-10 text-xs font-medium text-muted-foreground gap-2">
                   <Loader2 size={16} className="animate-spin" /> Loading revision history...
                 </div>
               ) : historyList.length === 0 ? (
-                <p className="text-xs text-zinc-500 text-center py-8">No historical structures recorded for this employee.</p>
+                <p className="text-xs text-muted-foreground text-center py-8">No historical structures recorded for this employee.</p>
               ) : (
-                <div className="space-y-4 relative before:absolute before:left-3 before:top-3 before:bottom-3 before:w-0.5 before:bg-zinc-200">
+                <div className="space-y-4 relative before:absolute before:left-3 before:top-3 before:bottom-3 before:w-0.5 before:bg-border">
                   {historyList.map((st, idx) => {
                     const isLatest = idx === 0;
                     return (
                       <div key={`${st.id}-${idx}`} className="relative pl-8">
-                        <div className={`absolute left-1.5 top-1.5 w-3 h-3 rounded-full border-2 bg-white ${isLatest ? 'border-emerald-500 bg-emerald-500' : 'border-zinc-400'}`} />
-                        <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 space-y-2">
+                        <div className={`absolute left-1.5 top-1.5 w-3 h-3 rounded-full border-2 bg-card ${isLatest ? 'border-primary/30 bg-primary' : 'border-input'}`} />
+                        <div className="bg-muted border border-border rounded-xl p-4 space-y-2">
                           <div className="flex items-center justify-between flex-wrap gap-2">
                             <div className="flex items-center gap-2">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isLatest ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-200 text-zinc-600'}`}>
+                              <Badge className={`${isLatest ? 'bg-primary/15 text-accent-foreground' : 'bg-border text-foreground/70'}`}>
                                 {isLatest ? 'Current Revision' : `Revision #${historyList.length - idx}`}
-                              </span>
-                              <span className="text-xs font-bold text-zinc-700">Effective {st.effectiveFrom}</span>
+                              </Badge>
+                              <span className="text-xs font-semibold text-foreground/85">Effective {st.effectiveFrom}</span>
                             </div>
-                            <span className="text-xs font-extrabold text-zinc-900">
+                            <span className="text-xs font-semibold text-foreground">
                               {st.payModel === 'monthly' ? (st.ctc ? `${formatINR(st.ctc)} CTC` : `${formatINR(grossMonthly(st))}/mo`) : `₹${st.shiftRate}/day`}
                             </span>
                           </div>
 
                           {st.payModel === 'monthly' && (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-white p-2.5 rounded-lg border border-zinc-100">
-                              <div><span className="text-zinc-400 block text-[9px] uppercase font-bold">Basic</span><span className="font-bold text-zinc-800">{formatINR(st.monthly.basic)}</span></div>
-                              <div><span className="text-zinc-400 block text-[9px] uppercase font-bold">HRA</span><span className="font-bold text-zinc-800">{formatINR(st.monthly.hra)}</span></div>
-                              <div><span className="text-zinc-400 block text-[9px] uppercase font-bold">Conveyance</span><span className="font-bold text-zinc-800">{formatINR(st.monthly.conveyance)}</span></div>
-                              <div><span className="text-zinc-400 block text-[9px] uppercase font-bold">Special</span><span className="font-bold text-zinc-800">{formatINR(st.monthly.specialAllowance)}</span></div>
-                            </div>
+                            <Card className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] p-2.5" >
+                              <div><span className="text-muted-foreground/70 block text-[11px] uppercase font-semibold">Basic</span><span className="font-semibold text-foreground">{formatINR(st.monthly.basic)}</span></div>
+                              <div><span className="text-muted-foreground/70 block text-[11px] uppercase font-semibold">HRA</span><span className="font-semibold text-foreground">{formatINR(st.monthly.hra)}</span></div>
+                              <div><span className="text-muted-foreground/70 block text-[11px] uppercase font-semibold">Conveyance</span><span className="font-semibold text-foreground">{formatINR(st.monthly.conveyance)}</span></div>
+                              <div><span className="text-muted-foreground/70 block text-[11px] uppercase font-semibold">Special</span><span className="font-semibold text-foreground">{formatINR(st.monthly.specialAllowance)}</span></div>
+                            </Card>
                           )}
 
-                          <div className="text-[10px] text-zinc-500 flex items-center justify-between">
+                          <div className="text-[11px] text-muted-foreground flex items-center justify-between">
                             <span>
                               Deductions: {st.deductions.pfEnabled ? `PF (${st.deductions.pfPercent}%)` : ''} {st.deductions.esicEnabled ? '· ESIC' : ''} {st.deductions.ptEnabled ? `· PT ₹${st.deductions.pt}` : ''}
                             </span>
@@ -1428,13 +1373,13 @@ export default function Payroll() {
                 </div>
               )}
             </div>
-            <div className="p-4 border-t border-zinc-100 flex justify-end">
-              <button onClick={() => setHistoryUser(null)} className="px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors">
+            <div className="p-4 border-t border-border flex justify-end">
+              <Button variant="dark" size="sm" onClick={() => setHistoryUser(null)} >
                 Close
-              </button>
+              </Button>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
     </div>
   );

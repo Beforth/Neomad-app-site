@@ -4,6 +4,8 @@ import { motion } from 'motion/react';
 import { Save, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getLeaveType, createLeaveType, updateLeaveType } from '../../lib/hrmsLeave';
+import { Button } from '@/components/ui/button';
+import { Textarea, Input, fieldClass, selectClass } from '@/components/ui/input';
 
 interface FormState {
   name: string;
@@ -44,7 +46,7 @@ const defaultForm: FormState = {
   enableEarnedLeave: false, creditFrequency: '', allocateOnDate: '', allocateOnCustomDate: '',
 };
 
-const inputClass = "w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all";
+const inputClass = fieldClass;
 
 const checkboxes = [
   { key: 'carryForward', label: 'Carry Forward' },
@@ -173,12 +175,12 @@ export default function LeaveTypeForm() {
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <h3 className="text-sm font-bold text-zinc-900 mb-1">Leave type not found</h3>
-          <p className="text-xs text-zinc-400 mb-4">The leave type you're trying to edit doesn't exist.</p>
-          <button onClick={() => navigate('/hrms/leave/type')}
-            className="px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors">
+          <h3 className="text-sm font-semibold text-foreground mb-1">Leave type not found</h3>
+          <p className="text-xs text-muted-foreground/70 mb-4">The leave type you're trying to edit doesn't exist.</p>
+          <Button variant="dark" size="sm" onClick={() => navigate('/hrms/leave/type')}
+            >
             Back to Leave Types
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -191,15 +193,15 @@ export default function LeaveTypeForm() {
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center gap-3"
       >
-        <button
+        <Button variant="ghost" size="icon-sm"
           onClick={() => navigate('/hrms/leave/type')}
-          className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+          
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
-        </button>
+        </Button>
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{isEdit ? 'Edit Leave Type' : 'New Leave Type'}</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">{isEdit ? 'Update the leave category details' : 'Create a new leave category'}</p>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">{isEdit ? 'Edit Leave Type' : 'New Leave Type'}</h1>
+          <p className="text-[13px] text-muted-foreground">{isEdit ? 'Update the leave category details' : 'Create a new leave category'}</p>
         </div>
       </motion.div>
 
@@ -209,53 +211,53 @@ export default function LeaveTypeForm() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
-          <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Basic Information</h2>
+          <div className="px-5 py-3.5 border-b border-border bg-muted/50">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Basic Information</h2>
           </div>
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Leave Type Name</label>
-                <input type="text" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Medical Leave" className={inputClass} />
+                <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Leave Type Name</label>
+                <Input type="text" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Medical Leave"  />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Leave Code</label>
-                <input type="text" value={form.leaveCode}
+                <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Leave Code</label>
+                <Input type="text" value={form.leaveCode}
                   onChange={(e) => { codeEdited.current = true; setForm((p) => ({ ...p, leaveCode: e.target.value })); }}
                   placeholder="e.g. ML"
                   className={`${inputClass} uppercase`} />
               </div>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Days Per Year</label>
-              <input type="number" min={0} value={form.daysPerYear} onChange={(e) => setForm((p) => ({ ...p, daysPerYear: Math.max(0, parseInt(e.target.value) || 0) }))} className={inputClass} />
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Days Per Year</label>
+              <Input type="number" min={0} value={form.daysPerYear} onChange={(e) => setForm((p) => ({ ...p, daysPerYear: Math.max(0, parseInt(e.target.value) || 0) }))}  />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Description</label>
-              <textarea
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Description</label>
+              <Textarea className="w-full"
                 value={form.description}
                 onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
                 placeholder="Enter a description for this leave category..."
                 rows={3}
-                className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all resize-none"
+                
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Status</label>
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Status</label>
               <div className="flex items-center gap-2 pt-0.5">
                 <button
                   type="button"
                   onClick={() => setForm((p) => ({ ...p, status: 'active' }))}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${form.status === 'active' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${form.status === 'active' ? 'bg-primary text-white shadow-sm' : 'bg-secondary text-foreground/70 hover:bg-border'}`}
                 >
                   Active
                 </button>
                 <button
                   type="button"
                   onClick={() => setForm((p) => ({ ...p, status: 'inactive' }))}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${form.status === 'inactive' ? 'bg-rose-600 text-white shadow-sm' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${form.status === 'inactive' ? 'bg-destructive text-white shadow-sm' : 'bg-secondary text-foreground/70 hover:bg-border'}`}
                 >
                   Inactive
                 </button>
@@ -269,24 +271,24 @@ export default function LeaveTypeForm() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08 }}
-          className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
-          <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Restrictions</h2>
+          <div className="px-5 py-3.5 border-b border-border bg-muted/50">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Restrictions</h2>
           </div>
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Allow Leave Application After (Working Days)</label>
-                <input type="number" min={0} value={form.allowLeaveAfterDays}
+                <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Allow Leave Application After (Working Days)</label>
+                <Input type="number" min={0} value={form.allowLeaveAfterDays}
                   onChange={(e) => setForm((p) => ({ ...p, allowLeaveAfterDays: Math.max(0, parseInt(e.target.value) || 0) }))}
-                  className={inputClass} />
+                   />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Maximum Consecutive Leaves Allowed</label>
-                <input type="number" min={0} value={form.maxConsecutiveLeaves}
+                <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Maximum Consecutive Leaves Allowed</label>
+                <Input type="number" min={0} value={form.maxConsecutiveLeaves}
                   onChange={(e) => setForm((p) => ({ ...p, maxConsecutiveLeaves: Math.max(0, parseInt(e.target.value) || 0) }))}
-                  className={inputClass} />
+                   />
               </div>
             </div>
           </div>
@@ -297,16 +299,16 @@ export default function LeaveTypeForm() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.11 }}
-          className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
-          <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Leave Settings</h2>
+          <div className="px-5 py-3.5 border-b border-border bg-muted/50">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Leave Settings</h2>
           </div>
           <div className="p-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
               {checkboxes.map((cb) => (
                 <label key={cb.key} className="flex items-center gap-3 cursor-pointer">
-                  <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${(form as any)[cb.key] ? 'bg-zinc-900' : 'border-2 border-zinc-400 hover:border-zinc-600'}`}>
+                  <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${(form as any)[cb.key] ? 'bg-foreground' : 'border-2 border-input hover:border-muted-foreground'}`}>
                     <input type="checkbox" checked={(form as any)[cb.key]}
                       onChange={() => setForm({ ...form, [cb.key]: !(form as any)[cb.key] })}
                       className="sr-only" />
@@ -317,7 +319,7 @@ export default function LeaveTypeForm() {
                       </svg>
                     )}
                   </span>
-                  <span className="text-sm text-zinc-700">{cb.label}</span>
+                  <span className="text-sm text-foreground/85">{cb.label}</span>
                 </label>
               ))}
             </div>
@@ -329,24 +331,24 @@ export default function LeaveTypeForm() {
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
-            className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden"
+            className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
           >
-            <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50">
-              <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Carry Forward</h2>
+            <div className="px-5 py-3.5 border-b border-border bg-muted/50">
+              <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Carry Forward</h2>
             </div>
             <div className="p-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Maximum Carry Forward Leaves</label>
-                  <input type="number" min={0} value={form.maxCarryForwardLeaves}
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Maximum Carry Forward Leaves</label>
+                  <Input type="number" min={0} value={form.maxCarryForwardLeaves}
                     onChange={(e) => setForm((p) => ({ ...p, maxCarryForwardLeaves: Math.max(0, parseInt(e.target.value) || 0) }))}
-                    className={inputClass} />
+                     />
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Expiry of Carry Forwarded Leaves (Days)</label>
-                  <input type="number" min={0} value={form.carryForwardExpiryDays}
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Expiry of Carry Forwarded Leaves (Days)</label>
+                  <Input type="number" min={0} value={form.carryForwardExpiryDays}
                     onChange={(e) => setForm((p) => ({ ...p, carryForwardExpiryDays: Math.max(0, parseInt(e.target.value) || 0) }))}
-                    className={inputClass} />
+                     />
                 </div>
               </div>
             </div>
@@ -358,15 +360,15 @@ export default function LeaveTypeForm() {
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
-            className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden"
+            className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
           >
-            <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50">
-              <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Compensatory Off Settings</h2>
+            <div className="px-5 py-3.5 border-b border-border bg-muted/50">
+              <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Compensatory Off Settings</h2>
             </div>
             <div className="p-5 space-y-4">
               <div>
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${form.hasExpiry ? 'bg-zinc-900' : 'border-2 border-zinc-400 hover:border-zinc-600'}`}>
+                  <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${form.hasExpiry ? 'bg-foreground' : 'border-2 border-input hover:border-muted-foreground'}`}>
                     <input type="checkbox" checked={form.hasExpiry}
                       onChange={() => setForm((p) => ({ ...p, hasExpiry: !p.hasExpiry, expiryDays: p.hasExpiry ? 0 : p.expiryDays }))}
                       className="sr-only" />
@@ -377,13 +379,13 @@ export default function LeaveTypeForm() {
                       </svg>
                     )}
                   </span>
-                  <span className="text-sm text-zinc-700">Has Expiry</span>
+                  <span className="text-sm text-foreground/85">Has Expiry</span>
                 </label>
               </div>
               {form.hasExpiry && (
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Expiry Days</label>
-                  <input type="number" min={0} value={form.expiryDays}
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Expiry Days</label>
+                  <Input type="number" min={0} value={form.expiryDays}
                     onChange={(e) => setForm((p) => ({ ...p, expiryDays: Math.max(0, parseInt(e.target.value) || 0) }))}
                     className={`${inputClass} max-w-[200px]`} />
                 </div>
@@ -397,15 +399,15 @@ export default function LeaveTypeForm() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.14 }}
-          className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
-          <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Encashment</h2>
+          <div className="px-5 py-3.5 border-b border-border bg-muted/50">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Encashment</h2>
           </div>
           <div className="p-5">
             <div>
               <label className="flex items-center gap-3 cursor-pointer mb-4">
-                <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${form.allowEncashment ? 'bg-zinc-900' : 'border-2 border-zinc-400 hover:border-zinc-600'}`}>
+                <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${form.allowEncashment ? 'bg-foreground' : 'border-2 border-input hover:border-muted-foreground'}`}>
                   <input type="checkbox" checked={form.allowEncashment}
                     onChange={() => setForm((p) => ({ ...p, allowEncashment: !p.allowEncashment }))}
                     className="sr-only" />
@@ -416,27 +418,27 @@ export default function LeaveTypeForm() {
                     </svg>
                   )}
                 </span>
-                <span className="text-sm text-zinc-700">Allow Encashment</span>
+                <span className="text-sm text-foreground/85">Allow Encashment</span>
               </label>
             </div>
             {form.allowEncashment && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="space-y-4 border-t border-zinc-100 pt-4"
+                className="space-y-4 border-t border-border pt-4"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Maximum Encashable Days</label>
-                    <input type="number" min={0} value={form.maxEncashableDays}
+                    <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Maximum Encashable Days</label>
+                    <Input type="number" min={0} value={form.maxEncashableDays}
                       onChange={(e) => setForm((p) => ({ ...p, maxEncashableDays: Math.max(0, parseInt(e.target.value) || 0) }))}
-                      className={inputClass} />
+                       />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Encashment Rate (%)</label>
-                    <input type="number" min={0} max={100} value={form.encashmentRatePercent}
+                    <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Encashment Rate (%)</label>
+                    <Input type="number" min={0} max={100} value={form.encashmentRatePercent}
                       onChange={(e) => setForm((p) => ({ ...p, encashmentRatePercent: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)) }))}
-                      className={inputClass} />
+                       />
                   </div>
                 </div>
               </motion.div>
@@ -449,15 +451,15 @@ export default function LeaveTypeForm() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.16 }}
-          className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
-          <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Earned Leave</h2>
+          <div className="px-5 py-3.5 border-b border-border bg-muted/50">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Earned Leave</h2>
           </div>
           <div className="p-5">
             <div>
               <label className="flex items-center gap-3 cursor-pointer mb-4">
-                <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${form.enableEarnedLeave ? 'bg-zinc-900' : 'border-2 border-zinc-400 hover:border-zinc-600'}`}>
+                <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${form.enableEarnedLeave ? 'bg-foreground' : 'border-2 border-input hover:border-muted-foreground'}`}>
                   <input type="checkbox" checked={form.enableEarnedLeave}
                     onChange={() => setForm((p) => ({ ...p, enableEarnedLeave: !p.enableEarnedLeave }))}
                     className="sr-only" />
@@ -468,21 +470,21 @@ export default function LeaveTypeForm() {
                     </svg>
                   )}
                 </span>
-                <span className="text-sm text-zinc-700">Enable Earned Leave</span>
+                <span className="text-sm text-foreground/85">Enable Earned Leave</span>
               </label>
             </div>
             {form.enableEarnedLeave && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="space-y-4 border-t border-zinc-100 pt-4"
+                className="space-y-4 border-t border-border pt-4"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Credit Frequency</label>
+                    <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Credit Frequency</label>
                     <select value={form.creditFrequency}
                       onChange={(e) => setForm((p) => ({ ...p, creditFrequency: e.target.value as '' | 'monthly' | 'quarterly' | 'yearly' }))}
-                      className={inputClass}>
+                      className={selectClass}>
                       <option value="" disabled>Select</option>
                       <option value="monthly">Monthly</option>
                       <option value="quarterly">Quarterly</option>
@@ -490,10 +492,10 @@ export default function LeaveTypeForm() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Allocate on Date</label>
+                    <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Allocate on Date</label>
                     <select value={form.allocateOnDate}
                       onChange={(e) => setForm((p) => ({ ...p, allocateOnDate: e.target.value as '' | 'first_day' | 'last_day' | 'custom_date' }))}
-                      className={inputClass}>
+                      className={selectClass}>
                       <option value="" disabled>Select</option>
                       <option value="first_day">First Day</option>
                       <option value="last_day">Last Day</option>
@@ -502,12 +504,12 @@ export default function LeaveTypeForm() {
                   </div>
                   {form.allocateOnDate === 'custom_date' && (
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Select Date</label>
-                      <input
+                      <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Select Date</label>
+                      <Input
                         type="date"
                         value={form.allocateOnCustomDate}
                         onChange={(e) => setForm((p) => ({ ...p, allocateOnCustomDate: e.target.value }))}
-                        className={inputClass}
+                        
                       />
                     </div>
                   )}
@@ -524,14 +526,14 @@ export default function LeaveTypeForm() {
           transition={{ delay: 0.14 }}
           className="flex gap-3"
         >
-          <button type="button" onClick={() => navigate('/hrms/leave/type')}
-            className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
+          <Button variant="secondary" className="flex-1" type="button" onClick={() => navigate('/hrms/leave/type')}
+            >
             Cancel
-          </button>
-          <button type="submit" disabled={saving}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          </Button>
+          <Button variant="dark" className="flex-1" type="submit" disabled={saving}
+            >
             <Save size={16} /> {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Leave Type'}
-          </button>
+          </Button>
         </motion.div>
       </form>
     </div>

@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useInvoiceLoader } from './useInvoiceLoader';
 import { parseInvoiceRouteId } from './invoiceShared';
 import { InvoiceSectionFrame, invoiceInnerCardClassName } from '../../components/invoices/InvoiceSectionFrame';
+import { Card } from '@/components/ui/card';
 
 export default function InvoiceSignedPreviewPage() {
   const { invoiceId: idParam } = useParams<{ invoiceId: string }>();
@@ -14,7 +15,7 @@ export default function InvoiceSignedPreviewPage() {
   if (id == null) {
     return (
       <InvoiceSectionFrame context="Invalid link">
-        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-red-700 bg-red-50/50`}>Invalid invoice in URL.</div>
+        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-destructive bg-destructive/10`}>Invalid invoice in URL.</div>
       </InvoiceSectionFrame>
     );
   }
@@ -22,7 +23,7 @@ export default function InvoiceSignedPreviewPage() {
   if (loading && !invoice) {
     return (
       <InvoiceSectionFrame context="Loading…">
-        <div className={`${invoiceInnerCardClassName()} px-4 py-12 text-center text-sm text-zinc-400 animate-pulse`}>Loading…</div>
+        <div className={`${invoiceInnerCardClassName()} px-4 py-12 text-center text-sm text-muted-foreground/70 animate-pulse`}>Loading…</div>
       </InvoiceSectionFrame>
     );
   }
@@ -30,7 +31,7 @@ export default function InvoiceSignedPreviewPage() {
   if (error || !invoice) {
     return (
       <InvoiceSectionFrame context="Error">
-        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-red-700 bg-red-50/50`}>{error || 'Not found'}</div>
+        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-destructive bg-destructive/10`}>{error || 'Not found'}</div>
       </InvoiceSectionFrame>
     );
   }
@@ -44,13 +45,13 @@ export default function InvoiceSignedPreviewPage() {
         right={
           <Link
             to={`/invoices/${invoice.id}`}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card text-xs font-semibold text-foreground hover:bg-muted"
           >
             View invoice
           </Link>
         }
       >
-        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-zinc-600`}>
+        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-foreground/70`}>
           No signed document has been uploaded for this invoice.
         </div>
       </InvoiceSectionFrame>
@@ -63,25 +64,25 @@ export default function InvoiceSignedPreviewPage() {
       right={
         <Link
           to={`/invoices/${invoice.id}`}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card text-xs font-semibold text-foreground hover:bg-muted"
         >
           View invoice
         </Link>
       }
     >
       <div className={invoiceInnerCardClassName()}>
-        <div className="px-6 py-4 border-b border-zinc-100 bg-zinc-50/40 flex flex-wrap items-center gap-2">
-          <FileImage size={16} className="text-zinc-400 shrink-0" />
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Full-size preview</span>
+        <div className="px-6 py-4 border-b border-border bg-muted/40 flex flex-wrap items-center gap-2">
+          <FileImage size={16} className="text-muted-foreground/70 shrink-0" />
+          <span className="text-xs font-medium text-muted-foreground/70">Full-size preview</span>
         </div>
-        <div className="p-4 sm:p-6 flex justify-center bg-zinc-50/30">
-          <div className="bg-white p-2 rounded-xl border border-zinc-200 shadow-inner max-h-[min(75dvh,800px)] overflow-auto w-full flex justify-center">
+        <div className="p-4 sm:p-6 flex justify-center bg-muted/30">
+          <Card className="p-2 max-h-[min(75dvh,800px)] overflow-auto w-full flex justify-center" >
             <img
               src={url}
               alt={`Signed — ${invoice.invoice_number}`}
               className="max-w-full h-auto object-contain"
             />
-          </div>
+          </Card>
         </div>
       </div>
     </InvoiceSectionFrame>

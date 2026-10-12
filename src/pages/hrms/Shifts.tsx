@@ -4,8 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   Clock, Settings as SettingsIcon, Calendar, Users, Plus, X, Save, Trash2,
   Edit2, CheckCircle2, Search, Loader2, Copy, CalendarOff,
-  ChevronLeft, ChevronRight, ArrowUpDown, ChevronUp, ChevronDown, XCircle
-} from 'lucide-react';
+  ChevronLeft, ChevronRight, ArrowUpDown, ChevronUp, ChevronDown, XCircle, MoreHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import type { ShiftType, ShiftSettings } from '../../lib/api';
@@ -20,45 +19,33 @@ import {
   updateHrmsSettings,
 } from '../../lib/hrmsShifts';
 
-function Modal({ title, onClose, children, closeOnBackdropClick = true, wide }: {
-  title: string; onClose: () => void; children: React.ReactNode; closeOnBackdropClick?: boolean; wide?: boolean;
-}) {
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') { if (closeOnBackdropClick) onClose(); else e.preventDefault(); }
-  };
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-      onClick={closeOnBackdropClick ? onClose : undefined} onKeyDown={handleKeyDown} role="dialog" aria-modal="true">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-        onClick={(e) => e.stopPropagation()}
-        className={`bg-white rounded-2xl shadow-xl overflow-hidden ${wide ? 'w-full max-w-2xl' : 'w-full max-w-md'}`}>
-        <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
-          <h3 className="font-bold text-zinc-900">{title}</h3>
-          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors"><X size={20} /></button>
-        </div>
-        {children}
-      </motion.div>
-    </div>
-  );
-}
-
+import Modal from '../../components/Modal';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input, fieldClass } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { Segmented } from '@/components/ui/segmented';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import KpiStrip from '@/components/KpiStrip';
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-zinc-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-foreground/85 mb-1">{label}</label>
       {children}
-      {hint && <p className="text-xs text-zinc-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground/70 mt-1">{hint}</p>}
     </div>
   );
 }
 
-const inputClassName = "w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 text-sm transition-all";
+const inputClassName = fieldClass;
 
 function ToggleSwitch({ enabled, onToggle, disabled }: { enabled: boolean; onToggle: () => void; disabled?: boolean }) {
   return (
     <button type="button" onClick={onToggle} disabled={disabled}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? 'bg-zinc-900' : 'bg-zinc-300'} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? 'bg-foreground' : 'bg-input'}  ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+      <span className={`inline-block h-4 w-4 transform rounded-full bg-card transition-transform shadow-[0_1px_2px_rgb(0_0_0/0.03)] ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
     </button>
   );
 }
@@ -139,41 +126,24 @@ export default function Shifts() {
       <AnimatePresence>
         {toast && (
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            className="fixed top-6 right-6 z-50 bg-zinc-900 text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
-            <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
+            className="fixed top-6 right-6 z-50 bg-foreground text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
+            <CheckCircle2 size={16} className="text-primary" /> {toast}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Shifts</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">Shift types, attendance rules and schedule assignments</p>
-        </div>
-        <button onClick={() => navigate('/hrms/shifts/assign')}
-          className="self-start sm:self-auto flex items-center gap-2 bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 px-4 py-2 rounded-xl text-xs font-bold transition-colors shadow-sm">
+      <PageHeader title="Shifts" description="Shift types, attendance rules and schedule assignments" actions={<>
+<Button variant="outline" size="sm" className="self-start sm:self-auto" onClick={() => navigate('/hrms/shifts/assign')}
+          >
           <Calendar size={14} /> Schedule Assignment
-        </button>
-      </motion.header>
+        </Button>
+</>} />
 
-      <div className="flex gap-1 bg-zinc-100 p-1 rounded-xl w-fit">
-        {tabs.map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-              activeTab === tab.key ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
-            }`}>
-            <tab.icon size={13} />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Segmented className="w-fit" value={String(activeTab)} onValueChange={(v) => setActiveTab(v as never)} options={tabs.map((tab) => ({ value: String(tab.key), label: <><tab.icon size={13} />
+            {tab.label}</> }))} />
 
       {loading ? (
-        <div className="flex items-center justify-center py-20 text-zinc-400 gap-2 text-sm">
+        <div className="flex items-center justify-center py-20 text-muted-foreground/70 gap-2 text-sm">
           <Loader2 size={18} className="animate-spin" /> Loading shifts…
         </div>
       ) : (
@@ -312,54 +282,31 @@ function ShiftTypesTab({ token, shiftTypes, setShiftTypes, settings, setSettings
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-zinc-900">Shift Types</h2>
-          <p className="text-[10px] text-zinc-400 font-medium mt-0.5">Shift types, attendance rules and overtime tracking</p>
+          <h2 className="text-sm font-semibold text-foreground">Shift Types</h2>
+          <p className="text-[11px] text-muted-foreground/70 font-medium mt-0.5">Shift types, attendance rules and overtime tracking</p>
         </div>
         {canManage && (
-          <button onClick={() => navigate('/hrms/shifts/new')} className="self-start sm:self-auto flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+          <Button variant="dark" size="sm" className="self-start sm:self-auto" onClick={() => navigate('/hrms/shifts/new')} >
             <Plus size={14} /> New Shift
-          </button>
+          </Button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {[
-          { label: 'Total Shifts', value: shiftTypes.length, icon: Clock, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Active', value: activeCount, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
-          { label: 'Inactive', value: shiftTypes.length - activeCount, icon: CalendarOff, color: 'bg-zinc-100 text-zinc-500' },
-        ].map((card, i) => (
-          <motion.div
-            key={card.label}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04 }}
-            className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm"
-          >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${card.color}`}>
-              <card.icon size={18} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-lg font-extrabold text-zinc-900 leading-none truncate">{card.value}</p>
-              <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">{card.label}</p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+      <KpiStrip items={[
+  { label: 'Total Shifts', value: shiftTypes.length },
+  { label: 'Active', value: activeCount },
+  { label: 'Inactive', value: shiftTypes.length - activeCount },
+]} />
 
-      <motion.div
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center"
-      >
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+          <Input data-search="" className="w-full pl-9 pr-4"
             type="text"
             placeholder="Search by shift name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+            
           />
         </div>
         <div className="w-[160px]">
@@ -375,127 +322,129 @@ function ShiftTypesTab({ token, shiftTypes, setShiftTypes, settings, setSettings
           />
         </div>
         {hasFilters && (
-          <button onClick={() => { setSearchQuery(''); setStatusFilter('all'); }} className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors">
+          <button onClick={() => { setSearchQuery(''); setStatusFilter('all'); }} className="text-xs text-muted-foreground/70 hover:text-foreground/85 flex items-center gap-1 transition-colors">
             <XCircle size={12} />Clear
           </button>
         )}
-      </motion.div>
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+        className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
       >
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-zinc-50/50 border-b border-zinc-100">
-              <tr>
-                <th onClick={() => toggleSort('name')} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600 select-none">
-                  <span className="flex items-center gap-1">Shift{sortField !== 'name' ? <ArrowUpDown size={12} className="text-zinc-300" /> : sortDir === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />}</span>
-                </th>
-                <th onClick={() => toggleSort('start_time')} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600 select-none">
-                  <span className="flex items-center gap-1">Time{sortField !== 'start_time' ? <ArrowUpDown size={12} className="text-zinc-300" /> : sortDir === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />}</span>
-                </th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Break</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Hours</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Status</th>
-                {canManage && <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead onClick={() => toggleSort('name')} className="uppercase whitespace-nowrap cursor-pointer hover:text-foreground/70 select-none">
+                  <span className="flex items-center gap-1">Shift{sortField !== 'name' ? <ArrowUpDown size={12} className="text-muted-foreground/50" /> : sortDir === 'asc' ? <ChevronUp size={12} className="text-foreground" /> : <ChevronDown size={12} className="text-foreground" />}</span>
+                </TableHead>
+                <TableHead onClick={() => toggleSort('start_time')} className="uppercase whitespace-nowrap cursor-pointer hover:text-foreground/70 select-none">
+                  <span className="flex items-center gap-1">Time{sortField !== 'start_time' ? <ArrowUpDown size={12} className="text-muted-foreground/50" /> : sortDir === 'asc' ? <ChevronUp size={12} className="text-foreground" /> : <ChevronDown size={12} className="text-foreground" />}</span>
+                </TableHead>
+                <TableHead className="uppercase whitespace-nowrap">Break</TableHead>
+                <TableHead className="uppercase whitespace-nowrap">Hours</TableHead>
+                <TableHead className="uppercase whitespace-nowrap">Status</TableHead>
+                {canManage && <TableHead className="uppercase whitespace-nowrap">Actions</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {paginated.map(s => (
-                <tr key={s.id} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50/50 transition-colors">
-                  <td className="px-4 py-3">
+                <TableRow key={s.id} className="">
+                  <TableCell>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-zinc-900">{s.name}</span>
+                      <span className="text-xs font-semibold text-foreground">{s.name}</span>
                       {Boolean(s.overtime_enabled) && (
-                        <span className="text-[10px] font-bold text-violet-600 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded">OT</span>
+                        <Badge className="text-violet-600 bg-violet-50 border-violet-200" >OT</Badge>
                       )}
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-zinc-600">{s.start_time} — {s.end_time}</td>
-                  <td className="px-4 py-3 text-xs text-zinc-600">{s.break_start && s.break_end ? `${s.break_start} — ${s.break_end}` : '—'}</td>
-                  <td className="px-4 py-3 text-xs text-zinc-600 font-medium">{formatTimeDiff(s.start_time, s.end_time)}</td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="text-foreground/70">{s.start_time} — {s.end_time}</TableCell>
+                  <TableCell className="text-foreground/70">{s.break_start && s.break_end ? `${s.break_start} — ${s.break_end}` : '—'}</TableCell>
+                  <TableCell className="text-foreground/70 font-medium">{formatTimeDiff(s.start_time, s.end_time)}</TableCell>
+                  <TableCell>
                     <button onClick={() => handleToggleActive(s)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize transition-all border ${s.is_active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-50 text-zinc-500 border-zinc-200'}`}>
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold capitalize transition-all border ${s.is_active ? 'bg-accent text-accent-foreground border-primary/20' : 'bg-muted text-muted-foreground border-border'}`}>
                       {s.is_active ? <><CheckCircle2 size={10} />Active</> : 'Inactive'}
                     </button>
-                  </td>
+                  </TableCell>
                   {canManage && (
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => handleDuplicate(s)} title="Duplicate"
-                          className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all"><Copy size={14} /></button>
-                        <button onClick={() => navigate(`/hrms/shifts/edit/${s.id}`)} title="Edit"
-                          className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-md transition-all"><Edit2 size={14} /></button>
-                        <button onClick={() => setDeleteConfirm(s)} title="Delete"
-                          className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"><Trash2 size={14} /></button>
-                      </div>
-                    </td>
+                    <TableCell className="w-10 pl-0" onClick={(e) => e.stopPropagation()}>
+<DropdownMenu>
+<DropdownMenuTrigger asChild>
+<Button variant="ghost" size="icon-sm" data-row-menu="" aria-label="Row actions"><MoreHorizontal /></Button>
+</DropdownMenuTrigger>
+<DropdownMenuContent align="end" className="w-52">
+<DropdownMenuItem onSelect={() => handleDuplicate(s)}><Copy /> Duplicate</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => navigate(`/hrms/shifts/edit/${s.id}`)}><Edit2 /> Edit</DropdownMenuItem>
+                        <DropdownMenuItem destructive onSelect={() => setDeleteConfirm(s)}><Trash2 /> Delete</DropdownMenuItem>
+</DropdownMenuContent>
+</DropdownMenu>
+</TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))}
               {paginated.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-xs text-zinc-400">No shift types found.</td></tr>
+                <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground/70">No shift types found.</TableCell></TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
-        <div className="md:hidden divide-y divide-zinc-50">
+        <div className="md:hidden divide-y divide-border">
           {paginated.map(s => (
             <div key={s.id} className="p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-zinc-900">{s.name}</p>
+                    <p className="text-sm font-semibold text-foreground">{s.name}</p>
                     {Boolean(s.overtime_enabled) && (
-                      <span className="text-[10px] font-bold text-violet-600 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded">OT</span>
+                      <Badge className="text-violet-600 bg-violet-50 border-violet-200" >OT</Badge>
                     )}
                   </div>
-                  <p className="text-xs text-zinc-500">{s.start_time} — {s.end_time}</p>
+                  <p className="text-xs text-muted-foreground">{s.start_time} — {s.end_time}</p>
                 </div>
                 {canManage && (
                   <div className="flex items-center gap-1">
-                    <button onClick={() => navigate(`/hrms/shifts/edit/${s.id}`)} className="p-2 text-zinc-400 hover:text-zinc-700"><Edit2 size={16} /></button>
-                    <button onClick={() => setDeleteConfirm(s)} className="p-2 text-zinc-400 hover:text-red-600"><Trash2 size={16} /></button>
+                    <Button variant="ghost" size="icon-sm" onClick={() => navigate(`/hrms/shifts/edit/${s.id}`)} ><Edit2 size={16} /></Button>
+                    <Button variant="ghost" size="icon-sm" className="hover:text-destructive" onClick={() => setDeleteConfirm(s)} ><Trash2 size={16} /></Button>
                   </div>
                 )}
               </div>
               <div className="flex gap-2 flex-wrap">
-                <span className="text-xs text-zinc-500">Break: {s.break_start && s.break_end ? `${s.break_start} — ${s.break_end}` : 'None'}</span>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${s.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                <span className="text-xs text-muted-foreground">Break: {s.break_start && s.break_end ? `${s.break_start} — ${s.break_end}` : 'None'}</span>
+                <Badge className={`${s.is_active ? 'bg-accent text-accent-foreground' : 'bg-secondary text-muted-foreground'}`}>
                   {s.is_active ? 'Active' : 'Inactive'}
-                </span>
+                </Badge>
               </div>
             </div>
           ))}
         </div>
 
         {filtered.length > PAGE_SIZE && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-100 bg-white">
-            <p className="text-xs text-zinc-500">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card">
+            <p className="text-xs text-muted-foreground">
               {filtered.length > 0
                 ? `Showing ${((page - 1) * PAGE_SIZE) + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} of ${filtered.length}`
                 : 'No results'}
             </p>
             <div className="flex items-center gap-1">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+              <Button variant="ghost" size="icon-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                >
                 <ChevronLeft size={16} />
-              </button>
+              </Button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
                 <button key={p} onClick={() => setPage(p)}
-                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${p === page ? 'bg-zinc-100 text-zinc-800 border border-zinc-300' : 'text-zinc-500 hover:bg-zinc-100'}`}>
+                  className={`w-8 h-8 rounded-lg text-xs font-semibold transition-all ${p === page ? 'bg-secondary text-foreground border border-input' : 'text-muted-foreground hover:bg-secondary'}`}>
                   {p}
                 </button>
               ))}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+              <Button variant="ghost" size="icon-sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                >
                 <ChevronRight size={16} />
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -504,12 +453,12 @@ function ShiftTypesTab({ token, shiftTypes, setShiftTypes, settings, setSettings
       {deleteConfirm && (
         <Modal title="Delete Shift Type" onClose={() => setDeleteConfirm(null)}>
           <div className="p-5 space-y-4">
-            <p className="text-sm text-zinc-500">Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This may affect existing assignments.</p>
+            <p className="text-sm text-muted-foreground">Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This may affect existing assignments.</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 bg-zinc-100 text-zinc-700 rounded-xl font-bold hover:bg-zinc-200 transition-colors text-sm">Cancel</button>
-              <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm">
+              <Button variant="secondary" className="flex-1" onClick={() => setDeleteConfirm(null)} >Cancel</Button>
+              <Button variant="destructive" className="flex-1" onClick={() => handleDelete(deleteConfirm)} >
                 <Trash2 size={14} /> Delete
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>
@@ -548,31 +497,31 @@ function SettingsTab({ token, settings, setSettings, shiftTypes, canManage, show
   return (
     <div className="space-y-6 w-full">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-zinc-100">
-            <h3 className="font-bold text-zinc-900 flex items-center gap-2"><Clock size={18} /> Check-In / Check-Out Rules</h3>
-            <p className="text-xs text-zinc-400 mt-1">Configure how attendance is determined from biometric scans</p>
+        <Card className="overflow-hidden" >
+          <div className="p-5 border-b border-border">
+            <h3 className="font-semibold text-foreground flex items-center gap-2"><Clock size={18} /> Check-In / Check-Out Rules</h3>
+            <p className="text-xs text-muted-foreground/70 mt-1">Configure how attendance is determined from biometric scans</p>
           </div>
           <div className="p-5 space-y-5">
             <div className="grid grid-cols-1 gap-4">
               <Field label="Late Entry Grace Period (min)" hint="Default for new shifts — minutes after start before marking late">
-                <input type="number" min="0" max="180" value={draft.lateEntryGraceMinutes}
+                <Input type="number" min="0" max="180" value={draft.lateEntryGraceMinutes}
                   onChange={e => setDraft(s => ({ ...s, lateEntryGraceMinutes: parseInt(e.target.value) || 0 }))}
-                  disabled={!canManage} className={inputClassName} />
+                  disabled={!canManage}  />
               </Field>
             </div>
             <div className="flex items-center justify-between py-2">
               <div>
-                <p className="text-sm font-medium text-zinc-900">Begin Check-In Before Shift Start</p>
-                <p className="text-xs text-zinc-400">Allow employees to check in before their shift start time</p>
+                <p className="text-sm font-medium text-foreground">Begin Check-In Before Shift Start</p>
+                <p className="text-xs text-muted-foreground/70">Allow employees to check in before their shift start time</p>
               </div>
               <ToggleSwitch enabled={draft.beginCheckInBeforeShiftStart}
                 onToggle={() => canManage && setDraft(s => ({ ...s, beginCheckInBeforeShiftStart: !s.beginCheckInBeforeShiftStart }))} disabled={!canManage} />
             </div>
             <div className="flex items-center justify-between py-2">
               <div>
-                <p className="text-sm font-medium text-zinc-900">Overtime Calculation</p>
-                <p className="text-xs text-zinc-400">Enable overtime tracking globally</p>
+                <p className="text-sm font-medium text-foreground">Overtime Calculation</p>
+                <p className="text-xs text-muted-foreground/70">Enable overtime tracking globally</p>
               </div>
               <ToggleSwitch enabled={draft.overtimeCalculation}
                 onToggle={() => canManage && setDraft(s => ({ ...s, overtimeCalculation: !s.overtimeCalculation }))} disabled={!canManage} />
@@ -590,47 +539,47 @@ function SettingsTab({ token, settings, setSettings, shiftTypes, canManage, show
               />
             </Field>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-zinc-100">
-            <h3 className="font-bold text-zinc-900 flex items-center gap-2"><Users size={18} /> Attendance Thresholds</h3>
-            <p className="text-xs text-zinc-400 mt-1">Define when employees are marked as half-day or absent</p>
+        <Card className="overflow-hidden" >
+          <div className="p-5 border-b border-border">
+            <h3 className="font-semibold text-foreground flex items-center gap-2"><Users size={18} /> Attendance Thresholds</h3>
+            <p className="text-xs text-muted-foreground/70 mt-1">Define when employees are marked as half-day or absent</p>
           </div>
           <div className="p-5 space-y-5">
             <div className="grid grid-cols-1 gap-4">
               <Field label="Half Day Threshold (hours)" hint="Work below this many hours = half day">
-                <input type="number" min="0" max="12" step="0.5" value={draft.halfDayThresholdHours}
+                <Input type="number" min="0" max="12" step="0.5" value={draft.halfDayThresholdHours}
                   onChange={e => setDraft(s => ({ ...s, halfDayThresholdHours: parseFloat(e.target.value) || 0 }))}
-                  disabled={!canManage} className={inputClassName} />
+                  disabled={!canManage}  />
               </Field>
               <Field label="Absent Threshold (hours)" hint="Work below this many hours = absent">
-                <input type="number" min="0" max="12" step="0.5" value={draft.absentThresholdHours}
+                <Input type="number" min="0" max="12" step="0.5" value={draft.absentThresholdHours}
                   onChange={e => setDraft(s => ({ ...s, absentThresholdHours: parseFloat(e.target.value) || 0 }))}
-                  disabled={!canManage} className={inputClassName} />
+                  disabled={!canManage}  />
               </Field>
             </div>
-            <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 space-y-2">
-              <p className="text-xs text-zinc-500">
+            <div className="bg-muted border border-border rounded-xl p-3 space-y-2">
+              <p className="text-xs text-muted-foreground">
                 <strong>Status Logic:</strong>
               </p>
-              <div className="text-xs text-zinc-500 space-y-1">
-                <p>• Worked below <strong className="text-zinc-700">{draft.absentThresholdHours}h</strong> → <span className="text-red-600 font-medium">Absent</span></p>
-                <p>• Worked below <strong className="text-zinc-700">{draft.halfDayThresholdHours}h</strong> → <span className="text-blue-600 font-medium">Half Day</span></p>
-                <p>• Checked in after shift start + <strong className="text-zinc-700">{draft.lateEntryGraceMinutes}min</strong> grace → <span className="text-amber-600 font-medium">Late</span> (per-shift rules override this)</p>
-                <p>• Worked full required hours → <span className="text-emerald-600 font-medium">Present</span></p>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>• Worked below <strong className="text-foreground/85">{draft.absentThresholdHours}h</strong> → <span className="text-destructive font-medium">Absent</span></p>
+                <p>• Worked below <strong className="text-foreground/85">{draft.halfDayThresholdHours}h</strong> → <span className="text-info font-medium">Half Day</span></p>
+                <p>• Checked in after shift start + <strong className="text-foreground/85">{draft.lateEntryGraceMinutes}min</strong> grace → <span className="text-warning font-medium">Late</span> (per-shift rules override this)</p>
+                <p>• Worked full required hours → <span className="text-primary font-medium">Present</span></p>
               </div>
             </div>
           </div>
-        </div>
+        </Card>
       </div>
 
       {canManage && (
         <div className="flex justify-end">
-          <button onClick={handleSave} disabled={saving}
-            className="flex items-center gap-2 px-6 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+          <Button variant="dark" onClick={handleSave} disabled={saving}
+            >
             {saving ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : <><Save size={16} /> Save Settings</>}
-          </button>
+          </Button>
         </div>
       )}
     </div>

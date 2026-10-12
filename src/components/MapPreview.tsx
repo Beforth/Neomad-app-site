@@ -45,7 +45,7 @@ const createRiderIcon = (
     return L.divIcon({
       className: 'custom-checkpoint-icon',
       html: `
-        <div class="flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-md font-bold text-[10px] text-white" 
+        <div class="flex items-center justify-center w-6 h-6 rounded-full border-2 border-card shadow-md font-bold text-[10px] text-white" 
              style="background: ${status === 'active' ? '#3b82f6' : '#10b981'};">
           ${status === 'active'
           ? '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>'
@@ -65,7 +65,7 @@ const createRiderIcon = (
   return L.divIcon({
     className: 'custom-rider-icon',
     html: `
-      <div class="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white shadow-lg font-bold text-xs text-white" 
+      <div class="flex items-center justify-center w-10 h-10 rounded-full border-2 border-card shadow-lg font-bold text-xs text-white" 
            style="background: ${bg}; min-width: 40px;">
         ${initials}
       </div>
@@ -108,7 +108,7 @@ export default function MapPreview({
   zoom = 13,
 }: MapPreviewProps) {
   return (
-    <div className="w-full h-full rounded-lg overflow-hidden border border-zinc-100 shadow-inner bg-zinc-50">
+    <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-inner bg-muted">
       <MapContainer
         center={center}
         zoom={zoom}
@@ -153,8 +153,8 @@ export default function MapPreview({
           >
             <Tooltip direction="top" offset={[0, -10]} opacity={1}>
               <div className="p-2 min-w-[100px] space-y-1">
-                <div className="font-bold text-zinc-900 text-xs">{cp.label}</div>
-                <div className="text-[10px] text-zinc-500 font-medium">{cp.time}</div>
+                <div className="font-semibold text-foreground text-xs">{cp.label}</div>
+                <div className="text-[11px] text-muted-foreground font-medium">{cp.time}</div>
               </div>
             </Tooltip>
           </Marker>
@@ -174,17 +174,17 @@ export default function MapPreview({
           >
             <Tooltip direction="top" offset={[0, -10]} opacity={1}>
               <div className="p-2 min-w-[140px] space-y-1">
-                <div className="font-bold text-zinc-900 text-sm border-b border-zinc-100 pb-1">{rider.name}</div>
-                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-                  <div className={`w-1.5 h-1.5 rounded-full ${motion === 'waiting' ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
+                <div className="font-semibold text-foreground text-sm border-b border-border pb-1">{rider.name}</div>
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <div className={`w-1.5 h-1.5 rounded-full ${motion === 'waiting' ? 'bg-warning' : 'bg-primary'}`}></div>
                   <span className="font-medium">{rider.status}</span>
                 </div>
-                <div className="text-[10px] font-bold text-violet-700 tabular-nums">
+                <div className="text-[11px] font-semibold text-violet-700 tabular-nums">
                   Battery{' '}
                   {typeof rider.batteryPercent === 'number' ? `${rider.batteryPercent}%` : '—'}
                 </div>
                 {rider.order !== 'N/A' && (
-                  <div className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded inline-block">
+                  <div className="text-[11px] font-semibold text-primary bg-accent px-1.5 py-0.5 rounded inline-block">
                     {rider.order}
                   </div>
                 )}
@@ -192,17 +192,17 @@ export default function MapPreview({
             </Tooltip>
             <Popup>
               <div className="p-1 min-w-[120px]">
-                <p className="font-bold text-zinc-900 text-sm mb-1">{rider.name}</p>
-                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 mb-1">
-                  <div className={`w-1.5 h-1.5 rounded-full ${motion === 'waiting' ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
+                <p className="font-semibold text-foreground text-sm mb-1">{rider.name}</p>
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${motion === 'waiting' ? 'bg-warning' : 'bg-primary'}`}></div>
                   <span>{rider.status}</span>
                 </div>
-                <p className="text-[10px] font-bold text-violet-700 tabular-nums mb-1">
+                <p className="text-[11px] font-semibold text-violet-700 tabular-nums mb-1">
                   Battery{' '}
                   {typeof rider.batteryPercent === 'number' ? `${rider.batteryPercent}%` : '—'}
                 </p>
                 {rider.order !== 'N/A' && (
-                  <p className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded inline-block">
+                  <p className="text-[11px] font-semibold text-primary bg-accent px-1.5 py-0.5 rounded inline-block">
                     {rider.order}
                   </p>
                 )}

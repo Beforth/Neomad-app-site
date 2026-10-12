@@ -20,6 +20,13 @@ import {
 } from '../../lib/hrmsShifts';
 import SearchableSelect from '../../components/SearchableSelect';
 
+import Modal from '../../components/Modal';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input, selectClass } from '@/components/ui/input';
+import { Segmented } from '@/components/ui/segmented';
 const STATUS_LABELS: Record<string, string> = {
   scheduled: 'Scheduled',
   arrived: 'Arrived',
@@ -29,11 +36,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  scheduled: 'bg-zinc-100 text-zinc-600 border-zinc-200',
-  arrived: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  not_arrived: 'bg-red-50 text-red-700 border-red-200',
-  on_the_way: 'bg-amber-50 text-amber-700 border-amber-200',
-  late: 'bg-rose-50 text-rose-700 border-rose-200',
+  scheduled: 'bg-secondary text-foreground/70 border-border',
+  arrived: 'bg-accent text-accent-foreground border-primary/20',
+  not_arrived: 'bg-destructive/10 text-destructive border-destructive/20',
+  on_the_way: 'bg-warning/10 text-warning border-warning/25',
+  late: 'bg-destructive/10 text-destructive border-destructive/20',
 };
 
 function getMonday(d: Date) {
@@ -70,25 +77,6 @@ function isSameDay(a: Date, b: Date) {
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function Modal({ title, onClose, children, wide }: {
-  title: string; onClose: () => void; children: React.ReactNode; wide?: boolean;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-      onClick={onClose} role="dialog" aria-modal="true">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-        onClick={(e) => e.stopPropagation()}
-        className={`bg-white rounded-2xl shadow-xl overflow-hidden ${wide ? 'w-full max-w-2xl' : 'w-full max-w-md'}`}>
-        <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
-          <h3 className="font-bold text-zinc-900">{title}</h3>
-          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors"><X size={20} /></button>
-        </div>
-        {children}
-      </motion.div>
-    </div>
-  );
 }
 
 export default function ShiftAssign() {
@@ -325,12 +313,12 @@ export default function ShiftAssign() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Shift Assignments</h1>
-          <p className="text-sm text-zinc-500 mt-1">Manage date-wise shift allocations</p>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">Shift Assignments</h1>
+          <p className="text-[13px] text-muted-foreground">Manage date-wise shift allocations</p>
         </div>
-        <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm p-12 text-center text-sm text-zinc-400">
+        <Card className="p-12 text-center text-sm text-muted-foreground/70" >
           Loading shift assignments…
-        </div>
+        </Card>
       </div>
     );
   }
@@ -340,41 +328,35 @@ export default function ShiftAssign() {
       <AnimatePresence>
         {toast && (
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            className="fixed top-6 right-6 z-50 bg-zinc-900 text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
-            <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
+            className="fixed top-6 right-6 z-50 bg-foreground text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
+            <CheckCircle2 size={16} className="text-primary" /> {toast}
           </motion.div>
         )}
       </AnimatePresence>
 
       <div>
-        <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Shift Assignments</h1>
-        <p className="text-sm text-zinc-500 mt-1">Manage date-wise shift allocations</p>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">Shift Assignments</h1>
+        <p className="text-[13px] text-muted-foreground">Manage date-wise shift allocations</p>
       </div>
 
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex gap-1 bg-zinc-100 rounded-xl p-1">
-          <button onClick={() => navigate('/hrms/shifts/assign/calendar')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'calendar' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
-            <CalendarDays size={16} /> Calendar Grid
-          </button>
-          <button onClick={() => navigate('/hrms/shifts/assign/roster')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'roster' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
-            <Users size={16} /> Today's Roster
-          </button>
-        </div>
+        <Segmented value={String(activeView)} onValueChange={(v) => { ({ ['calendar']: (() => navigate('/hrms/shifts/assign/calendar')), ['roster']: (() => navigate('/hrms/shifts/assign/roster')) } as Record<string, () => void>)[v]?.(); }} options={[
+  { value: 'calendar', label: <><CalendarDays size={16} /> Calendar Grid</> },
+  { value: 'roster', label: <><Users size={16} /> Today's Roster</> }
+]} />
         {canManage && (
-          <button onClick={() => navigate('/hrms/shifts/assign/new')}
-            className="flex items-center gap-2 bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors">
+          <Button variant="outline" onClick={() => navigate('/hrms/shifts/assign/new')}
+            >
             <Plus size={16} /> Assign Shift
-          </button>
+          </Button>
         )}
       </div>
 
-      <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
+      <Card className="overflow-hidden" >
         <div className="p-4 flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h3 className="font-bold text-zinc-900 text-sm flex items-center gap-2"><Users size={16} /> Default Shift</h3>
-            <p className="text-xs text-zinc-400 mt-0.5">Default shift for unallocated employees</p>
+            <h3 className="font-semibold text-foreground text-sm flex items-center gap-2"><Users size={16} /> Default Shift</h3>
+            <p className="text-xs text-muted-foreground/70 mt-0.5">Default shift for unallocated employees</p>
           </div>
           <div className="flex items-center gap-2 min-w-[200px]">
             <SearchableSelect
@@ -385,48 +367,48 @@ export default function ShiftAssign() {
               options={shiftTypes.filter(st => st.is_active).map(st => ({ value: String(st.id), label: `${st.name} (${st.start_time} - ${st.end_time})` }))}
             />
             {settings.defaultShiftTypeId != null && defaultShift && (
-              <span className="text-xs text-zinc-500 whitespace-nowrap">
-                Using: <strong className="text-zinc-700">{defaultShift.name}</strong>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Using: <strong className="text-foreground/85">{defaultShift.name}</strong>
               </span>
             )}
           </div>
         </div>
-      </div>
+      </Card>
 
       {activeView === 'calendar' && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3 flex-wrap bg-white border border-zinc-100 rounded-xl px-4 py-3 shadow-sm">
-            <button onClick={prevMonth} className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+          <Card className="flex items-center gap-3 flex-wrap px-4 py-3" >
+            <Button variant="ghost" size="icon-sm" onClick={prevMonth} >
               <ChevronLeft size={18} />
-            </button>
-            <input type="month" value={`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`}
+            </Button>
+            <Input className="cursor-pointer w-auto" type="month" value={`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`}
               onChange={e => { const [y, m] = e.target.value.split('-').map(Number); setCurrentYear(y); setCurrentMonth(m - 1); }}
-              className="text-sm font-bold text-zinc-900 bg-transparent border border-zinc-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer" />
-            <button onClick={nextMonth} className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+               />
+            <Button variant="ghost" size="icon-sm" onClick={nextMonth} >
               <ChevronRight size={18} />
-            </button>
-            <button onClick={goToToday}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors">
+            </Button>
+            <Button variant="secondary" size="sm" onClick={goToToday}
+              >
               Today
-            </button>
+            </Button>
             <div className="relative flex-1 min-w-[180px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-300" size={16} />
-              <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" size={16} />
+              <Input className="w-full pl-10 pr-4" type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search employee..."
-                className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all placeholder:text-zinc-300" />
+                 />
             </div>
-          </div>
+          </Card>
 
-          <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
+          <Card className="overflow-hidden" >
             <div className="overflow-x-auto">
               <div className="min-w-[700px]">
-                <div className="grid grid-cols-7 border-b border-zinc-100 bg-zinc-50/50">
+                <div className="grid grid-cols-7 border-b border-border bg-muted/50">
                   {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(name => (
-                    <div key={name} className="px-2 py-2 text-[11px] font-bold text-zinc-400 uppercase tracking-wider text-center">{name}</div>
+                    <div key={name} className="px-2 py-2 text-xs font-medium text-muted-foreground/70 text-center">{name}</div>
                   ))}
                 </div>
                 {weeks.map((week, wi) => (
-                  <div key={wi} className="grid grid-cols-7 border-b border-zinc-50 last:border-0">
+                  <div key={wi} className="grid grid-cols-7 border-b border-border last:border-0">
                     {week.map((day, di) => {
                       const allocs = allocationsForDate(day);
                       const isToday = isSameDay(day, new Date());
@@ -435,19 +417,19 @@ export default function ShiftAssign() {
                       return (
                         <div key={di}
                           onClick={() => setSelectedDate(day)}
-                          className={`min-h-[80px] border-r border-zinc-50 last:border-r-0 p-1.5 cursor-pointer transition-colors hover:bg-zinc-50 ${isToday ? 'bg-emerald-50/30' : ''} ${!inMonth ? 'opacity-40' : ''}`}>
-                          <div className={`text-[11px] font-bold mb-1 ${isToday ? 'bg-zinc-900 text-white w-6 h-6 rounded-full flex items-center justify-center' : isWeekend ? 'text-red-400' : 'text-zinc-500'}`}>
+                          className={`min-h-[80px] border-r border-border last:border-r-0 p-1.5 cursor-pointer transition-colors hover:bg-muted ${isToday ? 'bg-accent/30' : ''}  ${!inMonth ? 'opacity-40' : ''}`}>
+                          <div className={`text-[11px] font-semibold mb-1 ${isToday ? 'bg-foreground text-white w-6 h-6 rounded-full flex items-center justify-center' : isWeekend ? 'text-destructive' : 'text-muted-foreground'}`}>
                             {day.getDate()}
                           </div>
                           <div className="space-y-0.5">
                             {allocs.slice(0, 3).map(a => (
                               <div key={`${a.id}-${a.staff_id}`} title={`${a.staff_name} - ${a.shift_type_name}`}
-                                className="text-[9px] leading-tight px-1 py-0.5 rounded bg-zinc-100 text-zinc-700 truncate font-medium">
+                                className="text-[11px] leading-tight px-1 py-0.5 rounded bg-secondary text-foreground/85 truncate font-medium">
                                 {a.staff_name.split(' ')[0]} {a.shift_type_name.slice(0, 4)}
                               </div>
                             ))}
                             {allocs.length > 3 && (
-                              <div className="text-[9px] text-zinc-400 font-medium px-1">+{allocs.length - 3} more</div>
+                              <div className="text-[11px] text-muted-foreground/70 font-medium px-1">+{allocs.length - 3} more</div>
                             )}
                           </div>
                         </div>
@@ -457,101 +439,101 @@ export default function ShiftAssign() {
                 ))}
               </div>
             </div>
-          </div>
+          </Card>
 
           {canManage && unallocatedStaff.length > 0 && (
-            <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-zinc-100 flex items-center justify-between">
+            <Card className="overflow-hidden" >
+              <div className="p-4 border-b border-border flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-zinc-900 flex items-center gap-2"><Users size={16} /> Unallocated Today</h3>
-                  <p className="text-xs text-zinc-400">{unallocatedStaff.length} employee(s) without shift assignment</p>
+                  <h3 className="font-semibold text-foreground flex items-center gap-2"><Users size={16} /> Unallocated Today</h3>
+                  <p className="text-xs text-muted-foreground/70">{unallocatedStaff.length} employee(s) without shift assignment</p>
                 </div>
                 {defaultShift && (
-                  <button onClick={assignDefaultToAll}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 text-xs font-medium rounded-lg transition-colors">
+                  <Button variant="outline" size="sm" onClick={assignDefaultToAll}
+                    >
                     <Plus size={14} /> Assign Default ({defaultShift.name})
-                  </button>
+                  </Button>
                 )}
               </div>
-              <div className="divide-y divide-zinc-50">
+              <div className="divide-y divide-border">
                 {unallocatedStaff.map(s => (
                   <div key={s.id} className="px-4 py-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-zinc-200 text-zinc-600 flex items-center justify-center text-[10px] font-bold">
+                      <div className="w-7 h-7 rounded-full bg-border text-foreground/70 flex items-center justify-center text-[11px] font-semibold">
                         {s.name[0]}
                       </div>
-                      <span className="text-sm font-medium text-zinc-700">{s.name}</span>
-                      <span className="text-[10px] text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">{s.role}</span>
+                      <span className="text-sm font-medium text-foreground/85">{s.name}</span>
+                      <Badge>{s.role}</Badge>
                     </div>
                     {defaultShift && (
                       <button onClick={() => assignDefaultToStaff(s)}
-                        className="text-xs text-emerald-600 hover:text-emerald-700 font-medium transition-colors">
+                        className="text-xs text-primary hover:text-accent-foreground font-medium transition-colors">
                         Assign Default
                       </button>
                     )}
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
         </div>
       )}
 
       {activeView === 'roster' && (
-        <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-zinc-100 flex items-center justify-between flex-wrap gap-3">
+        <Card className="overflow-hidden" >
+          <div className="p-4 border-b border-border flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h3 className="font-bold text-zinc-900">Today's Roster</h3>
-              <p className="text-xs text-zinc-400">{todayStr()} — {allStaff.length} employees</p>
+              <h3 className="font-semibold text-foreground">Today's Roster</h3>
+              <p className="text-xs text-muted-foreground/70">{todayStr()} — {allStaff.length} employees</p>
             </div>
             <div className="flex items-center gap-2">
               {!defaultShift && (
-                <p className="text-xs text-amber-600">No default shift set</p>
+                <p className="text-xs text-warning">No default shift set</p>
               )}
               <select value={rosterStatusFilter} onChange={e => setRosterStatusFilter(e.target.value)}
-                className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500/20">
+                className={selectClass}>
                 <option value="all">All Status</option>
                 <option value="scheduled">Scheduled</option>
                 <option value="unallocated">Unallocated</option>
               </select>
               {canManage && defaultShift && (
-                <button onClick={assignDefaultToAll}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 text-xs font-medium rounded-lg transition-colors">
+                <Button variant="outline" size="sm" onClick={assignDefaultToAll}
+                  >
                   <Plus size={12} /> Assign Default
-                </button>
+                </Button>
               )}
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-zinc-100 bg-zinc-50/50">
-                  <th className="text-left text-[11px] font-bold text-zinc-400 uppercase tracking-wider px-4 py-3">Employee</th>
-                  <th className="text-left text-[11px] font-bold text-zinc-400 uppercase tracking-wider px-4 py-3">Status</th>
-                  <th className="text-left text-[11px] font-bold text-zinc-400 uppercase tracking-wider px-4 py-3">Shift</th>
-                  <th className="text-left text-[11px] font-bold text-zinc-400 uppercase tracking-wider px-4 py-3">Check In</th>
-                  <th className="text-left text-[11px] font-bold text-zinc-400 uppercase tracking-wider px-4 py-3">Check Out</th>
-                  <th className="text-left text-[11px] font-bold text-zinc-400 uppercase tracking-wider px-4 py-3">Late</th>
-                  <th className="text-left text-[11px] font-bold text-zinc-400 uppercase tracking-wider px-4 py-3">Break</th>
-                  {canManage && <th className="text-left text-[11px] font-bold text-zinc-400 uppercase tracking-wider px-4 py-3">Actions</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-50">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-left uppercase">Employee</TableHead>
+                  <TableHead className="text-left uppercase">Status</TableHead>
+                  <TableHead className="text-left uppercase">Shift</TableHead>
+                  <TableHead className="text-left uppercase">Check In</TableHead>
+                  <TableHead className="text-left uppercase">Check Out</TableHead>
+                  <TableHead className="text-left uppercase">Late</TableHead>
+                  <TableHead className="text-left uppercase">Break</TableHead>
+                  {canManage && <TableHead className="text-left uppercase">Actions</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {rosterRows.map(row => (
-                  <tr key={row.id} className="hover:bg-zinc-50/50 transition-colors">
-                    <td className="px-4 py-3">
+                  <TableRow key={row.id} className="">
+                    <TableCell>
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-foreground text-white flex items-center justify-center text-xs font-semibold shrink-0">
                           {row.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-zinc-900">{row.name}</p>
-                          <p className="text-[10px] text-zinc-400">{row.role}</p>
+                          <p className="text-sm font-semibold text-foreground">{row.name}</p>
+                          <p className="text-[11px] text-muted-foreground/70">{row.role}</p>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell>
                       {canManage ? (
                         <button
                           onClick={() => toggleRosterAllocation(row)}
@@ -559,85 +541,85 @@ export default function ShiftAssign() {
                           title={row.allocation ? "Click to Unallocate shift" : (defaultShift ? `Click to Allocate default shift (${defaultShift.name})` : "Click to Assign shift")}
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
                             row.allocation
-                              ? `${STATUS_STYLES[row.allocation.status] || 'bg-zinc-100 text-zinc-700 border-zinc-200'} hover:bg-red-50 hover:text-red-600 hover:border-red-200`
-                              : 'bg-zinc-50 text-zinc-400 border-zinc-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                              ? `${STATUS_STYLES[row.allocation.status] || 'bg-secondary text-foreground/85 border-border'} hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20`
+                              : 'bg-muted text-muted-foreground/70 border-border hover:bg-accent hover:text-accent-foreground hover:border-primary/20'
                           } ${togglingId === row.id ? 'opacity-50 cursor-wait' : ''}`}
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full ${row.allocation ? 'bg-emerald-500' : 'bg-zinc-300'}`}></span>
+                          <span className={`w-1.5 h-1.5 rounded-full ${row.allocation ? 'bg-primary' : 'bg-input'}`}></span>
                           {row.allocation ? (STATUS_LABELS[row.allocation.status] || row.allocation.status) : 'Unallocated'}
                         </button>
                       ) : row.allocation ? (
-                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold capitalize border ${STATUS_STYLES[row.allocation.status] || ''}`}>
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <Badge className={`capitalize ${STATUS_STYLES[row.allocation.status] || ''}`}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
                           {STATUS_LABELS[row.allocation.status] || row.allocation.status}
-                        </span>
+                        </Badge>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold border bg-zinc-50 text-zinc-400 border-zinc-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-zinc-300"></span>
+                        <Badge>
+                          <span className="w-1.5 h-1.5 rounded-full bg-input"></span>
                           Unallocated
-                        </span>
+                        </Badge>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-zinc-600">
+                    </TableCell>
+                    <TableCell className="text-foreground/70">
                       {row.allocation ? (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-zinc-50 text-zinc-700 border border-zinc-200">
+                        <Badge>
                           <Clock size={10} /> {row.allocation.shift_type_name}
-                        </span>
+                        </Badge>
                       ) : (
-                        <span className="text-zinc-300">—</span>
+                        <span className="text-muted-foreground/50">—</span>
                       )}
-                    </td>
-                    <td className="px-4 py-3"><span className="text-sm text-zinc-400">—</span></td>
-                    <td className="px-4 py-3"><span className="text-sm text-zinc-400">—</span></td>
-                    <td className="px-4 py-3"><span className="text-sm text-zinc-400">—</span></td>
-                    <td className="px-4 py-3"><span className="text-sm text-zinc-400">—</span></td>
+                    </TableCell>
+                    <TableCell><span className="text-sm text-muted-foreground/70">—</span></TableCell>
+                    <TableCell><span className="text-sm text-muted-foreground/70">—</span></TableCell>
+                    <TableCell><span className="text-sm text-muted-foreground/70">—</span></TableCell>
+                    <TableCell><span className="text-sm text-muted-foreground/70">—</span></TableCell>
                     {canManage && (
-                      <td className="px-4 py-3">
+                      <TableCell>
                         <div className="flex items-center gap-1">
                           {row.allocation && (
                             <>
-                              <button onClick={() => navigate('/hrms/shifts/assign/new?allocId=' + row.allocation!.id)}
+                              <Button variant="ghost" size="icon-sm" onClick={() => navigate('/hrms/shifts/assign/new?allocId=' + row.allocation!.id)}
                                 title="Edit Allocation"
-                                className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-md transition-all"><Edit2 size={14} /></button>
-                              <button onClick={() => removeAllocation(row.allocation!)}
+                                ><Edit2 size={14} /></Button>
+                              <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" onClick={() => removeAllocation(row.allocation!)}
                                 title="Remove Allocation"
-                                className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"><Trash2 size={14} /></button>
+                                ><Trash2 size={14} /></Button>
                             </>
                           )}
                         </div>
-                      </td>
+                      </TableCell>
                     )}
-                  </tr>
+                  </TableRow>
                 ))}
                 {rosterRows.length === 0 && (
-                  <tr><td colSpan={canManage ? 8 : 7} className="px-4 py-12 text-center text-sm text-zinc-400">No employees found.</td></tr>
+                  <TableRow><TableCell colSpan={canManage ? 8 : 7} className="text-center text-muted-foreground/70">No employees found.</TableCell></TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
-        </div>
+        </Card>
       )}
 
       {selectedDate && (
         <Modal title={formatDateLabel(selectedDate)} onClose={() => setSelectedDate(null)} wide>
           <div className="p-5 space-y-3 max-h-96 overflow-y-auto">
             {staffForDate.filter(s => s.isAllocated).length === 0 && (
-              <p className="text-sm text-zinc-400 text-center py-4">No allocations for this date.</p>
+              <p className="text-sm text-muted-foreground/70 text-center py-4">No allocations for this date.</p>
             )}
             {staffForDate.filter(s => s.isAllocated).map(s => (
-              <div key={s.id} className="flex items-center justify-between bg-zinc-50 border border-zinc-200 rounded-xl p-3">
+              <div key={s.id} className="flex items-center justify-between bg-muted border border-border rounded-xl p-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-foreground text-white flex items-center justify-center text-xs font-semibold shrink-0">
                     {s.name[0]}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-zinc-900">{s.name}</p>
-                    <p className="text-xs text-zinc-500">{s.allocation?.shift_type_name || '—'}</p>
+                    <p className="text-sm font-semibold text-foreground">{s.name}</p>
+                    <p className="text-xs text-muted-foreground">{s.allocation?.shift_type_name || '—'}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4 text-xs text-zinc-500">
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   {s.allocation && (
-                    <span className={`px-2 py-0.5 rounded font-bold capitalize border ${STATUS_STYLES[s.allocation.status] || ''}`}>
+                    <span className={`px-2 py-0.5 rounded font-semibold capitalize border ${STATUS_STYLES[s.allocation.status] || ''}`}>
                       {STATUS_LABELS[s.allocation.status]}
                     </span>
                   )}
@@ -645,32 +627,32 @@ export default function ShiftAssign() {
                   <span>Out: —</span>
                   {canManage && s.allocation && (
                     <div className="flex items-center gap-1">
-                      <button onClick={() => { navigate('/hrms/shifts/assign/new?allocId=' + s.allocation!.id); setSelectedDate(null); }}
-                        className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 rounded-md transition-all"><Edit2 size={14} /></button>
-                      <button onClick={() => { removeAllocation(s.allocation!); }}
-                        className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"><Trash2 size={14} /></button>
+                      <Button variant="ghost" size="icon-sm" onClick={() => { navigate('/hrms/shifts/assign/new?allocId=' + s.allocation!.id); setSelectedDate(null); }}
+                        ><Edit2 size={14} /></Button>
+                      <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" onClick={() => { removeAllocation(s.allocation!); }}
+                        ><Trash2 size={14} /></Button>
                     </div>
                   )}
                 </div>
               </div>
             ))}
             {staffForDate.filter(s => !s.isAllocated).length > 0 && (
-              <div className="pt-3 border-t border-zinc-100">
-                <p className="text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wider">Unallocated</p>
+              <div className="pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground/70 mb-2 uppercase tracking-wider">Unallocated</p>
                 {staffForDate.filter(s => !s.isAllocated).slice(0, 10).map(s => (
                   <div key={s.id} className="flex items-center justify-between py-1.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-zinc-100 text-zinc-500 flex items-center justify-center text-[9px] font-bold">
+                      <div className="w-6 h-6 rounded-full bg-secondary text-muted-foreground flex items-center justify-center text-[11px] font-semibold">
                         {s.name[0]}
                       </div>
-                      <span className="text-xs text-zinc-500">{s.name}</span>
+                      <span className="text-xs text-muted-foreground">{s.name}</span>
                     </div>
                     {canManage && (
                       <button onClick={() => {
                         assignDefaultToStaff(s, formatDate(selectedDate));
                         setSelectedDate(null);
                       }}
-                        className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                        className="text-xs text-primary hover:text-accent-foreground font-medium">
                         Assign Default
                       </button>
                     )}

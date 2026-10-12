@@ -9,18 +9,24 @@ import {
   Banknote,
   CheckCircle2,
   RefreshCw,
+  MoreHorizontal,
+  Eye,
+  Paperclip,
 } from 'lucide-react';
 import type { ApiInvoice } from '../../lib/api';
 import { formatDateTimeIST } from '../../lib/timeUtils';
-import { InvoiceIconTooltip } from './InvoiceIconTooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { TableCell, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-700',
-  assigned: 'bg-blue-100 text-blue-700',
-  delivered: 'bg-emerald-100 text-emerald-700',
+  pending: 'bg-warning/15 text-warning',
+  assigned: 'bg-info/15 text-info',
+  delivered: 'bg-primary/15 text-accent-foreground',
   return: 'bg-purple-100 text-purple-700',
-  completed: 'bg-emerald-100 text-emerald-700',
-  cancelled: 'bg-red-100 text-red-700',
+  completed: 'bg-primary/15 text-accent-foreground',
+  cancelled: 'bg-destructive/15 text-destructive',
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -31,14 +37,14 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  challan: 'bg-amber-50 text-amber-600',
-  price_difference: 'bg-blue-50 text-blue-600',
-  sale_bill: 'bg-emerald-50 text-emerald-600',
+  challan: 'bg-warning/10 text-warning',
+  price_difference: 'bg-info/10 text-info',
+  sale_bill: 'bg-accent text-primary',
   sale_return_credit_note: 'bg-purple-50 text-purple-600',
 };
 
 const typeLabel = (t: string | null | undefined) => TYPE_LABELS[t ?? ''] || t || 'Sale Bill';
-const typeColor = (t: string | null | undefined) => TYPE_COLORS[t ?? ''] || (t ? 'bg-zinc-50 text-zinc-500' : 'bg-emerald-50 text-emerald-600');
+const typeColor = (t: string | null | undefined) => TYPE_COLORS[t ?? ''] || (t ? 'bg-muted text-muted-foreground' : 'bg-accent text-primary');
 
 export interface InvoiceDesktopRowProps {
   invoice: ApiInvoice;
@@ -64,7 +70,6 @@ function InvoiceDesktopRowInner({
   invoice,
   assigneeLabel,
   travel,
-  waiting,
   userRole,
   onOpenDetail,
   onOpenSignedPreview,
@@ -79,199 +84,75 @@ function InvoiceDesktopRowInner({
   onReupload,
 }: InvoiceDesktopRowProps) {
   const stop = useCallback((e: React.MouseEvent) => e.stopPropagation(), []);
+  const manager = userRole === 'admin' || userRole === 'manager';
+  const canConfirmPayment =
+    invoice.status === 'delivered' && manager && ((invoice.cash_received ?? 0) > 0 || (invoice.cheque_received ?? 0) > 0);
+  const canAssign = invoice.status !== 'delivered' && invoice.status !== 'cancelled';
+  const canComplete = manager && !['completed', 'cancelled'].includes(invoice.status);
+  const canVoid = invoice.status === 'pending' || invoice.status === 'assigned';
+  const canRestore = invoice.status === 'cancelled' && manager;
+  const showDelete = !(invoice.deleted_at && onRequestRecoverDeleted) && manager;
 
   return (
-    <tr
-      className="hover:bg-zinc-50/50 transition-colors cursor-pointer border-b border-zinc-50"
-      onClick={() => onOpenDetail(invoice)}
-    >
-      <td className="px-4 py-3 whitespace-nowrap">
-        <span className="text-xs font-bold text-zinc-900">{invoice.invoice_number}</span>
-      </td>
-      <td className="px-4 py-3">
-        {invoice.invoice_type ? (
-          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${typeColor(invoice.invoice_type)}`}>
-            {typeLabel(invoice.invoice_type)}
-          </span>
-        ) : (
-          <span className="text-[9px] text-zinc-300">—</span>
-        )}
-      </td>
-      <td className="px-4 py-3">
-        <p className="text-xs font-semibold text-zinc-900">{invoice.hospital_name}</p>
-      </td>
-      <td className="px-4 py-3">
-        <p className="text-xs font-bold text-zinc-900">₹{invoice.amount.toLocaleString()}</p>
-      </td>
-      <td className="px-4 py-3">
-        <span
-          className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold capitalize ${STATUS_COLORS[invoice.status] || 'bg-zinc-100 text-zinc-700'}`}
-        >
+    <TableRow className="cursor-pointer" onClick={() => onOpenDetail(invoice)}>
+      <TableCell className="whitespace-nowrap">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-foreground">{invoice.invoice_number}</span>
+          {invoice.signed_copy_url && (
+            <Paperclip className="size-3.5 text-muted-foreground" aria-label="Has signed copy" />
+          )}
+        </div>
+        <span className="text-xs text-muted-foreground">{typeLabel(invoice.invoice_type)}</span>
+      </TableCell>
+      <TableCell className="max-w-[280px]">
+        <span className="line-clamp-2">{invoice.hospital_name}</span>
+      </TableCell>
+      <TableCell className="whitespace-nowrap text-right font-medium tabular-nums">₹{invoice.amount.toLocaleString()}</TableCell>
+      <TableCell>
+        <Badge className={`capitalize ${STATUS_COLORS[invoice.status] || ''}`} dot>
           {invoice.status}
-        </span>
-      </td>
-      <td className="px-4 py-3 overflow-visible">
-        <div className="flex items-center gap-1.5">
-          {invoice.signed_copy_url ? (
-            <>
-              <InvoiceIconTooltip label="View signed copy">
-                <button
-                  type="button"
-                  className="relative group/thumb w-10 h-10 rounded-lg overflow-hidden border border-emerald-100 shadow-sm cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (invoice.signed_copy_url) onOpenSignedPreview(invoice.signed_copy_url, invoice.invoice_number);
-                  }}
-                  aria-label="View signed copy"
-                >
-                  <img src={invoice.signed_copy_url} className="w-full h-full object-cover transition-transform group-hover/thumb:scale-110" alt="" />
-                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
-                    <ClipboardCheck size={12} className="text-white" />
-                  </div>
-                </button>
-              </InvoiceIconTooltip>
-              {onReupload && (
-                <InvoiceIconTooltip label="Replace signed copy">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onReupload(invoice);
-                    }}
-                    className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
-                    aria-label="Replace signed copy"
-                  >
-                    <RefreshCw size={12} />
-                  </button>
-                </InvoiceIconTooltip>
-              )}
-            </>
-          ) : (
-            <InvoiceIconTooltip label="No signed copy yet">
-              <div
-                className="w-10 h-10 rounded-lg border border-dashed border-zinc-200 bg-zinc-50 flex items-center justify-center text-zinc-300"
-                aria-hidden
-              >
-                <ClipboardCheck size={16} />
-              </div>
-            </InvoiceIconTooltip>
-          )}
-        </div>
-      </td>
-      <td className="px-4 py-3">
-        <p className="text-xs text-zinc-600">{assigneeLabel}</p>
-      </td>
-      <td className="px-4 py-3">
-        <p className="text-xs text-zinc-500">{travel}</p>
-      </td>
-      <td className="px-4 py-3">
-        <p className="text-xs text-amber-600">{waiting}</p>
-      </td>
-      <td className="px-4 py-3 text-[10px] font-medium text-zinc-400">
-        {formatDateTimeIST(invoice.created_at)}
-      </td>
-      <td className="px-4 py-3 overflow-visible" onClick={stop}>
-        <div className="flex items-center gap-1">
-          <InvoiceIconTooltip label="Download invoice">
-            <button
-              type="button"
-              onClick={() => onDownloadInvoice(invoice)}
-              disabled={!invoice.signed_copy_url}
-              className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
-              aria-label="Download invoice"
-            >
-              <Download size={14} />
-            </button>
-          </InvoiceIconTooltip>
-          {invoice.status === 'delivered' &&
-            (userRole === 'admin' || userRole === 'manager') &&
-            ((invoice.cash_received ?? 0) > 0 || (invoice.cheque_received ?? 0) > 0) && (
-              <InvoiceIconTooltip label="Confirm payment">
-                <button
-                  type="button"
-                  onClick={() => onConfirmPayment(invoice)}
-                  className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
-                  aria-label="Confirm payment"
-                >
-                  <Banknote size={14} />
-                </button>
-              </InvoiceIconTooltip>
+        </Badge>
+      </TableCell>
+      <TableCell>
+        <span className={assigneeLabel === '—' ? 'text-muted-foreground' : ''}>{assigneeLabel}</span>
+        {travel !== '—' && <span className="block text-xs text-muted-foreground">Took {travel}</span>}
+      </TableCell>
+      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{formatDateTimeIST(invoice.created_at)}</TableCell>
+      <TableCell className="w-10 pl-0" onClick={stop}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-sm" data-row-menu="" aria-label={`Actions for ${invoice.invoice_number}`}>
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem onSelect={() => onOpenDetail(invoice)}><Eye /> Open</DropdownMenuItem>
+            {invoice.signed_copy_url && (
+              <DropdownMenuItem onSelect={() => onOpenSignedPreview(invoice.signed_copy_url!, invoice.invoice_number)}>
+                <ClipboardCheck /> View signed copy
+              </DropdownMenuItem>
             )}
-          {invoice.status !== 'delivered' && invoice.status !== 'cancelled' && (
-            <InvoiceIconTooltip label="Assign delivery">
-              <button
-                type="button"
-                onClick={() => onAssign(invoice.id)}
-                className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                aria-label="Assign delivery"
-              >
-                <UserPlus size={14} />
-              </button>
-            </InvoiceIconTooltip>
-          )}
-          {(userRole === 'admin' || userRole === 'manager') &&
-            !['completed', 'cancelled'].includes(invoice.status) && (
-            <InvoiceIconTooltip label="Mark complete">
-              <button
-                type="button"
-                onClick={() => onMarkComplete?.(invoice)}
-                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                aria-label="Mark complete"
-              >
-                <CheckCircle2 size={14} />
-              </button>
-            </InvoiceIconTooltip>
-          )}
-          {(invoice.status === 'pending' || invoice.status === 'assigned') && (
-            <InvoiceIconTooltip label="Void invoice">
-              <button
-                type="button"
-                onClick={() => onRequestCancel(invoice)}
-                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                aria-label="Void invoice"
-              >
-                <XCircle size={14} />
-              </button>
-            </InvoiceIconTooltip>
-          )}
-          {invoice.status === 'cancelled' && (userRole === 'admin' || userRole === 'manager') && (
-            <InvoiceIconTooltip label="Restore to pending">
-              <button
-                type="button"
-                onClick={() => onRequestRestore(invoice)}
-                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                aria-label="Restore to pending"
-              >
-                <RotateCcw size={14} />
-              </button>
-            </InvoiceIconTooltip>
-          )}
-          {invoice.deleted_at && onRequestRecoverDeleted ? (
-            <InvoiceIconTooltip label="Recover deleted invoice">
-              <button
-                type="button"
-                onClick={() => onRequestRecoverDeleted(invoice)}
-                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                aria-label="Recover deleted invoice"
-              >
-                <RotateCcw size={14} />
-              </button>
-            </InvoiceIconTooltip>
-          ) : (userRole === 'admin' || userRole === 'manager') && (
-            <InvoiceIconTooltip label="Delete invoice">
-              <button
-                type="button"
-                onClick={() => onRequestDelete(invoice)}
-                className="p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
-                aria-label="Delete invoice"
-              >
-                <Trash2 size={14} />
-              </button>
-            </InvoiceIconTooltip>
-          )}
-        </div>
-      </td>
-    </tr>
+            {invoice.signed_copy_url && onReupload && (
+              <DropdownMenuItem onSelect={() => onReupload(invoice)}><RefreshCw /> Replace signed copy</DropdownMenuItem>
+            )}
+            <DropdownMenuItem disabled={!invoice.signed_copy_url} onSelect={() => onDownloadInvoice(invoice)}>
+              <Download /> Download invoice
+            </DropdownMenuItem>
+            {(canConfirmPayment || canAssign || canComplete) && <DropdownMenuSeparator />}
+            {canConfirmPayment && <DropdownMenuItem onSelect={() => onConfirmPayment(invoice)}><Banknote /> Confirm payment</DropdownMenuItem>}
+            {canAssign && <DropdownMenuItem onSelect={() => onAssign(invoice.id)}><UserPlus /> Assign delivery</DropdownMenuItem>}
+            {canComplete && <DropdownMenuItem onSelect={() => onMarkComplete?.(invoice)}><CheckCircle2 /> Mark complete</DropdownMenuItem>}
+            {(canVoid || canRestore || (invoice.deleted_at && onRequestRecoverDeleted) || showDelete) && <DropdownMenuSeparator />}
+            {canRestore && <DropdownMenuItem onSelect={() => onRequestRestore(invoice)}><RotateCcw /> Restore to pending</DropdownMenuItem>}
+            {invoice.deleted_at && onRequestRecoverDeleted && (
+              <DropdownMenuItem onSelect={() => onRequestRecoverDeleted(invoice)}><RotateCcw /> Recover deleted invoice</DropdownMenuItem>
+            )}
+            {canVoid && <DropdownMenuItem destructive onSelect={() => onRequestCancel(invoice)}><XCircle /> Void invoice</DropdownMenuItem>}
+            {showDelete && <DropdownMenuItem destructive onSelect={() => onRequestDelete(invoice)}><Trash2 /> Delete invoice</DropdownMenuItem>}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
   );
 }
 

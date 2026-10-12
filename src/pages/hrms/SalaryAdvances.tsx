@@ -8,6 +8,13 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input, Textarea } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import {
   AdvanceExpense, formatINR, todayStr,
   listAdvances, createAdvance, resolveAdvance,
@@ -125,89 +132,79 @@ export default function SalaryAdvances() {
     <div className="space-y-6">
       {toast && (
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-          className="fixed top-5 right-5 z-[9999] bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
-          <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
+          className="fixed top-5 right-5 z-[9999] bg-foreground text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
+          <CheckCircle2 size={16} className="text-primary" /> {toast}
         </motion.div>
       )}
 
       {/* Top Header Buttons (Business Claims vs Salary Advances) */}
-      <div className="flex items-center gap-2 border-b border-zinc-200 pb-3">
-        <button
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <Button variant="secondary" size="sm"
           onClick={() => navigate('/hrms/expenses')}
-          className="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+          
         >
           Business Claims
-        </button>
-        <button
+        </Button>
+        <Button variant="dark" size="sm"
           onClick={() => navigate('/hrms/advances')}
-          className="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-zinc-900 text-white shadow-sm"
+          
         >
-          Salary Advances {pendingCount > 0 && <span className="ml-1 px-1.5 py-0.5 text-[9px] bg-amber-500 text-white rounded-full font-extrabold">{pendingCount}</span>}
-        </button>
+          Salary Advances {pendingCount > 0 && <Badge variant="warning" className="ml-1" >{pendingCount}</Badge>}
+        </Button>
       </div>
 
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Salary Advances</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">
-            {isAdmin ? 'Manage employee salary advances & emergency cash loans' : 'Request salary advances and view status'}
-          </p>
-        </div>
-        <button
+      <PageHeader title="Salary Advances" description={isAdmin ? 'Manage employee salary advances & emergency cash loans' : 'Request salary advances and view status'} actions={<>
+<Button variant="dark" size="sm" className="self-start sm:self-auto"
           onClick={() => setAdvModalOpen(true)}
-          className="self-start sm:self-auto flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm"
+          
         >
           <Plus size={14} /> Request Salary Advance
-        </button>
-      </motion.header>
+        </Button>
+</>} />
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        <div className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm">
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-emerald-50 text-emerald-600">
+        <Card className="p-4 flex items-center gap-3" >
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-accent text-primary">
             <IndianRupee size={18} />
           </div>
           <div className="min-w-0">
-            <p className="text-lg font-extrabold text-zinc-900 leading-none truncate">{formatINR(totalApproved)}</p>
-            <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">Total Approved Advances</p>
+            <p className="text-lg font-semibold text-foreground leading-none truncate">{formatINR(totalApproved)}</p>
+            <p className="text-xs font-medium text-muted-foreground/70 mt-1 truncate">Total Approved Advances</p>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm">
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-amber-50 text-amber-600">
+        <Card className="p-4 flex items-center gap-3" >
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-warning/10 text-warning">
             <Clock size={18} />
           </div>
           <div className="min-w-0">
-            <p className="text-lg font-extrabold text-zinc-900 leading-none truncate">{pendingCount}</p>
-            <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">Pending Requests</p>
+            <p className="text-lg font-semibold text-foreground leading-none truncate">{pendingCount}</p>
+            <p className="text-xs font-medium text-muted-foreground/70 mt-1 truncate">Pending Requests</p>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm col-span-2 lg:col-span-1">
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-blue-50 text-blue-600">
+        <Card className="p-4 flex items-center gap-3 col-span-2 lg:col-span-1" >
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-info/10 text-info">
             <CheckCircle2 size={18} />
           </div>
           <div className="min-w-0">
-            <p className="text-lg font-extrabold text-zinc-900 leading-none truncate">{advances.length}</p>
-            <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">Total Requests Submitted</p>
+            <p className="text-lg font-semibold text-foreground leading-none truncate">{advances.length}</p>
+            <p className="text-xs font-medium text-muted-foreground/70 mt-1 truncate">Total Requests Submitted</p>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+          <Input data-search="" className="w-full pl-9 pr-4"
             type="text"
             placeholder="Search advances by title, employee, or reason..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+            
           />
         </div>
         <div className="flex items-center gap-1.5">
@@ -216,7 +213,7 @@ export default function SalaryAdvances() {
               key={st}
               onClick={() => { setStatusFilter(st); setPage(1); }}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors ${
-                statusFilter === st ? 'bg-zinc-900 text-white' : 'bg-zinc-50 text-zinc-600 hover:bg-zinc-100'
+                statusFilter === st ? 'bg-foreground text-white' : 'bg-muted text-foreground/70 hover:bg-secondary'
               }`}
             >
               {st}
@@ -226,101 +223,98 @@ export default function SalaryAdvances() {
       </div>
 
       {/* Main Table / Empty State */}
-      <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden">
+      <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-zinc-400 text-xs font-medium">Loading salary advance records...</div>
+          <div className="p-12 text-center text-muted-foreground/70 text-xs font-medium">Loading salary advance records...</div>
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center space-y-3">
-            <AlertCircle className="mx-auto text-zinc-300" size={32} />
-            <p className="text-sm font-bold text-zinc-700">No salary advance requests found</p>
-            <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+            <AlertCircle className="mx-auto text-muted-foreground/50" size={32} />
+            <p className="text-sm font-semibold text-foreground/85">No salary advance requests found</p>
+            <p className="text-xs text-muted-foreground/70 max-w-sm mx-auto">
               {isAdmin ? 'No employees have submitted salary advance requests yet.' : 'You have not submitted any salary advance requests.'}
             </p>
-            <button
+            <Button variant="dark" size="sm"
               onClick={() => setAdvModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors"
+              
             >
               <Plus size={14} /> Submit New Request
-            </button>
+            </Button>
           </div>
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-zinc-100 bg-zinc-50/50 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
-                    <th className="px-4 py-3">Employee</th>
-                    <th className="px-4 py-3">Title & Reason</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Requested</th>
-                    <th className="px-4 py-3">Approved</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100 text-xs">
+              <Table className="border-collapse">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Title & Reason</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Requested</TableHead>
+                    <TableHead>Approved</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {paged.map((a) => (
-                    <tr key={a.id} className="hover:bg-zinc-50/50 transition-colors">
-                      <td className="px-4 py-3 font-bold text-zinc-900">{a.employeeName}</td>
-                      <td className="px-4 py-3">
-                        <p className="font-bold text-zinc-800">{a.title}</p>
-                        {a.reason && <p className="text-[11px] text-zinc-400 truncate max-w-[200px]" title={a.reason}>{a.reason}</p>}
-                      </td>
-                      <td className="px-4 py-3 text-zinc-500 font-medium">{a.date}</td>
-                      <td className="px-4 py-3 font-extrabold text-zinc-900">{formatINR(a.amount)}</td>
-                      <td className="px-4 py-3 font-extrabold text-emerald-600">
+                    <TableRow key={a.id} className="">
+                      <TableCell className="font-semibold text-foreground">{a.employeeName}</TableCell>
+                      <TableCell>
+                        <p className="font-semibold text-foreground">{a.title}</p>
+                        {a.reason && <p className="text-[11px] text-muted-foreground/70 truncate max-w-[200px]" title={a.reason}>{a.reason}</p>}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground font-medium">{a.date}</TableCell>
+                      <TableCell className="font-semibold text-foreground">{formatINR(a.amount)}</TableCell>
+                      <TableCell className="font-semibold text-primary">
                         {a.status === 'approved' ? formatINR(a.approvedAmount || a.amount) : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold capitalize ${
-                          a.status === 'approved' ? 'bg-emerald-50 text-emerald-700' :
-                          a.status === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'
-                        }`}>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`capitalize ${ a.status === 'approved' ? 'bg-accent text-accent-foreground' : a.status === 'pending' ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive' }`}>
                           {a.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
                         {isAdmin && a.status === 'pending' ? (
                           <div className="flex items-center justify-end gap-1.5">
-                            <button
+                            <Button variant="soft" size="xs" className="bg-accent text-accent-foreground hover:bg-primary/15"
                               onClick={() => { setConfirmAdvModal({ advanceId: a.id, action: 'approve' }); setAdvApproveAmount(a.amount); }}
-                              className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-[11px] font-bold transition-colors"
+                              
                             >
                               Approve
-                            </button>
-                            <button
+                            </Button>
+                            <Button variant="ghost" size="xs" className="bg-destructive/10 text-destructive hover:bg-destructive/15"
                               onClick={() => { setConfirmAdvModal({ advanceId: a.id, action: 'reject' }); }}
-                              className="px-2.5 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-[11px] font-bold transition-colors"
+                              
                             >
                               Reject
-                            </button>
+                            </Button>
                           </div>
                         ) : (
-                          <span className="text-[11px] text-zinc-400 font-medium">
+                          <span className="text-[11px] text-muted-foreground/70 font-medium">
                             {a.approvalNotes ? `Notes: ${a.approvalNotes}` : 'No actions'}
                           </span>
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-100">
-                <p className="text-xs text-zinc-500">
-                  Showing <span className="font-bold text-zinc-900">{startRow}</span>–
-                  <span className="font-bold text-zinc-900">{endRow}</span> of{' '}
-                  <span className="font-bold text-zinc-900">{filtered.length}</span> records
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  Showing <span className="font-semibold text-foreground">{startRow}</span>–
+                  <span className="font-semibold text-foreground">{endRow}</span> of{' '}
+                  <span className="font-semibold text-foreground">{filtered.length}</span> records
                 </p>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 transition-colors">
+                  <Button variant="outline" size="icon-sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} >
                     <ChevronLeft size={16} />
-                  </button>
-                  <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 transition-colors">
+                  </Button>
+                  <Button variant="outline" size="icon-sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} >
                     <ChevronRight size={16} />
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -330,53 +324,54 @@ export default function SalaryAdvances() {
 
       {/* Staff Request Modal */}
       {advModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm" onClick={() => setAdvModalOpen(false)}>
-          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
-              <h3 className="font-bold text-zinc-900 text-sm">Request Salary Advance</h3>
-              <button onClick={() => setAdvModalOpen(false)} className="p-1 text-zinc-400 hover:text-zinc-900 rounded-lg"><X size={16} /></button>
+        <Dialog open onOpenChange={(open) => { if (!open) (() => setAdvModalOpen(false))(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-md overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-5 border-b border-border flex items-center justify-between">
+              <h3 className="font-semibold text-foreground text-sm">Request Salary Advance</h3>
+              <Button variant="ghost" size="icon-sm" onClick={() => setAdvModalOpen(false)} ><X size={16} /></Button>
             </div>
             <form onSubmit={handleAdvSubmit} className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-zinc-700 mb-1">Title / Purpose *</label>
-                <input
+                <label className="block text-xs font-semibold text-foreground/85 mb-1">Title / Purpose *</label>
+                <Input className="w-full"
                   type="text" required placeholder="e.g. Medical Emergency Loan, Festival Advance"
                   value={advTitle} onChange={(e) => setAdvTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs outline-none focus:border-zinc-900"
+                  
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-zinc-700 mb-1">Advance Amount (₹) *</label>
-                <input
+                <label className="block text-xs font-semibold text-foreground/85 mb-1">Advance Amount (₹) *</label>
+                <Input className="w-full"
                   type="number" min={1} required placeholder="e.g. 10000"
                   value={advAmount} onChange={(e) => setAdvAmount(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs outline-none focus:border-zinc-900"
+                  
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-zinc-700 mb-1">Date Required *</label>
-                <input
+                <label className="block text-xs font-semibold text-foreground/85 mb-1">Date Required *</label>
+                <Input className="w-full"
                   type="date" required value={advDate} onChange={(e) => setAdvDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs outline-none focus:border-zinc-900"
+                  
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-zinc-700 mb-1">Reason / Explanation</label>
-                <textarea
+                <label className="block text-xs font-semibold text-foreground/85 mb-1">Reason / Explanation</label>
+                <Textarea className="w-full"
                   rows={2} placeholder="Explain why you need this advance..."
                   value={advReason} onChange={(e) => setAdvReason(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs outline-none focus:border-zinc-900"
+                  
                 />
               </div>
               <div className="pt-2 flex gap-2 justify-end">
-                <button type="button" onClick={() => setAdvModalOpen(false)} className="px-4 py-2 border border-zinc-200 rounded-xl text-xs font-bold hover:bg-zinc-50">Cancel</button>
-                <button type="submit" disabled={advSubmitting} className="px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 disabled:opacity-50">
+                <Button variant="outline" size="sm" type="button" onClick={() => setAdvModalOpen(false)} >Cancel</Button>
+                <Button variant="dark" size="sm" type="submit" disabled={advSubmitting} >
                   {advSubmitting ? 'Submitting...' : 'Submit Request'}
-                </button>
+                </Button>
               </div>
             </form>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {/* Admin Approval / Rejection Modal */}
@@ -384,51 +379,52 @@ export default function SalaryAdvances() {
         const target = advances.find((a) => a.id === confirmAdvModal.advanceId);
         if (!target) return null;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm" onClick={() => setConfirmAdvModal(null)}>
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden">
-              <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
-                <h3 className="font-bold text-zinc-900 text-sm">{confirmAdvModal.action === 'approve' ? 'Approve Salary Advance' : 'Reject Salary Advance'}</h3>
-                <button onClick={() => setConfirmAdvModal(null)} className="p-1 text-zinc-400 hover:text-zinc-900 rounded-lg"><X size={16} /></button>
+          <Dialog open onOpenChange={(open) => { if (!open) (() => setConfirmAdvModal(null))(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-md overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+              <div className="p-5 border-b border-border flex items-center justify-between">
+                <h3 className="font-semibold text-foreground text-sm">{confirmAdvModal.action === 'approve' ? 'Approve Salary Advance' : 'Reject Salary Advance'}</h3>
+                <Button variant="ghost" size="icon-sm" onClick={() => setConfirmAdvModal(null)} ><X size={16} /></Button>
               </div>
               <div className="p-5 space-y-4">
-                <div className="bg-zinc-50 p-3 rounded-xl space-y-1.5 text-xs">
-                  <p><span className="text-zinc-400 font-bold">Employee:</span> <span className="font-bold text-zinc-900">{target.employeeName}</span></p>
-                  <p><span className="text-zinc-400 font-bold">Title:</span> <span className="font-bold text-zinc-900">{target.title}</span></p>
-                  <p><span className="text-zinc-400 font-bold">Requested:</span> <span className="font-extrabold text-zinc-900">{formatINR(target.amount)}</span></p>
-                  {target.reason && <p><span className="text-zinc-400 font-bold">Reason:</span> <span className="text-zinc-700">{target.reason}</span></p>}
+                <div className="bg-muted p-3 rounded-xl space-y-1.5 text-xs">
+                  <p><span className="text-muted-foreground/70 font-semibold">Employee:</span> <span className="font-semibold text-foreground">{target.employeeName}</span></p>
+                  <p><span className="text-muted-foreground/70 font-semibold">Title:</span> <span className="font-semibold text-foreground">{target.title}</span></p>
+                  <p><span className="text-muted-foreground/70 font-semibold">Requested:</span> <span className="font-semibold text-foreground">{formatINR(target.amount)}</span></p>
+                  {target.reason && <p><span className="text-muted-foreground/70 font-semibold">Reason:</span> <span className="text-foreground/85">{target.reason}</span></p>}
                 </div>
                 {confirmAdvModal.action === 'approve' && (
                   <div>
-                    <label className="block text-xs font-bold text-zinc-700 mb-1">Approved Amount (₹)</label>
-                    <input
+                    <label className="block text-xs font-semibold text-foreground/85 mb-1">Approved Amount (₹)</label>
+                    <Input className="w-full"
                       type="number" min={1} value={advApproveAmount} onChange={(e) => setAdvApproveAmount(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs outline-none focus:border-zinc-900"
+                      
                     />
                   </div>
                 )}
                 <div>
-                  <label className="block text-xs font-bold text-zinc-700 mb-1">Notes / Instructions</label>
-                  <textarea
+                  <label className="block text-xs font-semibold text-foreground/85 mb-1">Notes / Instructions</label>
+                  <Textarea className="w-full"
                     rows={2} placeholder="e.g. Approved. Repay ₹1,000/month in Pay Run."
                     value={advConfirmNotes} onChange={(e) => setAdvConfirmNotes(e.target.value)}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs outline-none focus:border-zinc-900"
+                    
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
-                  <button onClick={() => setConfirmAdvModal(null)} className="px-4 py-2 border border-zinc-200 rounded-xl text-xs font-bold hover:bg-zinc-50">Cancel</button>
+                  <Button variant="outline" size="sm" onClick={() => setConfirmAdvModal(null)} >Cancel</Button>
                   <button
                     onClick={() => {
                       updateAdvStatus(confirmAdvModal.advanceId, confirmAdvModal.action === 'approve' ? 'approved' : 'rejected', advConfirmNotes, confirmAdvModal.action === 'approve' ? advApproveAmount : undefined);
                       setConfirmAdvModal(null);
                     }}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold text-white ${confirmAdvModal.action === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}
+                    className={`px-4 py-2 rounded-md text-xs font-semibold text-white ${confirmAdvModal.action === 'approve' ? 'bg-primary hover:bg-primary' : 'bg-destructive hover:bg-destructive'}`}
                   >
                     Confirm {confirmAdvModal.action === 'approve' ? 'Approve' : 'Reject'}
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </div>
+            </DialogContent>
+</Dialog>
         );
       })()}
     </div>

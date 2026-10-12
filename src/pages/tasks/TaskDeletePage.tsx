@@ -6,6 +6,8 @@ import * as api from '../../lib/api';
 import { TaskSectionFrame, taskInnerCardClassName } from '../../components/tasks/TaskSectionFrame';
 import { parseTaskRouteId } from './taskShared';
 import { useTaskLoader } from './useTaskLoader';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 
 export default function TaskDeletePage() {
   const { token } = useAuth();
@@ -35,7 +37,7 @@ export default function TaskDeletePage() {
     return (
       <TaskSectionFrame context="Invalid task.">
         <div className={`p-8 ${taskInnerCardClassName()}`}>
-          <Link to="/tasks" className="text-sm font-bold text-emerald-600 hover:underline">
+          <Link to="/tasks" className="text-sm font-semibold text-primary hover:underline">
             Back to tasks
           </Link>
         </div>
@@ -46,7 +48,7 @@ export default function TaskDeletePage() {
   if (loading) {
     return (
       <TaskSectionFrame context="Loading…">
-        <div className={`p-12 text-center text-zinc-400 text-sm animate-pulse ${taskInnerCardClassName()}`}>Loading…</div>
+        <div className={`p-12 text-center text-muted-foreground/70 text-sm animate-pulse ${taskInnerCardClassName()}`}>Loading…</div>
       </TaskSectionFrame>
     );
   }
@@ -55,8 +57,8 @@ export default function TaskDeletePage() {
     return (
       <TaskSectionFrame context={error || 'Task not found.'}>
         <div className={`p-8 ${taskInnerCardClassName()}`}>
-          <p className="text-sm text-red-700">{error || 'Not found'}</p>
-          <Link to="/tasks" className="mt-4 inline-block text-sm font-bold text-emerald-600 hover:underline">
+          <p className="text-sm text-destructive">{error || 'Not found'}</p>
+          <Link to="/tasks" className="mt-4 inline-block text-sm font-semibold text-primary hover:underline">
             Back to tasks
           </Link>
         </div>
@@ -69,41 +71,41 @@ export default function TaskDeletePage() {
       context={
         <>
           This action cannot be undone. You are about to delete{' '}
-          <span className="text-zinc-900">{task.title}</span> ({task.task_number}).
+          <span className="text-foreground">{task.title}</span> ({task.task_number}).
         </>
       }
     >
       <div className={`p-6 max-w-md ${taskInnerCardClassName()}`}>
-        <p className="font-bold text-zinc-900">Delete this task?</p>
-        <p className="text-sm text-zinc-500 mt-1">
+        <p className="font-semibold text-foreground">Delete this task?</p>
+        <p className="text-sm text-muted-foreground mt-1">
           {task.title} ({task.task_number})
         </p>
 
         {deleteError ? (
-          <div className="mt-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm">{deleteError}</div>
+          <div className="mt-4 bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm">{deleteError}</div>
         ) : null}
 
         <div className="flex flex-wrap gap-3 mt-5">
-          <button
+          <Button variant="outline" className="flex-1 min-w-[120px]"
             type="button"
             onClick={() => navigate(`/tasks/${task.id}`)}
-            className="flex-1 min-w-[120px] py-2.5 border border-zinc-200 rounded-xl font-bold text-sm text-zinc-600 hover:bg-zinc-50"
+            
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button variant="destructive" className="flex-1 min-w-[120px]"
             type="button"
             onClick={() => void handleDelete()}
             disabled={deleting}
-            className="flex-1 min-w-[120px] py-2.5 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-2"
+            
           >
             {deleting ? (
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <Spinner className="size-4"  />
             ) : (
               <Trash2 size={16} />
             )}
             Delete
-          </button>
+          </Button>
         </div>
       </div>
     </TaskSectionFrame>

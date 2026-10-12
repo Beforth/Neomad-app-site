@@ -2,12 +2,13 @@ import { memo } from 'react';
 import { Users, ClipboardCheck } from 'lucide-react';
 import type { ApiInvoice } from '../../lib/api';
 import { formatDateTimeIST } from '../../lib/timeUtils';
+import { Badge } from '@/components/ui/badge';
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-700',
-  assigned: 'bg-blue-100 text-blue-700',
-  delivered: 'bg-emerald-100 text-emerald-700',
-  cancelled: 'bg-red-100 text-red-700',
+  pending: 'bg-warning/15 text-warning',
+  assigned: 'bg-info/15 text-info',
+  delivered: 'bg-primary/15 text-accent-foreground',
+  cancelled: 'bg-destructive/15 text-destructive',
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -18,14 +19,14 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  challan: 'bg-amber-50 text-amber-600',
-  price_difference: 'bg-blue-50 text-blue-600',
-  sale_bill: 'bg-emerald-50 text-emerald-600',
+  challan: 'bg-warning/10 text-warning',
+  price_difference: 'bg-info/10 text-info',
+  sale_bill: 'bg-accent text-primary',
   sale_return_credit_note: 'bg-purple-50 text-purple-600',
 };
 
 const typeLabel = (t: string | null | undefined) => TYPE_LABELS[t ?? ''] || t || 'Sale Bill';
-const typeColor = (t: string | null | undefined) => TYPE_COLORS[t ?? ''] || (t ? 'bg-zinc-50 text-zinc-500' : 'bg-emerald-50 text-emerald-600');
+const typeColor = (t: string | null | undefined) => TYPE_COLORS[t ?? ''] || (t ? 'bg-muted text-muted-foreground' : 'bg-accent text-primary');
 
 export interface InvoiceMobileCardProps {
   invoice: ApiInvoice;
@@ -36,7 +37,7 @@ export interface InvoiceMobileCardProps {
 function InvoiceMobileCardInner({ invoice, assigneeLabel, onOpenDetail }: InvoiceMobileCardProps) {
   return (
     <div
-      className="p-4 space-y-2 active:bg-zinc-50 border-b border-zinc-100 cursor-pointer"
+      className="p-4 space-y-2 active:bg-muted border-b border-border cursor-pointer"
       onClick={() => onOpenDetail(invoice)}
       role="button"
       tabIndex={0}
@@ -49,39 +50,39 @@ function InvoiceMobileCardInner({ invoice, assigneeLabel, onOpenDetail }: Invoic
     >
       <div className="flex justify-between items-start">
         <div>
-          <p className="text-xs font-bold text-zinc-400">{invoice.invoice_number}</p>
-          <p className="font-bold text-zinc-900">{invoice.hospital_name}</p>
+          <p className="text-xs font-semibold text-muted-foreground/70">{invoice.invoice_number}</p>
+          <p className="font-semibold text-foreground">{invoice.hospital_name}</p>
           <div className="mt-1">
             {invoice.invoice_type ? (
-              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${typeColor(invoice.invoice_type)}`}>
+              <Badge className={`${typeColor(invoice.invoice_type)}`}>
                 {typeLabel(invoice.invoice_type)}
-              </span>
+              </Badge>
             ) : (
-              <span className="text-[9px] text-zinc-300">—</span>
+              <span className="text-[11px] text-muted-foreground/50">—</span>
             )}
           </div>
           {assigneeLabel !== '—' && (
-            <p className="text-xs text-zinc-500 flex items-center gap-1">
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Users size={12} /> {assigneeLabel}
             </p>
           )}
         </div>
         <div className="flex flex-col items-end gap-1.5">
-          <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${STATUS_COLORS[invoice.status] || 'bg-zinc-100 text-zinc-700'}`}
+          <Badge
+            className={`capitalize ${STATUS_COLORS[invoice.status] || 'bg-secondary text-foreground/85'}`}
           >
             {invoice.status}
-          </span>
+          </Badge>
           {invoice.signed_copy_url && (
-            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg border border-emerald-100">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary bg-accent px-1.5 py-0.5 rounded-lg border border-primary/20">
               <ClipboardCheck size={10} /> Signed
             </span>
           )}
         </div>
       </div>
       <div className="flex justify-between items-end">
-        <p className="text-sm font-bold text-zinc-900">₹{invoice.amount.toLocaleString()}</p>
-        <p className="text-[10px] text-zinc-500">{formatDateTimeIST(invoice.created_at)}</p>
+        <p className="text-sm font-semibold text-foreground">₹{invoice.amount.toLocaleString()}</p>
+        <p className="text-[11px] text-muted-foreground">{formatDateTimeIST(invoice.created_at)}</p>
       </div>
     </div>
   );

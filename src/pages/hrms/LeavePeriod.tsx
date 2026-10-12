@@ -3,10 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Calendar, Plus, Search, XCircle, ToggleLeft, ToggleRight,
-  Pencil, Trash2, X, CheckCircle2, Loader2,
-} from 'lucide-react';
+  Pencil, Trash2, X, CheckCircle2, Loader2, MoreHorizontal } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { listLeavePeriods, updateLeavePeriod, deleteLeavePeriod } from '../../lib/hrmsLeave';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface LeavePeriodItem {
   id: number;
@@ -85,25 +91,17 @@ export default function LeavePeriod() {
   }
 
   const statCards = [
-    { label: 'Total Periods', value: periods.length, icon: Calendar, color: 'bg-blue-50 text-blue-600' },
-    { label: 'Active Period', value: activePeriod?.label || 'None', icon: ToggleRight, color: 'bg-emerald-50 text-emerald-600', small: true },
+    { label: 'Total Periods', value: periods.length, icon: Calendar, color: 'bg-info/10 text-info' },
+    { label: 'Active Period', value: activePeriod?.label || 'None', icon: ToggleRight, color: 'bg-accent text-primary', small: true },
   ];
 
   return (
     <div className="space-y-6">
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Leave Period</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">Manage leave cycles and financial years</p>
-        </div>
-        <button onClick={() => navigate('/hrms/leave/period/new')} className="self-start sm:self-auto flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+      <PageHeader title="Leave Period" description="Manage leave cycles and financial years" actions={<>
+<Button variant="dark" size="sm" className="self-start sm:self-auto" onClick={() => navigate('/hrms/leave/period/new')} >
           <Plus size={14} />Add Period
-        </button>
-      </motion.header>
+        </Button>
+</>} />
 
       <div className="grid grid-cols-2 gap-3">
         {statCards.map((card, i) => (
@@ -112,16 +110,16 @@ export default function LeavePeriod() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.04 }}
-            className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm"
+            className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
           >
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${card.color}`}>
               <card.icon size={18} />
             </div>
             <div className="min-w-0">
-              <p className={`${card.small ? 'text-sm' : 'text-lg'} font-extrabold text-zinc-900 leading-none truncate`}>
+              <p className={`${card.small ? 'text-sm' : 'text-lg'} font-semibold text-foreground leading-none truncate`}>
                 {card.value}
               </p>
-              <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">
+              <p className="text-xs font-medium text-muted-foreground/70 mt-1 truncate">
                 {card.label}
               </p>
             </div>
@@ -129,50 +127,45 @@ export default function LeavePeriod() {
         ))}
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center"
-      >
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+          <Input data-search="" className="w-full pl-9 pr-4"
             type="text"
             placeholder="Search periods..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+            
           />
         </div>
         {search && (
           <button
             onClick={() => setSearch('')}
-            className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors"
+            className="text-xs text-muted-foreground/70 hover:text-foreground/85 flex items-center gap-1 transition-colors"
           >
             <XCircle size={12} />Clear
           </button>
         )}
-      </motion.div>
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+        className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
       >
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-zinc-50/50 border-b border-zinc-100">
-              <tr>
+          <Table>
+            <TableHeader>
+              <TableRow>
                 {['Period', 'Start Date', 'End Date', 'Status', 'Actions'].map((label) => (
-                  <th key={label} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">
+                  <TableHead key={label} className="uppercase whitespace-nowrap">
                     {label}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-50">
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filtered.map((p, i) => (
                 <motion.tr
                   key={p.id}
@@ -180,56 +173,43 @@ export default function LeavePeriod() {
                   animate={{ opacity: 1 }}
                   transition={{ delay: i * 0.02 }}
                   onClick={() => navigate(`/hrms/leave/period/${p.id}`)}
-                  className="hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                  className="border-b transition-colors hover:bg-muted/70 cursor-pointer"
                 >
-                  <td className="px-4 py-3 text-xs font-bold text-zinc-900">{p.label}</td>
-                  <td className="px-4 py-3 text-xs text-zinc-500">{p.startDate}</td>
-                  <td className="px-4 py-3 text-xs text-zinc-500">{p.endDate}</td>
-                  <td className="px-4 py-3">
+                  <TableCell className="font-semibold text-foreground">{p.label}</TableCell>
+                  <TableCell className="text-muted-foreground">{p.startDate}</TableCell>
+                  <TableCell className="text-muted-foreground">{p.endDate}</TableCell>
+                  <TableCell>
                     {p.isActive ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600">
+                      <Badge variant="success" >
                         <ToggleRight size={12} /> Active
-                      </span>
+                      </Badge>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-500">
+                      <Badge>
                         <ToggleLeft size={12} /> Inactive
-                      </span>
+                      </Badge>
                     )}
-                  </td>
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => navigate(`/hrms/leave/period/edit/${p.id}`)}
-                        className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                        title="Edit"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(p)}
-                        className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                  </TableCell>
+                  <TableCell className="w-10 pl-0" onClick={(e) => e.stopPropagation()}>
+<DropdownMenu>
+<DropdownMenuTrigger asChild>
+<Button variant="ghost" size="icon-sm" data-row-menu="" aria-label="Row actions"><MoreHorizontal /></Button>
+</DropdownMenuTrigger>
+<DropdownMenuContent align="end" className="w-52">
+<DropdownMenuItem onSelect={() => navigate(`/hrms/leave/period/edit/${p.id}`)}><Pencil /> Edit</DropdownMenuItem>
+                      <DropdownMenuItem destructive onSelect={() => setDeleteTarget(p)}><Trash2 /> Delete</DropdownMenuItem>
                       {!p.isActive && (
-                        <button
-                          onClick={() => toggleActive(p.id)}
-                          className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
-                          title="Set Active"
-                        >
-                          <CheckCircle2 size={14} />
-                        </button>
+                        <DropdownMenuItem onSelect={() => toggleActive(p.id)}><CheckCircle2 /> Set Active</DropdownMenuItem>
                       )}
-                    </div>
-                  </td>
+</DropdownMenuContent>
+</DropdownMenu>
+</TableCell>
                 </motion.tr>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
-        <div className="md:hidden divide-y divide-zinc-100">
+        <div className="md:hidden divide-y divide-border">
           {filtered.map((p, i) => (
               <motion.div
                 key={p.id}
@@ -240,45 +220,45 @@ export default function LeavePeriod() {
                 className="p-4 space-y-2 cursor-pointer"
               >
               <div className="flex items-start justify-between">
-                <p className="text-xs font-bold text-zinc-900">{p.label}</p>
+                <p className="text-xs font-semibold text-foreground">{p.label}</p>
                 {p.isActive ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600">
+                  <Badge variant="success" >
                     Active
-                  </span>
+                  </Badge>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-500">
+                  <Badge>
                     Inactive
-                  </span>
+                  </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-3 text-[10px] text-zinc-500">
+              <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                 <span>{p.startDate}</span>
                 <span>→</span>
                 <span>{p.endDate}</span>
               </div>
               <div className="flex items-center gap-1 pt-1">
-                <button
+                <Button variant="ghost" size="icon-sm" className="hover:text-warning hover:bg-warning/10"
                   onClick={() => navigate(`/hrms/leave/period/edit/${p.id}`)}
-                  className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                  
                   title="Edit"
                 >
                   <Pencil size={14} />
-                </button>
-                <button
+                </Button>
+                <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10"
                   onClick={() => setDeleteTarget(p)}
-                  className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  
                   title="Delete"
                 >
                   <Trash2 size={14} />
-                </button>
+                </Button>
                 {!p.isActive && (
-                  <button
+                  <Button variant="ghost" size="icon-sm" className="hover:text-primary hover:bg-accent"
                     onClick={() => toggleActive(p.id)}
-                    className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                    
                     title="Set Active"
                   >
                     <CheckCircle2 size={14} />
-                  </button>
+                  </Button>
                 )}
               </div>
             </motion.div>
@@ -287,37 +267,32 @@ export default function LeavePeriod() {
       </motion.div>
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-          onClick={() => setDeleteTarget(null)} role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden"
-          >
-            <div className="p-6 border-b border-zinc-100 relative">
-              <button type="button" onClick={() => setDeleteTarget(null)}
-                className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => setDeleteTarget(null))(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-md overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-6 border-b border-border relative">
+              <Button variant="ghost" size="icon-sm" className="absolute top-6 right-6" type="button" onClick={() => setDeleteTarget(null)}
+                >
                 <X size={18} />
-              </button>
-              <h3 className="text-lg font-bold text-zinc-900">Delete leave period?</h3>
-              <p className="text-sm text-zinc-600 mt-2">
-                <span className="font-semibold text-zinc-800">{deleteTarget.label}</span>
+              </Button>
+              <h3 className="text-lg font-semibold text-foreground">Delete leave period?</h3>
+              <p className="text-sm text-foreground/70 mt-2">
+                <span className="font-semibold text-foreground">{deleteTarget.label}</span>
               </p>
-              <p className="text-xs text-red-600 font-medium mt-2">This action cannot be undone.</p>
+              <p className="text-xs text-destructive font-medium mt-2">This action cannot be undone.</p>
             </div>
-            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
-              <button type="button" onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
+            <div className="p-4 flex gap-2 justify-end bg-muted/80">
+              <Button variant="outline" size="sm" type="button" onClick={() => setDeleteTarget(null)}
+                >
                 Cancel
-              </button>
-              <button type="button" onClick={confirmDelete}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors">
+              </Button>
+              <Button variant="outline" size="sm" className="border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/15" type="button" onClick={confirmDelete}
+                >
                 <Trash2 size={16} /> Delete
-              </button>
+              </Button>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
     </div>
   );

@@ -4,6 +4,9 @@ import { motion } from 'motion/react';
 import { Save } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import SearchableSelect from '../../components/SearchableSelect';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input, fieldClass } from '@/components/ui/input';
 import {
   getLeavePeriod,
   createLeavePeriod,
@@ -12,7 +15,7 @@ import {
   type HolidayListOut,
 } from '../../lib/hrmsLeave';
 
-const inputClass = "w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all";
+const inputClass = fieldClass;
 
 export default function LeavePeriodForm() {
   const navigate = useNavigate();
@@ -105,12 +108,12 @@ export default function LeavePeriodForm() {
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <h3 className="text-sm font-bold text-zinc-900 mb-1">Leave period not found</h3>
-          <p className="text-xs text-zinc-400 mb-4">The leave period you're trying to edit doesn't exist.</p>
-          <button onClick={() => navigate('/hrms/leave/period')}
-            className="px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors">
+          <h3 className="text-sm font-semibold text-foreground mb-1">Leave period not found</h3>
+          <p className="text-xs text-muted-foreground/70 mb-4">The leave period you're trying to edit doesn't exist.</p>
+          <Button variant="dark" size="sm" onClick={() => navigate('/hrms/leave/period')}
+            >
             Back to Leave Periods
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -123,20 +126,20 @@ export default function LeavePeriodForm() {
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center gap-3"
       >
-        <button
+        <Button variant="ghost" size="icon-sm"
           onClick={() => navigate('/hrms/leave/period')}
-          className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+          
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
-        </button>
+        </Button>
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{isEdit ? 'Edit Leave Period' : 'New Leave Period'}</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">{isEdit ? 'Update the leave cycle details' : 'Create a new leave cycle'}</p>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">{isEdit ? 'Edit Leave Period' : 'New Leave Period'}</h1>
+          <p className="text-[13px] text-muted-foreground">{isEdit ? 'Update the leave cycle details' : 'Create a new leave cycle'}</p>
         </div>
       </motion.div>
 
       {errorMsg && (
-        <div className="p-3 bg-red-50 text-red-700 rounded-xl text-xs font-medium border border-red-200">
+        <div className="p-3 bg-destructive/10 text-destructive rounded-xl text-xs font-medium border border-destructive/20">
           {errorMsg}
         </div>
       )}
@@ -146,20 +149,20 @@ export default function LeavePeriodForm() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
       >
-        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm">
+        <Card>
           <form onSubmit={handleSave}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-5">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Period Label *</label>
-                  <input type="text" required value={label}
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Period Label *</label>
+                  <Input type="text" required value={label}
                     onChange={(e) => setLabel(e.target.value)}
                     placeholder="e.g. FY 2027–2028"
-                    className={inputClass} />
+                     />
                 </div>
                 <div>
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${isActive ? 'bg-zinc-900' : 'border-2 border-zinc-400 hover:border-zinc-600'}`}>
+                    <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${isActive ? 'bg-foreground' : 'border-2 border-input hover:border-muted-foreground'}`}>
                       <input type="checkbox" checked={isActive}
                         onChange={() => setIsActive((v) => !v)}
                         className="sr-only" />
@@ -170,11 +173,11 @@ export default function LeavePeriodForm() {
                         </svg>
                       )}
                     </span>
-                    <span className="text-sm text-zinc-700">Set as Active Period</span>
+                    <span className="text-sm text-foreground/85">Set as Active Period</span>
                   </label>
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Holidays for Optional Leaves</label>
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Holidays for Optional Leaves</label>
                   <SearchableSelect
                     value={holidayListId}
                     onChange={handleHolidayChange}
@@ -185,8 +188,8 @@ export default function LeavePeriodForm() {
                     const found = holidayLists.find((h) => String(h.id) === holidayListId);
                     if (!found) return null;
                     return (
-                      <div className="mt-2 text-[11px] text-zinc-500 bg-zinc-50 rounded-lg px-3 py-2 border border-zinc-100">
-                        <span className="font-medium text-zinc-700">{found.name}</span>
+                      <div className="mt-2 text-[11px] text-muted-foreground bg-muted rounded-lg px-3 py-2 border border-border">
+                        <span className="font-medium text-foreground/85">{found.name}</span>
                         <span className="mx-1.5">·</span>
                         <span>{found.holidays?.length ?? 0} holidays</span>
                         {found.from_date && found.to_date && (
@@ -200,34 +203,34 @@ export default function LeavePeriodForm() {
                   })()}
                 </div>
               </div>
-              <div className="border-t lg:border-t-0 lg:border-l border-zinc-200 pt-4 lg:pt-0 lg:pl-6 space-y-4">
+              <div className="border-t lg:border-t-0 lg:border-l border-border pt-4 lg:pt-0 lg:pl-6 space-y-4">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Start Date *</label>
-                  <input type="date" required value={startDate}
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Start Date *</label>
+                  <Input type="date" required value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className={inputClass} />
+                     />
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">End Date *</label>
-                  <input type="date" required value={endDate}
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">End Date *</label>
+                  <Input type="date" required value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className={inputClass} />
+                     />
                 </div>
               </div>
             </div>
 
-            <div className="border-t border-zinc-200 p-5 flex gap-3">
-              <button type="button" onClick={() => navigate('/hrms/leave/period')}
-                className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
+            <div className="border-t border-border p-5 flex gap-3">
+              <Button variant="secondary" className="flex-1" type="button" onClick={() => navigate('/hrms/leave/period')}
+                >
                 Cancel
-              </button>
-              <button type="submit" disabled={saving || !label.trim() || !startDate || !endDate}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              </Button>
+              <Button variant="dark" className="flex-1" type="submit" disabled={saving || !label.trim() || !startDate || !endDate}
+                >
                 <Save size={16} /> {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Period'}
-              </button>
+              </Button>
             </div>
           </form>
-        </div>
+        </Card>
       </motion.div>
     </div>
   );

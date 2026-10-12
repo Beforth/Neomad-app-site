@@ -5,6 +5,10 @@ import type { ShiftType } from '../../lib/api';
 import SearchableSelect from '../../components/SearchableSelect';
 import { getUsers, mapBackendRoleToFrontend } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input, fieldClass } from '@/components/ui/input';
 import {
   listShiftTypes,
   getShiftAssignment,
@@ -16,14 +20,14 @@ import {
   type ShiftAssignment,
 } from '../../lib/hrmsShifts';
 
-const inputClassName = "w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all";
+const inputClassName = fieldClass;
 
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-zinc-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-foreground/85 mb-1">{label}</label>
       {children}
-      {hint && <p className="text-xs text-zinc-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground/70 mt-1">{hint}</p>}
     </div>
   );
 }
@@ -204,18 +208,18 @@ export default function ShiftAssignNew() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/hrms/shifts/assign')}
-            className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+          <Button variant="ghost" size="icon-sm" onClick={() => navigate('/hrms/shifts/assign')}
+            >
             <ArrowLeft size={20} />
-          </button>
+          </Button>
           <div>
-            <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{editAllocId ? 'Edit Allocation' : 'Assign Shift'}</h1>
-            <p className="text-sm text-zinc-500 mt-1">Loading…</p>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">{editAllocId ? 'Edit Allocation' : 'Assign Shift'}</h1>
+            <p className="text-[13px] text-muted-foreground">Loading…</p>
           </div>
         </div>
-        <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm p-12 text-center text-sm text-zinc-400">
+        <Card className="p-12 text-center text-sm text-muted-foreground/70" >
           Loading assignment form…
-        </div>
+        </Card>
       </div>
     );
   }
@@ -223,21 +227,21 @@ export default function ShiftAssignNew() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/hrms/shifts/assign')}
-          className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+        <Button variant="ghost" size="icon-sm" onClick={() => navigate('/hrms/shifts/assign')}
+          >
           <ArrowLeft size={20} />
-        </button>
+        </Button>
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{editAllocId ? 'Edit Allocation' : 'Assign Shift'}</h1>
-          <p className="text-sm text-zinc-500 mt-1">{editAllocId ? 'Update an existing shift allocation' : 'Assign a shift type to an employee for specific dates'}</p>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">{editAllocId ? 'Edit Allocation' : 'Assign Shift'}</h1>
+          <p className="text-[13px] text-muted-foreground">{editAllocId ? 'Update an existing shift allocation' : 'Assign a shift type to an employee for specific dates'}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-zinc-100">
-            <h3 className="font-bold text-zinc-900 flex items-center gap-2"><Users size={18} /> Employee & Shift</h3>
-            <p className="text-xs text-zinc-400 mt-1">Select the employee and the shift type to assign</p>
+        <Card className="overflow-hidden" >
+          <div className="p-5 border-b border-border">
+            <h3 className="font-semibold text-foreground flex items-center gap-2"><Users size={18} /> Employee & Shift</h3>
+            <p className="text-xs text-muted-foreground/70 mt-1">Select the employee and the shift type to assign</p>
           </div>
           <form onSubmit={handleSave}>
             <div className="p-5 space-y-5">
@@ -259,117 +263,117 @@ export default function ShiftAssignNew() {
               </Field>
             </div>
           </form>
-        </div>
+        </Card>
 
-        <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-zinc-100">
-            <h3 className="font-bold text-zinc-900 flex items-center gap-2"><Clock size={18} /> Date Range</h3>
-            <p className="text-xs text-zinc-400 mt-1">Set the date or date range for this allocation</p>
+        <Card className="overflow-hidden" >
+          <div className="p-5 border-b border-border">
+            <h3 className="font-semibold text-foreground flex items-center gap-2"><Clock size={18} /> Date Range</h3>
+            <p className="text-xs text-muted-foreground/70 mt-1">Set the date or date range for this allocation</p>
           </div>
           <form onSubmit={handleSave}>
             <div className="p-5 space-y-5">
               <Field label="Date From">
-                <input type="date" required value={form.date_from}
+                <Input type="date" required value={form.date_from}
                   onChange={e => setForm(f => ({ ...f, date_from: e.target.value }))}
-                  className={inputClassName} />
+                   />
               </Field>
               <Field label="Date To" hint="Leave empty for single day">
-                <input type="date" value={form.date_to}
+                <Input type="date" value={form.date_to}
                   onChange={e => setForm(f => ({ ...f, date_to: e.target.value }))}
-                  className={inputClassName} />
+                   />
               </Field>
             </div>
           </form>
-        </div>
+        </Card>
       </div>
 
       <div className="flex items-center justify-end gap-3 pt-2">
-        <button onClick={() => navigate('/hrms/shifts/assign')}
-          className="px-6 py-2.5 bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 rounded-xl text-sm font-medium transition-colors">
+        <Button variant="outline" onClick={() => navigate('/hrms/shifts/assign')}
+          >
           Cancel
-        </button>
-        <button onClick={() => handleSave()} disabled={!canManage || submitting}
-          className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+        </Button>
+        <Button onClick={() => handleSave()} disabled={!canManage || submitting}
+          >
           <Save size={16} /> {submitting ? 'Saving…' : editAllocId ? 'Save Changes' : 'Assign'}
-        </button>
+        </Button>
       </div>
 
       {toast && (
-        <div className="fixed top-6 right-6 z-50 bg-zinc-900 text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
+        <div className="fixed top-6 right-6 z-50 bg-foreground text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
           {toast}
         </div>
       )}
 
       {/* Conflict Warning Modal */}
       {showConflictModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-foreground/50 backdrop-blur-sm"
           onClick={() => { if (!replacing) { setShowConflictModal(false); setConflicts([]); setPendingPayload(null); } }}
           role="dialog" aria-modal="true">
-          <div
+          <Card className="w-full max-w-lg overflow-hidden"
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-lg overflow-hidden"
+            
           >
-            <div className="p-6 border-b border-zinc-100">
+            <div className="p-6 border-b border-border">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-                  <AlertTriangle size={20} className="text-amber-600" />
+                <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
+                  <AlertTriangle size={20} className="text-warning" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-lg font-bold text-zinc-900">Shift Conflict Detected</h3>
-                  <p className="text-sm text-zinc-500 mt-1">
+                  <h3 className="text-lg font-semibold text-foreground">Shift Conflict Detected</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
                     This employee already has {conflicts.length} active shift assignment{conflicts.length !== 1 ? 's' : ''} overlapping the selected dates.
                   </p>
                 </div>
-                <button
+                <Button variant="ghost" size="icon-sm" className="shrink-0"
                   onClick={() => { setShowConflictModal(false); setConflicts([]); setPendingPayload(null); }}
-                  className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors shrink-0"
+                  
                 >
                   <X size={18} />
-                </button>
+                </Button>
               </div>
             </div>
 
             <div className="p-5 max-h-60 overflow-y-auto">
               <div className="space-y-3">
                 {conflicts.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between p-3 bg-zinc-50 rounded-xl border border-zinc-100">
+                  <div key={c.id} className="flex items-center justify-between p-3 bg-muted rounded-xl border border-border">
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-zinc-900">{c.shift_type_name}</p>
-                      <p className="text-xs text-zinc-500 mt-0.5">
+                      <p className="text-sm font-semibold text-foreground">{c.shift_type_name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {c.effective_from} {c.effective_to ? `— ${c.effective_to}` : '(open-ended)'}
                       </p>
-                      <p className="text-xs text-zinc-400 mt-0.5 capitalize">{c.schedule_type?.replace('_', ' ')}</p>
+                      <p className="text-xs text-muted-foreground/70 mt-0.5 capitalize">{c.schedule_type?.replace('_', ' ')}</p>
                     </div>
-                    <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full shrink-0 ml-2">
+                    <Badge variant="warning" className="shrink-0 ml-2" >
                       Will be cancelled
-                    </span>
+                    </Badge>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="p-5 border-t border-zinc-100 bg-zinc-50/80 flex items-center justify-between gap-3">
-              <p className="text-xs text-zinc-400">
+            <div className="p-5 border-t border-border bg-muted/80 flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground/70">
                 The existing assignments will end on {pendingPayload?.effective_from || 'the start date'}.
               </p>
               <div className="flex gap-2">
-                <button
+                <Button variant="outline" size="sm"
                   onClick={() => { setShowConflictModal(false); setConflicts([]); setPendingPayload(null); }}
                   disabled={replacing}
-                  className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                  
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button size="sm" className="bg-warning text-white hover:bg-warning hover:text-white bg-warning text-white hover:bg-warning"
                   onClick={handleReplace}
                   disabled={replacing}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition-colors disabled:opacity-60"
+                  
                 >
                   {replacing ? 'Replacing…' : `Replace & Assign (${conflicts.length})`}
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </div>

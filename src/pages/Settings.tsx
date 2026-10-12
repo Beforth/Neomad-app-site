@@ -7,6 +7,12 @@ import {
   listApiKeys, createApiKey, toggleApiKey, deleteApiKey,
 } from '../lib/api';
 import type { ProviderApiKeyItem } from '../lib/api';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 const DUMMY_API_KEYS: ProviderApiKeyItem[] = [
   { id: 1, provider: 'groq', label: 'Production Key', key_preview: 'gsk_****8f3a', is_active: true, failure_count: 0, last_failure_at: null, created_at: '2025-11-10T09:00:00Z' },
@@ -98,73 +104,69 @@ export default function Settings() {
   };
 
   if (user?.role !== 'admin') {
-    return <p className="text-sm text-zinc-500 p-8">Only admins can access settings.</p>;
+    return <p className="text-sm text-muted-foreground p-8">Only admins can access settings.</p>;
   }
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Settings</h1>
-          <p className="text-xs text-zinc-500 font-medium">Manage API keys and configuration</p>
-        </div>
-        <button
+      <PageHeader title="Settings" description="Manage API keys and configuration" actions={<>
+<Button variant="outline" size="sm"
           type="button"
           onClick={fetchKeys}
           disabled={loading}
-          className="bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
+          
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
-        </button>
-      </header>
+        </Button>
+</>} />
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg flex items-center justify-between gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm px-4 py-2 rounded-lg flex items-center justify-between gap-2">
           <span className="flex items-center gap-2"><AlertCircle size={16} /> {error}</span>
-          <button onClick={() => setError('')} className="text-xs font-bold text-red-800 hover:underline">Dismiss</button>
+          <button onClick={() => setError('')} className="text-xs font-semibold text-destructive hover:underline">Dismiss</button>
         </div>
       )}
 
       {/* API Keys Section */}
-      <div className="bg-white border border-zinc-100 rounded-xl shadow-sm">
-        <div className="p-4 border-b border-zinc-100 flex items-center justify-between">
+      <Card>
+        <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Key size={16} className="text-zinc-500" />
-            <h2 className="font-bold text-zinc-900 text-sm">Provider API Keys</h2>
-            <span className="text-[10px] text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded-full font-medium">
+            <Key size={16} className="text-muted-foreground" />
+            <h2 className="font-semibold text-foreground text-sm">Provider API Keys</h2>
+            <Badge>
               {keys.length}
-            </span>
+            </Badge>
           </div>
-          <button
+          <Button variant="dark" size="sm"
             type="button"
             onClick={() => { setShowAdd(true); setAddError(''); setAddKey(''); }}
-            className="bg-zinc-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors flex items-center gap-1.5"
+            
           >
             <Plus size={14} /> Add Key
-          </button>
+          </Button>
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-xs text-zinc-400">Loading...</div>
+          <div className="p-8 text-center text-xs text-muted-foreground/70">Loading...</div>
         ) : keys.length === 0 ? (
           <div className="p-8 text-center">
-            <Key size={24} className="mx-auto text-zinc-200 mb-2" />
-            <p className="text-xs text-zinc-400">No API keys configured. Add a Groq or Gemini key to enable AI-based invoice parsing.</p>
+            <Key size={24} className="mx-auto text-border mb-2" />
+            <p className="text-xs text-muted-foreground/70">No API keys configured. Add a Groq or Gemini key to enable AI-based invoice parsing.</p>
           </div>
         ) : (
-          <div className="divide-y divide-zinc-50">
+          <div className="divide-y divide-border">
             {keys.map((key) => (
-              <div key={key.id} className="px-4 py-3 flex items-center justify-between hover:bg-zinc-50/50 transition-colors">
+              <div key={key.id} className="px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${key.is_active ? 'bg-emerald-400' : 'bg-zinc-200'}`} />
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${key.is_active ? 'bg-primary/80' : 'bg-border'}`} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-zinc-900 capitalize">{key.provider}</span>
-                      {key.label && <span className="text-[10px] text-zinc-400">· {key.label}</span>}
+                      <span className="text-xs font-semibold text-foreground capitalize">{key.provider}</span>
+                      {key.label && <span className="text-[11px] text-muted-foreground/70">· {key.label}</span>}
                     </div>
-                    <p className="text-[10px] font-mono text-zinc-400">{key.key_preview}</p>
+                    <p className="text-[11px] font-mono text-muted-foreground/70">{key.key_preview}</p>
                     {key.failure_count > 0 && (
-                      <p className="text-[10px] text-amber-500">{key.failure_count} failure(s)</p>
+                      <p className="text-[11px] text-warning">{key.failure_count} failure(s)</p>
                     )}
                   </div>
                 </div>
@@ -174,43 +176,44 @@ export default function Settings() {
                     onClick={() => handleToggle(key)}
                     className={`p-1.5 rounded-lg transition-colors ${
                       key.is_active
-                        ? 'text-emerald-500 hover:bg-emerald-50'
-                        : 'text-zinc-300 hover:bg-zinc-100'
+                        ? 'text-primary hover:bg-accent'
+                        : 'text-muted-foreground/50 hover:bg-secondary'
                     }`}
                     aria-label={key.is_active ? 'Deactivate key' : 'Activate key'}
                   >
                     <CheckCircle2 size={14} />
                   </button>
-                  <button
+                  <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10"
                     type="button"
                     onClick={() => handleDelete(key)}
-                    className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    
                     aria-label="Delete key"
                   >
                     <X size={14} />
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Add Key Modal */}
       {showAdd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-zinc-100 flex justify-between items-center bg-zinc-50 relative">
-              <h3 className="font-bold text-zinc-900">Add API Key</h3>
-              <button onClick={() => setShowAdd(false)} className="text-zinc-400 hover:text-zinc-600 absolute right-4">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => {})(); }}>
+<DialogContent hideClose aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="gap-0 p-0 max-w-md overflow-hidden flex flex-col">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-4 border-b border-border flex justify-between items-center bg-muted relative">
+              <h3 className="font-semibold text-foreground">Add API Key</h3>
+              <button onClick={() => setShowAdd(false)} className="text-muted-foreground/70 hover:text-foreground/70 absolute right-4">
                 <XCircle size={18} />
               </button>
             </div>
             <div className="p-4 space-y-3">
-              {addError && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{addError}</p>}
+              {addError && <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{addError}</p>}
 
               <div>
-                <label className="block text-xs font-bold text-zinc-500 mb-1">Provider</label>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">Provider</label>
                 <div className="flex gap-2">
                   {(['groq', 'gemini'] as const).map((p) => (
                     <button
@@ -219,8 +222,8 @@ export default function Settings() {
                       onClick={() => setAddProvider(p)}
                       className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${
                         addProvider === p
-                          ? 'bg-zinc-900 text-white border-zinc-900'
-                          : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50'
+                          ? 'bg-foreground text-white border-foreground'
+                          : 'bg-card text-foreground/70 border-border hover:bg-muted'
                       }`}
                     >
                       {p === 'groq' ? 'Groq' : 'Gemini'}
@@ -230,43 +233,43 @@ export default function Settings() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-zinc-500 mb-1">Label (optional)</label>
-                <input
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">Label (optional)</label>
+                <Input className="w-full"
                   type="text"
                   placeholder="e.g. Groq key 1"
                   value={addLabel}
                   onChange={(e) => setAddLabel(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5"
+                  
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-zinc-500 mb-1">API Key</label>
-                <input
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">API Key</label>
+                <Input className="w-full font-mono"
                   type="password"
                   placeholder="gsk_..."
                   value={addKey}
                   onChange={(e) => setAddKey(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 font-mono"
+                  
                 />
-                <p className="text-[10px] text-zinc-400 mt-1">The key will be encrypted and never shown again.</p>
+                <p className="text-[11px] text-muted-foreground/70 mt-1">The key will be encrypted and never shown again.</p>
               </div>
 
               <div className="flex gap-2 justify-end pt-2">
-                <button onClick={() => setShowAdd(false)} className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-600 hover:bg-zinc-50">
+                <Button variant="outline" size="sm" onClick={() => setShowAdd(false)} >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button variant="dark" size="sm"
                   disabled={addBusy || !addKey.trim()}
                   onClick={handleAdd}
-                  className="px-4 py-2 rounded-xl bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 disabled:opacity-50"
+                  
                 >
                   {addBusy ? 'Adding…' : 'Add Key'}
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
     </div>
   );

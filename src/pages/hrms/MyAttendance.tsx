@@ -30,13 +30,21 @@ import {
   type AttendanceRequestOut,
 } from '../../lib/hrmsApi';
 
+import Modal from '../../components/Modal';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input, Textarea, fieldClass } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { Segmented } from '@/components/ui/segmented';
+import { EmptyState } from '@/components/ui/empty-state';
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<string, string> = {
-  present:  'bg-emerald-50 text-emerald-700 border-emerald-100',
-  absent:   'bg-red-50 text-red-700 border-red-100',
-  late:     'bg-amber-50 text-amber-700 border-amber-100',
-  half_day: 'bg-blue-50 text-blue-700 border-blue-100',
+  present:  'bg-accent text-accent-foreground border-primary/20',
+  absent:   'bg-destructive/10 text-destructive border-destructive/20',
+  late:     'bg-warning/10 text-warning border-warning/25',
+  half_day: 'bg-info/10 text-info border-info/25',
   overtime: 'bg-violet-50 text-violet-700 border-violet-100',
 };
 
@@ -49,10 +57,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_DOT: Record<string, string> = {
-  present:  'bg-emerald-400',
-  absent:   'bg-red-400',
-  late:     'bg-amber-400',
-  half_day: 'bg-blue-400',
+  present:  'bg-primary/80',
+  absent:   'bg-destructive/80',
+  late:     'bg-warning/80',
+  half_day: 'bg-info/80',
   overtime: 'bg-violet-400',
 };
 
@@ -63,8 +71,8 @@ const REQUEST_TYPE_LABELS: Record<string, string> = {
 };
 
 const REQUEST_TYPE_STYLES: Record<string, string> = {
-  regularization: 'bg-zinc-50 text-zinc-600',
-  half_day: 'bg-blue-50 text-blue-700',
+  regularization: 'bg-muted text-foreground/70',
+  half_day: 'bg-info/10 text-info',
   full_day_change: 'bg-violet-50 text-violet-700',
 };
 
@@ -82,7 +90,7 @@ const OFFICE_NAME = 'Neomed Office, Nashik';
 const DEFAULT_SHIFT_START = '09:00';
 const DEFAULT_SHIFT_END   = '18:00';
 
-const inputClassName = "w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all";
+const inputClassName = fieldClass;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -123,27 +131,6 @@ function monthEndStr(year: number, month: number) {
 
 // ─── Modal ───────────────────────────────────────────────────────────────────
 
-function Modal({ title, onClose, children, closeOnBackdropClick = true }: {
-  title: string; onClose: () => void; children: React.ReactNode; closeOnBackdropClick?: boolean;
-}) {
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') { if (closeOnBackdropClick) onClose(); else e.preventDefault(); }
-  };
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-      onClick={closeOnBackdropClick ? onClose : undefined} onKeyDown={handleKeyDown} role="dialog" aria-modal="true">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-        onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-        <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
-          <h3 className="font-bold text-zinc-900">{title}</h3>
-          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors"><X size={20} /></button>
-        </div>
-        {children}
-      </motion.div>
-    </div>
-  );
-}
-
 // ─── TodayCard ────────────────────────────────────────────────────────────────
 
 function TodayCard({ record }: { record: AttendanceRecordOut | null }) {
@@ -154,16 +141,16 @@ function TodayCard({ record }: { record: AttendanceRecordOut | null }) {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm"
+        className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
       >
-        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">Today · {todayLabel}</p>
+        <p className="text-xs font-medium text-muted-foreground/70 mb-3">Today · {todayLabel}</p>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-zinc-50 flex items-center justify-center">
-            <CalendarCheck size={18} className="text-zinc-300" />
+          <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+            <CalendarCheck size={18} className="text-muted-foreground/50" />
           </div>
           <div>
-            <p className="text-sm font-bold text-zinc-400">No record yet</p>
-            <p className="text-xs text-zinc-300 mt-0.5">Your attendance hasn't been marked today</p>
+            <p className="text-sm font-semibold text-muted-foreground/70">No record yet</p>
+            <p className="text-xs text-muted-foreground/50 mt-0.5">Your attendance hasn't been marked today</p>
           </div>
         </div>
       </motion.div>
@@ -176,10 +163,10 @@ function TodayCard({ record }: { record: AttendanceRecordOut | null }) {
   const isLate = record.status === 'late' || late > 30;
 
   const statusBg: Record<string, string> = {
-    present:  'bg-emerald-500',
-    absent:   'bg-red-500',
-    late:     'bg-amber-500',
-    half_day: 'bg-blue-500',
+    present:  'bg-primary',
+    absent:   'bg-destructive',
+    late:     'bg-warning',
+    half_day: 'bg-info',
     overtime: 'bg-violet-500',
   };
 
@@ -187,51 +174,51 @@ function TodayCard({ record }: { record: AttendanceRecordOut | null }) {
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm"
+      className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
     >
-      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">Today · {todayLabel}</p>
+      <p className="text-xs font-medium text-muted-foreground/70 mb-3">Today · {todayLabel}</p>
       <div className="flex items-center gap-3 flex-wrap">
-        <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-xs font-bold ${isLate ? statusBg.late : statusBg[record.status]}`}>
-          <span className="w-1.5 h-1.5 rounded-full bg-white/50" />
+        <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-white text-xs font-semibold ${isLate ? statusBg.late : statusBg[record.status]}`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-card/50" />
           {isLate ? 'Late' : STATUS_LABELS[record.status]}
         </span>
         {(record.source === 'admin' || record.marked_by != null) && (
-          <span className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-bold uppercase tracking-wide">
+          <span className="px-2.5 py-1 rounded-lg bg-warning/15 text-warning text-xs font-medium">
             Admin
           </span>
         )}
         {record.check_in && (
-          <span className="flex items-center gap-1 text-xs text-zinc-600">
-            <LogIn size={13} className="text-emerald-500" />
-            <span className="font-bold">{record.check_in}</span>
-            {late > 0 && <span className="text-amber-500 font-semibold ml-0.5">({late}m late)</span>}
+          <span className="flex items-center gap-1 text-xs text-foreground/70">
+            <LogIn size={13} className="text-primary" />
+            <span className="font-semibold">{record.check_in}</span>
+            {late > 0 && <span className="text-warning font-semibold ml-0.5">({late}m late)</span>}
           </span>
         )}
         {record.check_out && (
-          <span className="flex items-center gap-1 text-xs text-zinc-600">
-            <LogOut size={13} className="text-red-400" />
-            <span className="font-bold">{record.check_out}</span>
+          <span className="flex items-center gap-1 text-xs text-foreground/70">
+            <LogOut size={13} className="text-destructive" />
+            <span className="font-semibold">{record.check_out}</span>
           </span>
         )}
         {record.hours_worked > 0 && (
-          <span className="flex items-center gap-1 text-xs text-zinc-500">
-            <Clock size={13} className="text-zinc-400" />
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Clock size={13} className="text-muted-foreground/70" />
             <span className="font-semibold">{formatHours(record.hours_worked)}</span>
           </span>
         )}
         {(record.penalty_amount ?? 0) > 0 && (
-          <span className="text-xs font-semibold text-rose-600">−₹{record.penalty_amount}</span>
+          <span className="text-xs font-semibold text-destructive">−₹{record.penalty_amount}</span>
         )}
         {(record.overtime_amount ?? 0) > 0 && (
           <span className="text-xs font-semibold text-violet-600">+₹{record.overtime_amount} OT</span>
         )}
-        <span className="flex items-center gap-1 text-xs text-zinc-300 ml-auto">
+        <span className="flex items-center gap-1 text-xs text-muted-foreground/50 ml-auto">
           <Info size={12} />
           Shift {record.shift_start || DEFAULT_SHIFT_START}–{record.shift_end || DEFAULT_SHIFT_END}
         </span>
       </div>
       {(record.source === 'admin' || record.marked_by != null) && (
-        <div className="mt-3 rounded-xl border border-amber-400 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900">
+        <div className="mt-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2.5 text-sm font-semibold text-warning">
           Admin marked your attendance{record.marked_by_name ? ` by ${record.marked_by_name}` : ''}
           {record.check_in && record.check_out ? ' — Punch in & Punch out' : record.check_in ? ' — Punch in' : record.check_out ? ' — Punch out' : ''}.
         </div>
@@ -261,9 +248,9 @@ function WeekStrip({ records }: { records: AttendanceRecordOut[] }) {
       initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.05 }}
-      className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm"
+      className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
     >
-      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-4">This Week</p>
+      <p className="text-xs font-medium text-muted-foreground/70 mb-4">This Week</p>
       <div className="grid grid-cols-6 gap-2">
         {days.map((d) => {
           const ds = toDateStr(d);
@@ -274,24 +261,24 @@ function WeekStrip({ records }: { records: AttendanceRecordOut[] }) {
 
           return (
             <div key={ds} className="flex flex-col items-center gap-1.5">
-              <span className={`text-[10px] font-bold uppercase tracking-wide ${isToday ? 'text-zinc-900' : 'text-zinc-400'}`}>
+              <span className={`text-xs font-medium ${isToday ? 'text-foreground' : 'text-muted-foreground/70'}`}>
                 {dayName}
               </span>
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                isToday ? 'ring-2 ring-zinc-900 ring-offset-2' : ''
+                isToday ? 'ring-2 ring-ring/20 ring-offset-2' : ''
               } ${
                 isFuture
-                  ? 'bg-zinc-50 border border-zinc-100'
+                  ? 'bg-muted border border-border'
                   : rec
                     ? STATUS_STYLES[rec.status].split(' border')[0]
-                    : 'bg-zinc-50 border border-zinc-100'
+                    : 'bg-muted border border-border'
               }`}>
                 <span className={`w-2 h-2 rounded-full ${
-                  isFuture || !rec ? 'bg-zinc-200' : STATUS_DOT[rec.status]
+                  isFuture || !rec ? 'bg-border' : STATUS_DOT[rec.status]
                 }`} />
               </div>
               {!isFuture && rec && (
-                <span className={`text-[9px] font-bold text-center leading-tight ${STATUS_STYLES[rec.status].split(' ').slice(1, 3).join(' ')}`}>
+                <span className={`text-[11px] font-semibold text-center leading-tight ${STATUS_STYLES[rec.status].split(' ').slice(1, 3).join(' ')}`}>
                   {STATUS_LABELS[rec.status] === 'Half Day' ? 'Half' : STATUS_LABELS[rec.status]}
                 </span>
               )}
@@ -311,10 +298,10 @@ function DayDetail({ date, record }: { date: string | null; record: AttendanceRe
       <motion.div
         initial={{ opacity: 0, y: 5 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white border border-zinc-100 rounded-2xl p-4 shadow-sm flex items-center gap-2.5"
+        className="bg-card border border-border rounded-xl p-4 shadow-[0_1px_2px_rgb(0_0_0/0.03)] flex items-center gap-2.5"
       >
-        <Info size={14} className="text-zinc-300 shrink-0" />
-        <p className="text-xs text-zinc-400">Select a date on the calendar to see full details.</p>
+        <Info size={14} className="text-muted-foreground/50 shrink-0" />
+        <p className="text-xs text-muted-foreground/70">Select a date on the calendar to see full details.</p>
       </motion.div>
     );
   }
@@ -328,16 +315,16 @@ function DayDetail({ date, record }: { date: string | null; record: AttendanceRe
       <motion.div
         initial={{ opacity: 0, y: 5 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm"
+        className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
       >
-        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">{label}</p>
+        <p className="text-xs font-medium text-muted-foreground/70 mb-3">{label}</p>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-zinc-50 flex items-center justify-center">
-            <CalendarCheck size={18} className="text-zinc-300" />
+          <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+            <CalendarCheck size={18} className="text-muted-foreground/50" />
           </div>
           <div>
-            <p className="text-sm font-bold text-zinc-500">{isSunday ? 'Weekly Off' : 'No record for this date'}</p>
-            <p className="text-xs text-zinc-400 mt-0.5">
+            <p className="text-sm font-semibold text-muted-foreground">{isSunday ? 'Weekly Off' : 'No record for this date'}</p>
+            <p className="text-xs text-muted-foreground/70 mt-0.5">
               {isSunday ? 'Sunday is a weekly off day.' : 'No attendance was marked for this day.'}
             </p>
           </div>
@@ -355,64 +342,64 @@ function DayDetail({ date, record }: { date: string | null; record: AttendanceRe
     <motion.div
       initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm"
+      className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
     >
       <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{label}</p>
+        <p className="text-xs font-medium text-muted-foreground/70">{label}</p>
         <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold ${isLate ? STATUS_STYLES.late : STATUS_STYLES[record.status]}`}>
+          <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold ${isLate ? STATUS_STYLES.late : STATUS_STYLES[record.status]}`}>
             {isLate ? 'Late' : STATUS_LABELS[record.status]}
           </span>
           {(record.source === 'admin' || record.marked_by != null) && (
-            <span className="px-2 py-1 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-bold uppercase">Admin</span>
+            <span className="px-2 py-1 rounded-lg bg-warning/15 text-warning text-[11px] font-semibold uppercase">Admin</span>
           )}
         </div>
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         {record.check_in ? (
-          <span className="flex items-center gap-1.5 text-xs text-zinc-600">
-            <LogIn size={13} className="text-emerald-500" />
-            <span className="font-bold">{record.check_in}</span>
-            {late > 0 && <span className="text-amber-500 font-semibold ml-0.5">({late}m late)</span>}
+          <span className="flex items-center gap-1.5 text-xs text-foreground/70">
+            <LogIn size={13} className="text-primary" />
+            <span className="font-semibold">{record.check_in}</span>
+            {late > 0 && <span className="text-warning font-semibold ml-0.5">({late}m late)</span>}
           </span>
         ) : (
-          <span className="flex items-center gap-1.5 text-xs text-zinc-400">
-            <LogIn size={13} className="text-zinc-300" />
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
+            <LogIn size={13} className="text-muted-foreground/50" />
             No check-in
           </span>
         )}
         {record.check_out ? (
-          <span className="flex items-center gap-1.5 text-xs text-zinc-600">
-            <LogOut size={13} className="text-red-400" />
-            <span className="font-bold">{record.check_out}</span>
+          <span className="flex items-center gap-1.5 text-xs text-foreground/70">
+            <LogOut size={13} className="text-destructive" />
+            <span className="font-semibold">{record.check_out}</span>
           </span>
         ) : (
           record.check_in && (
-            <span className="flex items-center gap-1.5 text-xs text-zinc-400">
-              <LogOut size={13} className="text-zinc-300" />
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
+              <LogOut size={13} className="text-muted-foreground/50" />
               No check-out
             </span>
           )
         )}
         {record.hours_worked > 0 && (
-          <span className="flex items-center gap-1.5 text-xs text-zinc-500">
-            <Clock size={13} className="text-zinc-400" />
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Clock size={13} className="text-muted-foreground/70" />
             <span className="font-semibold">{formatHours(record.hours_worked)}</span>
           </span>
         )}
         {(record.penalty_amount ?? 0) > 0 && (
-          <span className="text-xs font-semibold text-rose-600">−₹{record.penalty_amount}</span>
+          <span className="text-xs font-semibold text-destructive">−₹{record.penalty_amount}</span>
         )}
         {(record.overtime_amount ?? 0) > 0 && (
           <span className="text-xs font-semibold text-violet-600">+₹{record.overtime_amount} OT</span>
         )}
-        <span className="flex items-center gap-1 text-xs text-zinc-300 ml-auto">
+        <span className="flex items-center gap-1 text-xs text-muted-foreground/50 ml-auto">
           <Info size={12} />
           Shift {record.shift_start || DEFAULT_SHIFT_START}–{record.shift_end || DEFAULT_SHIFT_END}
         </span>
       </div>
       {(record.source === 'admin' || record.marked_by != null) && (
-        <div className="mt-3 rounded-xl border border-amber-400 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900">
+        <div className="mt-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2.5 text-sm font-semibold text-warning">
           Admin marked your attendance{record.marked_by_name ? ` by ${record.marked_by_name}` : ''}
           {record.check_in && record.check_out ? ' — Punch in & Punch out' : record.check_in ? ' — Punch in' : record.check_out ? ' — Punch out' : ''}.
         </div>
@@ -432,15 +419,15 @@ function WeeklyBars({ weeks, overtimeHrs }: { weeks: { label: string; hours: num
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 }}
-      className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm"
+      className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
     >
       <div className="flex items-center gap-2 mb-4">
-        <TrendingUp size={15} className="text-zinc-400" />
-        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Weekly Hours</p>
+        <TrendingUp size={15} className="text-muted-foreground/70" />
+        <p className="text-xs font-medium text-muted-foreground/70">Weekly Hours</p>
         {overtimeHrs > 0 && (
-          <span className="ml-auto text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
+          <Badge className="ml-auto  text-violet-600 bg-violet-50" >
             +{formatHours(overtimeHrs)} overtime
-          </span>
+          </Badge>
         )}
       </div>
       <div className="flex items-end gap-3 h-14">
@@ -448,17 +435,17 @@ function WeeklyBars({ weeks, overtimeHrs }: { weeks: { label: string; hours: num
           const pct = Math.round((w.hours / max) * 100);
           return (
             <div key={w.label} className="flex-1 flex flex-col items-center gap-1">
-              <span className="text-[10px] font-bold text-zinc-500 leading-none mb-1">
+              <span className="text-[11px] font-semibold text-muted-foreground leading-none mb-1">
                 {formatHours(w.hours)}
               </span>
-              <div className="w-full bg-zinc-100 rounded-md flex items-end" style={{ height: 32 }}>
+              <div className="w-full bg-secondary rounded-md flex items-end" style={{ height: 32 }}>
                 {/* plain div with CSS transition — no Framer Motion % animation */}
                 <div
-                  className="w-full bg-emerald-400 rounded-md transition-all duration-500"
+                  className="w-full bg-primary/80 rounded-md transition-all duration-500"
                   style={{ height: `${pct}%` }}
                 />
               </div>
-              <span className="text-[10px] text-zinc-400 font-semibold leading-none mt-1">{w.label}</span>
+              <span className="text-[11px] text-muted-foreground/70 font-semibold leading-none mt-1">{w.label}</span>
             </div>
           );
         })}
@@ -906,11 +893,11 @@ export default function MyAttendance() {
   }, [rangeRecords]);
 
   const summaryCards = [
-    { label: 'Present',     value: summary.present,              color: 'bg-emerald-50 text-emerald-700' },
-    { label: 'Absent',      value: summary.absent,               color: 'bg-red-50 text-red-700' },
-    { label: 'Late',        value: summary.late,                 color: 'bg-amber-50 text-amber-700' },
-    { label: 'Half Day',    value: summary.half_day,             color: 'bg-blue-50 text-blue-700' },
-    { label: 'Attendance',  value: `${summary.attendancePct}%`,  color: 'bg-zinc-100 text-zinc-700' },
+    { label: 'Present',     value: summary.present,              color: 'bg-accent text-accent-foreground' },
+    { label: 'Absent',      value: summary.absent,               color: 'bg-destructive/10 text-destructive' },
+    { label: 'Late',        value: summary.late,                 color: 'bg-warning/10 text-warning' },
+    { label: 'Half Day',    value: summary.half_day,             color: 'bg-info/10 text-info' },
+    { label: 'Attendance',  value: `${summary.attendancePct}%`,  color: 'bg-secondary text-foreground/85' },
     { label: 'Total Hrs',   value: formatHours(summary.totalHours), color: 'bg-violet-50 text-violet-700' },
   ];
 
@@ -1130,49 +1117,41 @@ export default function MyAttendance() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-5 right-5 z-[9999] bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium"
+            className="fixed top-5 right-5 z-[9999] bg-foreground text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium"
           >
-            <CheckCircle2 size={16} className="text-emerald-400" />
+            <CheckCircle2 size={16} className="text-primary" />
             {toast}
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Page Header */}
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">My Attendance</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">{user?.username} · Personal attendance history</p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader title="My Attendance" description={`${user?.username} · Personal attendance history`} actions={<>
+<div className="flex items-center gap-2">
           <button onClick={() => setShowCalendar(v => !v)}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors shadow-sm ${showCalendar
-              ? 'bg-emerald-600 text-white border border-emerald-600 hover:bg-emerald-700'
-              : 'bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-50'}`}>
+              ? 'bg-primary text-white border border-primary/30 hover:bg-primary'
+              : 'bg-card text-foreground/70 border border-border hover:bg-muted'}`}>
             <CalendarDays size={14} />
             Calendar View
           </button>
-          <button onClick={handleExport} disabled={exporting}
-            className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}
+            >
             {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             {exporting ? 'Exporting…' : 'Export Excel'}
-          </button>
-          <button onClick={openPunch}
-            className="flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+          </Button>
+          <Button variant="dark" size="sm" onClick={openPunch}
+            >
             <LogIn size={14} />
             Punch In / Out
-          </button>
-          <button onClick={openRequestModal}
-            className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm">
+          </Button>
+          <Button variant="outline" size="sm" onClick={openRequestModal}
+            >
             <ClipboardList size={14} />
             Request Attendance
-          </button>
+          </Button>
         </div>
-      </motion.header>
+</>} />
 
       {/* Calendar View — shows ONLY the calendar; everything else is hidden */}
       {showCalendar ? (
@@ -1181,32 +1160,32 @@ export default function MyAttendance() {
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="bg-white border border-zinc-100 rounded-2xl p-4 shadow-sm"
+          className="bg-card border border-border rounded-xl p-4 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
         >
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <CalendarCheck size={15} className="text-zinc-400" />
-            <h3 className="font-bold text-zinc-900 text-sm">{monthLabel(viewYear, viewMonth)}</h3>
+            <CalendarCheck size={15} className="text-muted-foreground/70" />
+            <h3 className="font-semibold text-foreground text-sm">{monthLabel(viewYear, viewMonth)}</h3>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={prevMonth}
-              className="p-2 rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition-colors">
+            <Button variant="ghost" size="icon-sm" onClick={prevMonth}
+              >
               <ChevronLeft size={18} />
-            </button>
-            <button onClick={goToToday}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors">
+            </Button>
+            <Button variant="secondary" size="sm" onClick={goToToday}
+              >
               Today
-            </button>
-            <button onClick={nextMonth} disabled={isCurrentMonth}
-              className="p-2 rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={nextMonth} disabled={isCurrentMonth}
+              >
               <ChevronRight size={18} />
-            </button>
+            </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-7 gap-1.5 mb-1.5">
           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(n => (
-            <div key={n} className="text-center text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{n}</div>
+            <div key={n} className="text-center text-xs font-medium text-muted-foreground/70">{n}</div>
           ))}
         </div>
 
@@ -1220,18 +1199,18 @@ export default function MyAttendance() {
             const isSelected = selectedDate === ds;
             const cellStyle = rec
               ? STATUS_STYLES[rec.status]
-              : isSunday ? 'bg-zinc-50/70 text-red-400' : 'bg-zinc-50/60 text-zinc-400';
+              : isSunday ? 'bg-muted/70 text-destructive' : 'bg-muted/60 text-muted-foreground/70';
             return (
               <button key={ds} onClick={() => setSelectedDate(ds)}
-                className={`relative flex flex-col items-center justify-center gap-0.5 min-h-[44px] sm:min-h-[54px] rounded-lg text-xs font-bold transition-all cursor-pointer hover:brightness-95 ${cellStyle} ${isSelected ? 'ring-2 ring-emerald-500 ring-offset-1' : ''} ${!inMonth ? 'opacity-40' : ''}`}>
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${isToday ? 'bg-zinc-900 text-white' : ''}`}>
+                className={`relative flex flex-col items-center justify-center gap-0.5 min-h-[44px] sm:min-h-[54px] rounded-lg text-xs font-semibold transition-all cursor-pointer hover:brightness-95 ${cellStyle}  ${isSelected ? 'ring-2 ring-ring/30 ring-offset-1' : ''}  ${!inMonth ? 'opacity-40' : ''}`}>
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${isToday ? 'bg-foreground text-white' : ''}`}>
                   {day.getDate()}
                 </span>
                 {rec ? (
                   <span className="flex items-center gap-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[rec.status]}`} />
                     {rec.hours_worked > 0 && (
-                      <span className="text-[8px] font-semibold text-zinc-400 hidden sm:inline">{formatHours(rec.hours_worked)}</span>
+                      <span className="text-[8px] font-semibold text-muted-foreground/70 hidden sm:inline">{formatHours(rec.hours_worked)}</span>
                     )}
                   </span>
                 ) : isSunday ? (
@@ -1242,9 +1221,9 @@ export default function MyAttendance() {
           })}
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-zinc-100">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-border">
           {(Object.keys(STATUS_LABELS) as Array<keyof typeof STATUS_LABELS>).map(k => (
-            <span key={k} className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-medium">
+            <span key={k} className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
               <span className={`w-2 h-2 rounded-full ${STATUS_DOT[k]}`} />
               {STATUS_LABELS[k]}
             </span>
@@ -1269,10 +1248,10 @@ export default function MyAttendance() {
           <motion.div key={s.label}
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            className={`rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-sm ${s.color}`}
+            className={`rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-sm ${s.color}`}
           >
-            <p className="text-2xl font-bold text-zinc-900 leading-none">{s.value}</p>
-            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide mt-1">{s.label}</p>
+            <p className="text-2xl font-semibold text-foreground leading-none">{s.value}</p>
+            <p className="text-xs font-medium text-muted-foreground mt-1">{s.label}</p>
           </motion.div>
         ))}
       </div>
@@ -1286,32 +1265,17 @@ export default function MyAttendance() {
 
       {/* Logs / Requests toggle — same pattern as admin Shift Types / Settings */}
       <div className="space-y-2">
-        <div className="flex gap-1.5 bg-zinc-100 p-1.5 rounded-xl w-fit">
-          {([
+        <Segmented className="w-fit" value={String(activePanel)} onValueChange={(v) => setActivePanel(v as never)} options={([
             { key: 'logs' as const, label: 'Logs', icon: FileText },
             { key: 'requests' as const, label: 'Attendance Requests', icon: ClipboardList },
-          ]).map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActivePanel(tab.key)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-colors ${
-                activePanel === tab.key
-                  ? 'bg-white text-zinc-900 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-700'
-              }`}
-            >
-              <tab.icon size={15} />
+          ]).map((tab) => ({ value: String(tab.key), label: <><tab.icon size={15} />
               {tab.label}
               {tab.key === 'requests' && myRequests.filter((r) => r.status === 'pending').length > 0 && (
-                <span className="ml-0.5 min-w-[20px] h-[20px] px-1.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold flex items-center justify-center">
+                <span className="ml-0.5 min-w-[20px] h-[20px] px-1.5 rounded-full bg-warning/15 text-warning text-[11px] font-semibold flex items-center justify-center">
                   {myRequests.filter((r) => r.status === 'pending').length}
                 </span>
-              )}
-            </button>
-          ))}
-        </div>
-        <p className="text-[11px] text-zinc-400 px-0.5">
+              )}</> }))} />
+        <p className="text-[11px] text-muted-foreground/70 px-0.5">
           {activePanel === 'logs'
             ? 'Logs are your daily attendance history — date, status, check-in / check-out times, hours worked, and shift timing.'
             : 'Attendance requests are changes you submitted for approval (missed punch, request half day, full day request).'}
@@ -1322,108 +1286,95 @@ export default function MyAttendance() {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
-          <div className="flex items-center justify-between p-5 pb-3 border-b border-zinc-50">
+          <div className="flex items-center justify-between p-5 pb-3 border-b border-border">
             <div className="flex items-center gap-2">
-              <ClipboardList size={15} className="text-zinc-400" />
+              <ClipboardList size={15} className="text-muted-foreground/70" />
               <div>
-                <h3 className="font-bold text-zinc-900 text-sm">My Attendance Requests</h3>
-                <p className="text-[11px] text-zinc-400 mt-0.5">
+                <h3 className="font-semibold text-foreground text-sm">My Attendance Requests</h3>
+                <p className="text-[11px] text-muted-foreground/70 mt-0.5">
                   {myRequests.length} total &middot; {myRequests.filter((r) => r.status === 'pending').length} pending
                 </p>
               </div>
             </div>
-            <button
+            <Button variant="dark" size="sm"
               type="button"
               onClick={openRequestModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-900 text-white hover:bg-zinc-800 transition-colors"
+              
             >
               <ClipboardList size={13} />
               New Request
-            </button>
+            </Button>
           </div>
           {myRequests.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-              <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-                <Inbox size={24} className="text-zinc-300" />
-              </div>
-              <h3 className="text-sm font-bold text-zinc-900 mb-1">No attendance requests</h3>
-              <p className="text-xs text-zinc-400 max-w-xs mb-4">
-                Submit a request when you need a missed punch, request half day, or full day request.
-              </p>
-              <button
+            <EmptyState icon={<Inbox />} title="No attendance requests" description="Submit a request when you need a missed punch, request half day, or full day request." className="border-0" action={<><Button variant="outline" size="sm"
                 type="button"
                 onClick={openRequestModal}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors"
+                
               >
                 <ClipboardList size={13} />
                 Request Attendance
-              </button>
-            </div>
+              </Button></>} />
           ) : (
             <>
-              <div className="divide-y divide-zinc-50">
+              <div className="divide-y divide-border">
                 {pagedRequests.map((req) => (
-                  <div key={req.id} className="flex items-center justify-between px-5 py-3 hover:bg-zinc-50/50 transition-colors">
+                  <div key={req.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-bold ${REQUEST_TYPE_STYLES[req.request_type] || 'bg-zinc-50 text-zinc-600'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-[11px] font-semibold ${REQUEST_TYPE_STYLES[req.request_type] || 'bg-muted text-foreground/70'}`}>
                         {REQUEST_TYPE_LABELS[req.request_type]?.charAt(0) || 'R'}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-zinc-900 truncate">
+                        <p className="text-sm font-semibold text-foreground truncate">
                           {REQUEST_TYPE_LABELS[req.request_type] || req.request_type}
                         </p>
-                        <p className="text-[11px] text-zinc-400">
+                        <p className="text-[11px] text-muted-foreground/70">
                           {req.from_date}{req.from_date !== req.to_date ? ` \u2013 ${req.to_time ? req.from_time + ' \u2013 ' + req.to_time : req.to_date}` : (req.from_time ? ` \u2013 ${req.from_time}\u2013${req.to_time}` : '')}
                           {req.days > 1 ? ` \u00B7 ${req.days} days` : ''}
                         </p>
-                        {req.reason && <p className="text-[11px] text-zinc-400 truncate mt-0.5">{req.reason}</p>}
+                        {req.reason && <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">{req.reason}</p>}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-3">
                       {req.notes && (
-                        <span className="text-[10px] text-zinc-400 max-w-[120px] truncate hidden sm:inline" title={req.notes}>
+                        <span className="text-[11px] text-muted-foreground/70 max-w-[120px] truncate hidden sm:inline" title={req.notes}>
                           Note: {req.notes}
                         </span>
                       )}
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold capitalize ${
-                        req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                        req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                        'bg-amber-50 text-amber-600'
-                      }`}>
+                      <Badge className={`capitalize ${ req.status === 'approved' ? 'bg-accent text-primary' : req.status === 'rejected' ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning' }`}>
                         {req.status}
-                      </span>
+                      </Badge>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="flex items-center justify-between flex-wrap gap-2 px-5 py-3 border-t border-zinc-100">
-                <p className="text-xs text-zinc-500">
-                  Showing <span className="font-bold text-zinc-900">{requestStartRow}</span>–
-                  <span className="font-bold text-zinc-900">{requestEndRow}</span> of{' '}
-                  <span className="font-bold text-zinc-900">{myRequests.length}</span> requests
+              <div className="flex items-center justify-between flex-wrap gap-2 px-5 py-3 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  Showing <span className="font-semibold text-foreground">{requestStartRow}</span>–
+                  <span className="font-semibold text-foreground">{requestEndRow}</span> of{' '}
+                  <span className="font-semibold text-foreground">{myRequests.length}</span> requests
                 </p>
                 <div className="flex items-center gap-2">
-                  <button
+                  <Button variant="outline" size="icon-sm"
                     type="button"
                     onClick={() => setRequestPage((p) => Math.max(1, p - 1))}
                     disabled={requestPage <= 1}
-                    className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    
                   >
-                    <ChevronLeft size={16} className="text-zinc-600" />
-                  </button>
-                  <span className="text-xs text-zinc-500 font-medium min-w-[3.5rem] text-center">
+                    <ChevronLeft size={16} className="text-foreground/70" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground font-medium min-w-[3.5rem] text-center">
                     {requestPage} / {requestTotalPages}
                   </span>
-                  <button
+                  <Button variant="outline" size="icon-sm"
                     type="button"
                     onClick={() => setRequestPage((p) => Math.min(requestTotalPages, p + 1))}
                     disabled={requestPage >= requestTotalPages}
-                    className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    
                   >
-                    <ChevronRight size={16} className="text-zinc-600" />
-                  </button>
+                    <ChevronRight size={16} className="text-foreground/70" />
+                  </Button>
                 </div>
               </div>
             </>
@@ -1432,26 +1383,21 @@ export default function MyAttendance() {
       ) : (
         <>
       {/* Filters */}
-      <motion.div
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center"
-      >
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+          <Input data-search="" className="w-full pl-9 pr-4"
             type="text"
             placeholder="Search date, status..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+            
           />
         </div>
-        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-          className="h-8 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all" />
-        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-          className="h-8 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all" />
+        <Input className="w-auto" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+           />
+        <Input className="w-auto" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+           />
         <div className="w-[160px]">
           <SearchableSelect
             value={statusFilter}
@@ -1462,45 +1408,39 @@ export default function MyAttendance() {
         </div>
         {hasFilters && (
           <button onClick={clearFilters}
-            className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors">
+            className="text-xs text-muted-foreground/70 hover:text-foreground/85 flex items-center gap-1 transition-colors">
             <XCircle size={12} />Clear
           </button>
         )}
-      </motion.div>
+      </div>
 
       {/* Records Table */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden"
+        className="bg-card rounded-xl border border-border shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
       >
         {/* Desktop header */}
-        <div className="hidden md:grid grid-cols-[90px_1fr_130px_130px_100px_90px] bg-zinc-50/50 border-b border-zinc-100 px-4 py-3">
+        <div className="hidden md:grid grid-cols-[90px_1fr_130px_130px_100px_90px] bg-muted/50 border-b border-border px-4 py-3">
           {sortColumns.map(h => (
             <button key={h.k} onClick={() => toggleSort(h.k)}
-              className="flex items-center gap-1 text-[10px] font-bold text-zinc-400 uppercase tracking-widest hover:text-zinc-700 transition-colors">
+              className="flex items-center gap-1 text-xs font-medium text-muted-foreground/70 hover:text-foreground/85 transition-colors">
               {h.label}
               {sortKey === h.k
                 ? (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)
                 : <ArrowUpDown size={11} className="opacity-50" />}
             </button>
           ))}
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Shift</span>
+          <span className="text-xs font-medium text-muted-foreground/70">Shift</span>
         </div>
 
         {filteredRecords.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-              <Inbox size={24} className="text-zinc-300" />
-            </div>
-            <h3 className="text-sm font-bold text-zinc-900 mb-1">No records found</h3>
-            <p className="text-xs text-zinc-400 max-w-xs">No attendance data matches your filters</p>
-          </div>
+          <EmptyState icon={<Inbox />} title="No records found" description="No attendance data matches your filters" className="border-0" />
         ) : (
           <>
             {/* Desktop rows */}
-            <div className="hidden md:block divide-y divide-zinc-50">
+            <div className="hidden md:block divide-y divide-border">
               {paged.map((record, i) => {
                 const d    = new Date(record.date + 'T00:00:00');
                 const isToday = record.date === todayStr;
@@ -1511,44 +1451,44 @@ export default function MyAttendance() {
                   <motion.div key={record.id}
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     transition={{ delay: i * 0.02 }}
-                    className={`grid grid-cols-[90px_1fr_130px_130px_100px_90px] px-4 py-3 items-center hover:bg-zinc-50/50 transition-colors ${isToday ? 'bg-zinc-50' : ''} ${isSelected ? 'bg-emerald-50/50' : ''}`}
+                    className={`grid grid-cols-[90px_1fr_130px_130px_100px_90px] px-4 py-3 items-center hover:bg-muted/50 transition-colors ${isToday ? 'bg-muted' : ''}  ${isSelected ? 'bg-accent/50' : ''}`}
                   >
                     <div>
-                      <p className="text-xs font-bold text-zinc-900 whitespace-nowrap">
+                      <p className="text-xs font-semibold text-foreground whitespace-nowrap">
                         {d.toLocaleDateString('default', { day: 'numeric', month: 'short' })}
                       </p>
-                      <p className="text-[10px] text-zinc-400">
+                      <p className="text-[11px] text-muted-foreground/70">
                         {d.toLocaleDateString('default', { weekday: 'short' })}
-                        {isToday && <span className="ml-1 text-emerald-500 font-bold">· Today</span>}
+                        {isToday && <span className="ml-1 text-primary font-semibold">· Today</span>}
                       </p>
                     </div>
                     <div>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${STATUS_STYLES[record.status]}`}>
+                      <Badge className={`${STATUS_STYLES[record.status]}`}>
                         {STATUS_LABELS[record.status]}
-                      </span>
+                      </Badge>
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-zinc-600">
+                    <div className="flex items-center gap-1 text-xs text-foreground/70">
                       {record.check_in ? (
                         <>
-                          <LogIn size={12} className="text-emerald-500 shrink-0" />
-                          <span className="font-bold">{record.check_in}</span>
-                          {late > 0 && <span className="text-amber-500 text-[10px] font-semibold ml-0.5">+{late}m</span>}
+                          <LogIn size={12} className="text-primary shrink-0" />
+                          <span className="font-semibold">{record.check_in}</span>
+                          {late > 0 && <span className="text-warning text-[11px] font-semibold ml-0.5">+{late}m</span>}
                         </>
-                      ) : <span className="text-zinc-300">—</span>}
+                      ) : <span className="text-muted-foreground/50">—</span>}
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-zinc-600">
+                    <div className="flex items-center gap-1 text-xs text-foreground/70">
                       {record.check_out ? (
                         <>
-                          <LogOut size={12} className="text-red-400 shrink-0" />
-                          <span className="font-bold">{record.check_out}</span>
+                          <LogOut size={12} className="text-destructive shrink-0" />
+                          <span className="font-semibold">{record.check_out}</span>
                         </>
-                      ) : <span className="text-zinc-300">—</span>}
+                      ) : <span className="text-muted-foreground/50">—</span>}
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-zinc-500">
-                      <Clock size={11} className="text-zinc-300 shrink-0" />
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock size={11} className="text-muted-foreground/50 shrink-0" />
                       <span className="font-semibold">{formatHours(record.hours_worked)}</span>
                     </div>
-                    <div className="text-[10px] text-zinc-300 whitespace-nowrap">
+                    <div className="text-[11px] text-muted-foreground/50 whitespace-nowrap">
                       {record.shift_start}–{record.shift_end}
                     </div>
                   </motion.div>
@@ -1557,7 +1497,7 @@ export default function MyAttendance() {
             </div>
 
             {/* Mobile cards */}
-            <div className="md:hidden divide-y divide-zinc-100">
+            <div className="md:hidden divide-y divide-border">
               {paged.map((record, i) => {
                 const d    = new Date(record.date + 'T00:00:00');
                 const isToday = record.date === todayStr;
@@ -1568,36 +1508,36 @@ export default function MyAttendance() {
                   <motion.div key={record.id}
                     initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.03 }}
-                    className={`p-4 space-y-2 ${isToday ? 'bg-zinc-50' : ''} ${isSelected ? 'bg-emerald-50/40' : ''}`}
+                    className={`p-4 space-y-2 ${isToday ? 'bg-muted' : ''}  ${isSelected ? 'bg-accent/40' : ''}`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-bold text-zinc-900">
+                        <p className="text-xs font-semibold text-foreground">
                           {d.toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}
-                          {isToday && <span className="ml-1.5 text-[10px] text-emerald-500 font-bold">Today</span>}
+                          {isToday && <span className="ml-1.5 text-[11px] text-primary font-semibold">Today</span>}
                         </p>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">Shift {record.shift_start}–{record.shift_end}</p>
+                        <p className="text-[11px] text-muted-foreground/70 mt-0.5">Shift {record.shift_start}–{record.shift_end}</p>
                       </div>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${STATUS_STYLES[record.status]}`}>
+                      <Badge className={`${STATUS_STYLES[record.status]}`}>
                         {STATUS_LABELS[record.status]}
-                      </span>
+                      </Badge>
                     </div>
                     {record.check_in && (
-                      <div className="flex items-center gap-4 text-xs text-zinc-500">
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
-                          <LogIn size={11} className="text-emerald-500" />
-                          <span className="font-bold text-zinc-900">{record.check_in}</span>
-                          {late > 0 && <span className="text-amber-500 font-semibold text-[10px]">+{late}m late</span>}
+                          <LogIn size={11} className="text-primary" />
+                          <span className="font-semibold text-foreground">{record.check_in}</span>
+                          {late > 0 && <span className="text-warning font-semibold text-[11px]">+{late}m late</span>}
                         </span>
                         {record.check_out && (
                           <span className="flex items-center gap-1">
-                            <LogOut size={11} className="text-red-400" />
-                            <span className="font-bold text-zinc-900">{record.check_out}</span>
+                            <LogOut size={11} className="text-destructive" />
+                            <span className="font-semibold text-foreground">{record.check_out}</span>
                           </span>
                         )}
                         {record.hours_worked > 0 && (
                           <span className="flex items-center gap-1 ml-auto">
-                            <Clock size={11} className="text-zinc-300" />
+                            <Clock size={11} className="text-muted-foreground/50" />
                             {formatHours(record.hours_worked)}
                           </span>
                         )}
@@ -1610,24 +1550,24 @@ export default function MyAttendance() {
 
             {/* Pagination */}
             {filteredRecords.length > 0 && (
-              <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-zinc-100">
-                <p className="text-xs text-zinc-500">
-                  Showing <span className="font-bold text-zinc-900">{startRow}</span>–
-                  <span className="font-bold text-zinc-900">{endRow}</span> of{' '}
-                  <span className="font-bold text-zinc-900">{filteredRecords.length}</span> records
+              <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  Showing <span className="font-semibold text-foreground">{startRow}</span>–
+                  <span className="font-semibold text-foreground">{endRow}</span> of{' '}
+                  <span className="font-semibold text-foreground">{filteredRecords.length}</span> records
                 </p>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                    className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    <ChevronLeft size={16} className="text-zinc-600" />
-                  </button>
-                  <span className="text-xs text-zinc-500 font-medium min-w-[3.5rem] text-center">
+                  <Button variant="outline" size="icon-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+                    >
+                    <ChevronLeft size={16} className="text-foreground/70" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground font-medium min-w-[3.5rem] text-center">
                     {page} / {totalPages}
                   </span>
-                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                    className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    <ChevronRight size={16} className="text-zinc-600" />
-                  </button>
+                  <Button variant="outline" size="icon-sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                    >
+                    <ChevronRight size={16} className="text-foreground/70" />
+                  </Button>
                 </div>
               </div>
             )}
@@ -1636,10 +1576,10 @@ export default function MyAttendance() {
       </motion.div>
 
       {/* Read-only notice */}
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-white border border-zinc-100 rounded-xl shadow-sm">
-        <AlertCircle size={13} className="text-zinc-300 shrink-0" />
-        <p className="text-xs text-zinc-400">Records are managed by your administrator. Contact HR for any corrections.</p>
-      </div>
+      <Card className="flex items-center gap-2 px-4 py-2.5" >
+        <AlertCircle size={13} className="text-muted-foreground/50 shrink-0" />
+        <p className="text-xs text-muted-foreground/70">Records are managed by your administrator. Contact HR for any corrections.</p>
+      </Card>
         </>
       )}
 
@@ -1650,7 +1590,7 @@ export default function MyAttendance() {
       {showRequestModal && (
         <Modal title="Request Attendance" onClose={() => setShowRequestModal(false)}>
           <div className="p-5 space-y-4">
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted-foreground">
               Request your admin or manager to update your attendance. Choose the type of request below.
             </p>
 
@@ -1663,8 +1603,8 @@ export default function MyAttendance() {
                   onClick={() => handleReqTypeChange(t)}
                   className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border text-[11px] font-bold transition-all ${
                     reqType === t
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                      : 'border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50'
+                      ? 'border-primary/30 bg-accent text-accent-foreground'
+                      : 'border-border bg-card text-muted-foreground hover:bg-muted'
                   }`}
                 >
                   {t === 'regularization' && <ClipboardList size={16} />}
@@ -1679,32 +1619,32 @@ export default function MyAttendance() {
               <>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
-                      From Date <span className="text-red-500">*</span>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                      From Date <span className="text-destructive">*</span>
                     </label>
-                    <input
+                    <Input
                       type="date"
                       value={reqDate}
                       max={todayStr}
                       onChange={e => { setReqDate(e.target.value); if (reqToDate && e.target.value > reqToDate) setReqToDate(e.target.value); }}
-                      className={inputClassName}
+                      
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
-                      To Date <span className="text-red-500">*</span>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                      To Date <span className="text-destructive">*</span>
                     </label>
-                    <input
+                    <Input
                       type="date"
                       value={reqToDate}
                       min={reqDate || undefined}
                       max={todayStr}
                       onChange={e => setReqToDate(e.target.value)}
-                      className={inputClassName}
+                      
                     />
                   </div>
                 </div>
-                <p className="text-[11px] text-zinc-400">
+                <p className="text-[11px] text-muted-foreground/70">
                   {reqDate && reqToDate && reqToDate >= reqDate
                     ? `${countWorkingDays(reqDate, reqToDate)} working day${countWorkingDays(reqDate, reqToDate) > 1 ? 's' : ''} (Sundays excluded)`
                     : 'Select a valid date range'}
@@ -1715,42 +1655,42 @@ export default function MyAttendance() {
             {reqType === 'half_day' && (
               <>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
-                    Date <span className="text-red-500">*</span>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                    Date <span className="text-destructive">*</span>
                   </label>
-                  <input
+                  <Input
                     type="date"
                     value={reqDate}
                     max={todayStr}
                     onChange={e => setReqDate(e.target.value)}
-                    className={inputClassName}
+                    
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
-                      From Time <span className="text-red-500">*</span>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                      From Time <span className="text-destructive">*</span>
                     </label>
-                    <input
+                    <Input
                       type="time"
                       value={reqFromTime}
                       onChange={e => setReqFromTime(e.target.value)}
-                      className={inputClassName}
+                      
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
-                      To Time <span className="text-red-500">*</span>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                      To Time <span className="text-destructive">*</span>
                     </label>
-                    <input
+                    <Input
                       type="time"
                       value={reqToTime}
                       onChange={e => setReqToTime(e.target.value)}
-                      className={inputClassName}
+                      
                     />
                   </div>
                 </div>
-                <p className="text-[11px] text-zinc-400">
+                <p className="text-[11px] text-muted-foreground/70">
                   Requesting a half day on the selected date. If approved, your attendance will be marked as Half Day.
                 </p>
               </>
@@ -1759,28 +1699,28 @@ export default function MyAttendance() {
             {reqType === 'full_day_change' && (
               <>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
-                    Date <span className="text-red-500">*</span>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                    Date <span className="text-destructive">*</span>
                   </label>
-                  <input
+                  <Input
                     type="date"
                     value={reqDate}
                     max={todayStr}
                     onChange={e => setReqDate(e.target.value)}
-                    className={inputClassName}
+                    
                   />
                 </div>
-                <p className="text-[11px] text-zinc-400">
+                <p className="text-[11px] text-muted-foreground/70">
                   Request to change an approved Half Day into a Full Day (Present) so you can work the full shift.
                 </p>
               </>
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
-                Reason {reqType !== 'full_day_change' && <span className="text-red-500">*</span>}
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                Reason {reqType !== 'full_day_change' && <span className="text-destructive">*</span>}
               </label>
-              <textarea
+              <Textarea
                 value={reqReason}
                 onChange={e => setReqReason(e.target.value)}
                 rows={3}
@@ -1791,18 +1731,18 @@ export default function MyAttendance() {
                     ? 'Explain why you want to change your half day to a full day...'
                     : 'Explain why you could not mark attendance on this day...'
                 }
-                className={inputClassName}
+                
               />
             </div>
             <div className="flex gap-3 pt-1">
-              <button
+              <Button variant="secondary" className="flex-1"
                 type="button"
                 onClick={() => setShowRequestModal(false)}
-                className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors"
+                
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button className="flex-1"
                 type="button"
                 onClick={handleRequestSubmit}
                 disabled={reqSubmitting || (
@@ -1810,13 +1750,13 @@ export default function MyAttendance() {
                   : reqType === 'half_day' ? (!reqDate || !reqFromTime || !reqToTime)
                   : (!reqDate || !reqReason.trim())
                 )}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                
               >
                 {reqSubmitting
                   ? <><Loader2 size={14} className="animate-spin" /> Submitting...</>
                   : <><ClipboardList size={14} /> Submit Request</>
                 }
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>
@@ -1827,82 +1767,76 @@ export default function MyAttendance() {
         <Modal title="Punch Attendance" onClose={() => { setShowPunchModal(false); resetPunchState(); }}>
           <div className="p-5 space-y-4">
             {toast && (
-              <div className="p-3 bg-zinc-900 text-white rounded-xl text-xs font-medium flex items-center gap-2 shadow-md">
-                <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+              <div className="p-3 bg-foreground text-white rounded-xl text-xs font-medium flex items-center gap-2 shadow-md">
+                <CheckCircle2 size={14} className="text-primary shrink-0" />
                 <span>{toast}</span>
               </div>
             )}
             {/* Punch In / Out toggle (same as admin panel) */}
-            <div className="flex items-center bg-zinc-100 rounded-xl p-1">
-              <button type="button" onClick={() => setPunchMode('in')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${punchMode === 'in' ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
-                <LogIn size={16} />
-                Punch In
-              </button>
-              <button type="button" onClick={() => setPunchMode('out')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${punchMode === 'out' ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
-                <LogOut size={16} />
-                Punch Out
-              </button>
-            </div>
+            <Segmented value={String(punchMode)} onValueChange={(v) => { ({ ['in']: (() => setPunchMode('in')), ['out']: (() => setPunchMode('out')) } as Record<string, () => void>)[v]?.(); }} options={[
+  { value: 'in', label: <><LogIn size={16} />
+                Punch In</> },
+  { value: 'out', label: <><LogOut size={16} />
+                Punch Out</> }
+]} />
 
-            <div className="flex items-center justify-between bg-zinc-50 border border-zinc-100 rounded-xl p-3">
+            <div className="flex items-center justify-between bg-muted border border-border rounded-xl p-3">
               <div>
-                <p className="text-xs font-bold text-zinc-900">{todayStr}</p>
-                <p className="text-[10px] text-zinc-400 mt-0.5">{OFFICE_NAME} · Shift {DEFAULT_SHIFT_START}–{DEFAULT_SHIFT_END}</p>
+                <p className="text-xs font-semibold text-foreground">{todayStr}</p>
+                <p className="text-[11px] text-muted-foreground/70 mt-0.5">{OFFICE_NAME} · Shift {DEFAULT_SHIFT_START}–{DEFAULT_SHIFT_END}</p>
               </div>
-              <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold ${punchMode === 'in' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold ${punchMode === 'in' ? 'bg-accent text-accent-foreground' : 'bg-warning/10 text-warning'}`}>
                 {punchMode === 'in' ? 'Check In' : 'Check Out'}
               </span>
             </div>
 
-            <div className="flex items-center justify-between bg-zinc-50 border border-zinc-200 rounded-xl p-3">
+            <div className="flex items-center justify-between bg-muted border border-border rounded-xl p-3">
               <div className="flex items-center gap-2">
-                <Clock size={14} className="text-zinc-400" />
-                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Current Time</p>
+                <Clock size={14} className="text-muted-foreground/70" />
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Current Time</p>
               </div>
-              <p className="text-sm font-bold text-zinc-900 tabular-nums">{liveTime}</p>
+              <p className="text-sm font-semibold text-foreground tabular-nums">{liveTime}</p>
             </div>
-            <p className="text-[11px] text-zinc-400 -mt-1">
+            <p className="text-[11px] text-muted-foreground/70 -mt-1">
               The punch time is captured automatically when you tap {punchMode === 'in' ? 'Punch In' : 'Punch Out'}.
             </p>
 
             {/* Location Verification Box */}
-            <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-xl space-y-2">
+            <div className="p-3.5 bg-muted border border-border rounded-xl space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
-                  <MapPin size={14} className="text-emerald-600" /> Location Verification
+                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <MapPin size={14} className="text-primary" /> Location Verification
                 </span>
-                <button
+                <Button variant="dark" size="xs"
                   type="button"
                   onClick={verifyLocation}
                   disabled={geoVerifying}
-                  className="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
+                  
                 >
                   {geoVerifying ? <Loader2 size={12} className="animate-spin" /> : <Navigation size={12} />}
                   Verify Current Location
-                </button>
+                </Button>
               </div>
 
               {geoVerifying && (
-                <p className="text-xs text-zinc-500 flex items-center gap-1.5 animate-pulse py-1">
-                  <Loader2 size={12} className="animate-spin text-blue-600 shrink-0" /> Fetching current GPS location...
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5 animate-pulse py-1">
+                  <Loader2 size={12} className="animate-spin text-info shrink-0" /> Fetching current GPS location...
                 </p>
               )}
 
               {geoVerified && geoLat !== null && geoLng !== null && (
-                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center justify-between">
+                <div className="p-2.5 bg-accent border border-primary/20 rounded-lg text-xs text-accent-foreground flex items-center justify-between">
                   <div>
-                    <p className="font-bold flex items-center gap-1 text-emerald-900">
-                      <CheckCircle2 size={13} className="text-emerald-600 shrink-0" /> Verified Inside Office
+                    <p className="font-semibold flex items-center gap-1 text-accent-foreground">
+                      <CheckCircle2 size={13} className="text-primary shrink-0" /> Verified Inside Office
                     </p>
-                    <p className="text-[11px] text-emerald-700 font-mono mt-0.5">
+                    <p className="text-[11px] text-accent-foreground font-mono mt-0.5">
                       {geoLat.toFixed(4)}, {geoLng.toFixed(4)} ({geoDistance}m from office)
                     </p>
                   </div>
-                  <span className="px-2 py-0.5 bg-emerald-200/70 text-emerald-900 text-[10px] font-black rounded-md">
+                  <Badge variant="success" >
                     MATCHED
-                  </span>
+                  </Badge>
                 </div>
               )}
 
@@ -1910,21 +1844,21 @@ export default function MyAttendance() {
                 const errInfo = getGeoErrorInfo();
                 return errInfo ? (
                   <div className={`p-2.5 border rounded-lg text-xs flex items-start gap-2 ${
-                    errInfo.icon === 'distance' ? 'bg-amber-50 border-amber-200 text-amber-800' :
-                    errInfo.icon === 'block' ? 'bg-rose-50 border-rose-200 text-rose-800' :
-                    'bg-rose-50 border-rose-200 text-rose-800'
+                    errInfo.icon === 'distance' ? 'bg-warning/10 border-warning/25 text-warning' :
+                    errInfo.icon === 'block' ? 'bg-destructive/10 border-destructive/20 text-destructive' :
+                    'bg-destructive/10 border-destructive/20 text-destructive'
                   }`}>
                     <AlertCircle size={14} className={`shrink-0 mt-0.5 ${
-                      errInfo.icon === 'distance' ? 'text-amber-600' : 'text-rose-600'
+                      errInfo.icon === 'distance' ? 'text-warning' : 'text-destructive'
                     }`} />
                     <div>
-                      <p className={`font-bold ${errInfo.icon === 'distance' ? 'text-amber-900' : 'text-rose-900'}`}>
+                      <p className={`font-semibold ${errInfo.icon === 'distance' ? 'text-warning' : 'text-destructive'}`}>
                         {errInfo.title}
                       </p>
-                      <p className={`text-[11px] mt-0.5 ${errInfo.icon === 'distance' ? 'text-amber-700' : 'text-rose-700'}`}>
+                      <p className={`text-[11px] mt-0.5 ${errInfo.icon === 'distance' ? 'text-warning' : 'text-destructive'}`}>
                         {errInfo.message}
                       </p>
-                      <p className={`text-[10px] mt-1 font-medium ${errInfo.icon === 'distance' ? 'text-amber-600' : 'text-rose-600'}`}>
+                      <p className={`text-[11px] mt-1 font-medium ${errInfo.icon === 'distance' ? 'text-warning' : 'text-destructive'}`}>
                         {errInfo.hint}
                       </p>
                     </div>
@@ -1935,56 +1869,56 @@ export default function MyAttendance() {
 
             {isDeliveryBoy && punchMode === 'in' && (
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
-                  Uniform Photo <span className="text-red-500">*</span>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                  Uniform Photo <span className="text-destructive">*</span>
                 </label>
-                <p className="text-[11px] text-zinc-400 mb-2">Please take a photo of yourself in uniform to verify your identity.</p>
+                <p className="text-[11px] text-muted-foreground/70 mb-2">Please take a photo of yourself in uniform to verify your identity.</p>
                 <input
                   ref={photoInputRef}
                   type="file"
                   accept="image/*"
                   capture="user"
                   onChange={handlePhotoCapture}
-                  className="hidden"
+                  className="text-sm file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-[13px] file:font-medium hover:file:bg-accent"
                 />
                 {punchPhoto ? (
                   <div className="flex items-center gap-3">
-                    <img src={punchPhoto} alt="Uniform selfie" className="w-16 h-16 rounded-xl object-cover border border-zinc-200" />
+                    <img src={punchPhoto} alt="Uniform selfie" className="w-16 h-16 rounded-xl object-cover border border-border" />
                     <div className="flex-1">
-                      <p className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                      <p className="text-xs font-semibold text-accent-foreground flex items-center gap-1">
                         <CheckCircle2 size={13} /> Photo captured
                       </p>
                       <button
                         type="button"
                         onClick={() => photoInputRef.current?.click()}
-                        className="text-[11px] text-zinc-400 hover:text-zinc-700 underline mt-0.5"
+                        className="text-[11px] text-muted-foreground/70 hover:text-foreground/85 underline mt-0.5"
                       >
                         Retake photo
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <button
+                  <Button variant="outline" size="lg" className="w-full hover:border-primary/30 hover:bg-accent/50 hover:text-accent-foreground"
                     type="button"
                     onClick={() => photoInputRef.current?.click()}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-zinc-300 hover:border-emerald-400 bg-zinc-50 hover:bg-emerald-50/50 text-zinc-500 hover:text-emerald-700 rounded-xl text-sm font-medium transition-all"
+                    
                   >
                     <Camera size={18} />
                     Take Uniform Photo
-                  </button>
+                  </Button>
                 )}
               </div>
             )}
 
             <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => { setShowPunchModal(false); resetPunchState(); }}
-                className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
+              <Button variant="secondary" className="flex-1" type="button" onClick={() => { setShowPunchModal(false); resetPunchState(); }}
+                >
                 Cancel
-              </button>
+              </Button>
               <button type="button" onClick={handlePunchSubmit} disabled={punchLoading || !canPunch}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${punchLoading || !canPunch
-                  ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
-                  : 'bg-zinc-900 hover:bg-zinc-800 text-white'}`}>
+                  ? 'bg-secondary text-muted-foreground/70 cursor-not-allowed'
+                  : 'bg-foreground hover:bg-foreground text-white'}`}>
                 {punchLoading ? (
                   <><Loader2 size={16} className="animate-spin" /> Processing...</>
                 ) : punchMode === 'in' ? (

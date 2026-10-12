@@ -48,13 +48,13 @@ export default function LeaveBalanceCard() {
   }, [token]);
 
   return (
-    <div className="bg-white border border-[#e7e9ec] rounded-[16px] p-6 shadow-sm h-fit">
+    <div className="bg-card border border-[#e7e9ec] rounded-[16px] p-6 shadow-[0_1px_2px_rgb(0_0_0/0.03)] h-fit">
       <div className="flex items-start justify-between gap-3 mb-1.5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-[10px] bg-[#eaf7ef] text-[#1f8a4c] flex items-center justify-center shrink-0">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[19px] h-[19px]"><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>
           </div>
-          <p className="text-[16px] font-bold text-[#1f2430] self-center m-0">Leave Balance</p>
+          <p className="text-[16px] font-semibold text-[#1f2430] self-center m-0">Leave Balance</p>
         </div>
         <span className="text-[12px] text-[#6b7280] bg-[#f4f5f7] border border-[#e7e9ec] rounded-full px-3 py-1.5 whitespace-nowrap shrink-0">As of today</span>
       </div>
@@ -77,12 +77,12 @@ export default function LeaveBalanceCard() {
 
             return (
               <div key={item.leave_type_id} className="flex items-center gap-[14px] py-4 border-b border-[#e7e9ec] last-of-type:border-b-0">
-                <div className={`w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0 ${theme.bg} ${theme.color}`}>
+                <div className={`w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0 ${theme.bg}  ${theme.color}`}>
                   {icon}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline gap-2">
-                    <span className="text-[14px] font-bold text-[#1f2430]">{item.leave_type_name}</span>
+                    <span className="text-[14px] font-semibold text-[#1f2430]">{item.leave_type_name}</span>
                   </div>
                   <p className="text-[12.5px] text-[#6b7280] mt-0.5">{item.used} used of {item.total}</p>
                   <div className="h-1.5 bg-[#e6e8eb] rounded-full mt-[9px] overflow-hidden">
@@ -90,7 +90,7 @@ export default function LeaveBalanceCard() {
                   </div>
                 </div>
                 <div className="text-right shrink-0 ml-2">
-                  <div className="text-[20px] font-extrabold text-[#1f8a4c] leading-none">{item.remaining}</div>
+                  <div className="text-[20px] font-semibold text-[#1f8a4c] leading-none">{item.remaining}</div>
                   <div className="text-[11.5px] text-[#6b7280] mt-0.5">left</div>
                 </div>
               </div>

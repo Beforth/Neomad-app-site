@@ -5,6 +5,14 @@ import { Save, Plus, Trash2, Calendar, Wand2, Search, Sparkles, CheckSquare, Squ
 import { useAuth } from '../../context/AuthContext';
 import { listHolidayLists, getHolidayList, createHolidayList, updateHolidayList, deleteHolidayList, HolidayListOut } from '../../lib/hrmsLeave';
 import SearchableSelect from '../../components/SearchableSelect';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input, fieldClass, selectClass } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 interface HolidayItem {
   id: number;
@@ -13,7 +21,7 @@ interface HolidayItem {
 }
 
 const PAGE_SIZE = 10;
-const inputClass = "w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all";
+const inputClass = fieldClass;
 
 const DAYS_OF_WEEK = [
   { value: 'Sunday', label: 'Sunday', dayIndex: 0 },
@@ -334,113 +342,103 @@ export default function LeaveHolidayList() {
   if (!isFormMode) {
     return (
       <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Holiday Lists</h1>
-            <p className="text-sm text-zinc-500 mt-0.5">Manage company holiday schedules and official rest days</p>
-          </div>
-          <button
+        <PageHeader title="Holiday Lists" description="Manage company holiday schedules and official rest days" actions={<>
+<Button variant="dark" size="sm" className="cursor-pointer"
             onClick={() => navigate('/hrms/leave/holiday-list/new')}
-            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+            
           >
             <Plus size={16} /> New Holiday List
-          </button>
-        </div>
+          </Button>
+</>} />
 
         {/* Filter bar */}
-        <div className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={15} />
-            <input
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={15} />
+            <Input data-search="" className="w-full pl-9 pr-4"
               type="text"
               placeholder="Search holiday lists..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setListPage(1); }}
-              className="w-full pl-9 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900"
+              
             />
           </div>
         </div>
 
         {/* Holiday Lists Table */}
-        <div className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden">
+        <Card className="overflow-hidden" >
           {loading ? (
-            <div className="py-16 text-center text-xs text-zinc-400 font-medium">Loading holiday lists...</div>
+            <div className="py-16 text-center text-xs text-muted-foreground/70 font-medium">Loading holiday lists...</div>
           ) : filteredHolidayLists.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-                <Inbox size={24} className="text-zinc-300" />
-              </div>
-              <h3 className="text-sm font-bold text-zinc-900 mb-1">{holidayLists.length === 0 ? 'No holiday lists created yet' : 'No matching holiday lists'}</h3>
-              <p className="text-xs text-zinc-400 max-w-xs">{holidayLists.length === 0 ? 'Click "New Holiday List" above to create your first company holiday schedule.' : 'Try adjusting your search query.'}</p>
-            </div>
+            <EmptyState icon={<Inbox />} title={holidayLists.length === 0 ? 'No holiday lists created yet' : 'No matching holiday lists'} description={holidayLists.length === 0 ? 'Click "New Holiday List" above to create your first company holiday schedule.' : 'Try adjusting your search query.'} className="border-0" />
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-zinc-50/50 border-b border-zinc-100">
-                    <tr>
-                      <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Holiday List Name</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">From Date</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">To Date</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Total Holidays</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-50">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="uppercase">Holiday List Name</TableHead>
+                      <TableHead className="uppercase">From Date</TableHead>
+                      <TableHead className="uppercase">To Date</TableHead>
+                      <TableHead className="uppercase">Total Holidays</TableHead>
+                      <TableHead className="uppercase text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {pagedHolidayLists.map((hl, i) => (
                       <motion.tr
                         key={hl.id}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: i * 0.02 }}
-                        className="hover:bg-zinc-50/50 transition-colors"
+                        className="border-b transition-colors hover:bg-muted/70"
                       >
-                        <td className="px-4 py-3 text-xs font-bold text-zinc-900 cursor-pointer hover:text-zinc-700" onClick={() => navigate(`/hrms/leave/holiday-list/edit/${hl.id}`)}>
+                        <TableCell className="font-semibold text-foreground cursor-pointer" onClick={() => navigate(`/hrms/leave/holiday-list/edit/${hl.id}`)}>
                           {hl.name}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-zinc-500">{hl.from_date || '—'}</td>
-                        <td className="px-4 py-3 text-xs text-zinc-500">{hl.to_date || '—'}</td>
-                        <td className="px-4 py-3 text-xs">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{hl.from_date || '—'}</TableCell>
+                        <TableCell className="text-muted-foreground">{hl.to_date || '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant="success" >
                             {(hl.holidays || []).length} Holidays
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <button
+                            <Button variant="ghost" size="icon-sm" className="cursor-pointer"
                               onClick={() => navigate(`/hrms/leave/holiday-list/edit/${hl.id}`)}
-                              className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
+                              
                               title="Edit Holiday List"
                             >
                               <Pencil size={15} />
-                            </button>
-                            <button
+                            </Button>
+                            <Button variant="ghost" size="icon-sm" className="cursor-pointer text-destructive bg-destructive/10"
                               onClick={() => setDeleteId(hl.id)}
-                              className="p-1.5 text-rose-600 bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              
                               title="Delete Holiday List"
                             >
                               <Trash2 size={15} />
-                            </button>
+                            </Button>
                           </div>
-                        </td>
+                        </TableCell>
                       </motion.tr>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
 
               {/* List Pagination */}
-              <div className="px-4 py-3 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-500 bg-zinc-50/30">
+              <div className="px-4 py-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground bg-muted/30">
                 <div className="flex items-center gap-3">
                   <span>
                     Showing {filteredHolidayLists.length === 0 ? 0 : (listPage - 1) * listPageSize + 1}–{Math.min(listPage * listPageSize, filteredHolidayLists.length)} of {filteredHolidayLists.length} holiday lists
                   </span>
-                  <div className="flex items-center gap-1 text-[11px] text-zinc-400">
+                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
                     <span>Per page:</span>
                     <select
                       value={listPageSize}
                       onChange={(e) => { setListPageSize(Number(e.target.value)); setListPage(1); }}
-                      className="bg-white border border-zinc-200 rounded px-1.5 py-0.5 text-xs font-semibold text-zinc-700 outline-none cursor-pointer"
+                      className={selectClass}
                     >
                       <option value={5}>5</option>
                       <option value={10}>10</option>
@@ -450,60 +448,56 @@ export default function LeaveHolidayList() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button
+                  <Button variant="ghost" size="icon-sm" className="cursor-pointer"
                     onClick={() => setListPage((p) => Math.max(1, p - 1))}
                     disabled={listPage === 1}
-                    className="p-1 rounded hover:bg-zinc-200 disabled:opacity-30 cursor-pointer"
+                    
                   >
                     <ChevronLeft size={16} />
-                  </button>
-                  <span className="font-bold text-zinc-700 px-2">{listPage} / {listTotalPages}</span>
-                  <button
+                  </Button>
+                  <span className="font-semibold text-foreground/85 px-2">{listPage} / {listTotalPages}</span>
+                  <Button variant="ghost" size="icon-sm" className="cursor-pointer"
                     onClick={() => setListPage((p) => Math.min(listTotalPages, p + 1))}
                     disabled={listPage === listTotalPages}
-                    className="p-1 rounded hover:bg-zinc-200 disabled:opacity-30 cursor-pointer"
+                    
                   >
                     <ChevronRight size={16} />
-                  </button>
+                  </Button>
                 </div>
               </div>
             </>
           )}
-        </div>
+        </Card>
 
         {/* Delete Confirmation Modal */}
         <AnimatePresence>
           {deleteId !== null && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-xs">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl space-y-4"
-              >
-                <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+            <Dialog open onOpenChange={(open) => { if (!open) (() => {})(); }}>
+<DialogContent hideClose aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="gap-0 p-0 max-w-sm">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+                <div className="w-12 h-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto">
                   <Trash2 size={24} />
                 </div>
                 <div className="text-center space-y-1">
-                  <h3 className="text-base font-bold text-zinc-900">Delete Holiday List?</h3>
-                  <p className="text-xs text-zinc-500">This action will delete the holiday list permanently. This cannot be undone.</p>
+                  <h3 className="text-base font-semibold text-foreground">Delete Holiday List?</h3>
+                  <p className="text-xs text-muted-foreground">This action will delete the holiday list permanently. This cannot be undone.</p>
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button
+                  <Button variant="secondary" size="sm" className="flex-1 cursor-pointer"
                     onClick={() => setDeleteId(null)}
-                    className="flex-1 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button variant="destructive" size="sm" className="flex-1 cursor-pointer"
                     onClick={handleDeleteList}
-                    className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    
                   >
                     Yes, Delete
-                  </button>
+                  </Button>
                 </div>
-              </motion.div>
-            </div>
+              </DialogContent>
+</Dialog>
           )}
         </AnimatePresence>
       </div>
@@ -518,28 +512,28 @@ export default function LeaveHolidayList() {
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center gap-3"
       >
-        <button
+        <Button variant="ghost" size="icon-sm" className="cursor-pointer"
           onClick={() => navigate('/hrms/leave/holiday-list')}
-          className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
+          
         >
           <ArrowLeft size={18} />
-        </button>
+        </Button>
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
             {isEditMode ? 'Edit Holiday List' : 'New Holiday List'}
           </h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Frappe-style Holiday List builder with automatic weekly off generator</p>
+          <p className="text-[13px] text-muted-foreground">Frappe-style Holiday List builder with automatic weekly off generator</p>
         </div>
       </motion.div>
 
       {errorMsg && (
-        <div className="p-3 bg-red-50 text-red-700 rounded-xl text-xs font-medium border border-red-200">
+        <div className="p-3 bg-destructive/10 text-destructive rounded-xl text-xs font-medium border border-destructive/20">
           {errorMsg}
         </div>
       )}
 
       {infoMsg && (
-        <div className="p-3 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-medium border border-emerald-200">
+        <div className="p-3 bg-accent text-accent-foreground rounded-xl text-xs font-medium border border-primary/20">
           {infoMsg}
         </div>
       )}
@@ -549,75 +543,75 @@ export default function LeaveHolidayList() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
       >
-        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm">
+        <Card>
           <form onSubmit={handleSave}>
             {/* Header Basic Details */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-5">
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Holiday List Name *</label>
-                <input type="text" required value={name}
+                <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Holiday List Name *</label>
+                <Input type="text" required value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. FY 2026–2027 Holidays"
-                  className={inputClass} />
+                   />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">From Date *</label>
-                <input type="date" required value={fromDate}
+                <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">From Date *</label>
+                <Input type="date" required value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className={inputClass} />
+                   />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">To Date *</label>
-                <input type="date" required value={toDate}
+                <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">To Date *</label>
+                <Input type="date" required value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className={inputClass} />
+                   />
               </div>
             </div>
 
             {/* Weekly Off Generator */}
-            <div className="border-t border-zinc-200 p-5 bg-zinc-50/50 space-y-3">
+            <div className="border-t border-border p-5 bg-muted/50 space-y-3">
               <div className="flex items-center gap-2">
-                <Wand2 size={16} className="text-zinc-800" />
-                <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Add Weekly Holidays (Weekly Off)</h3>
+                <Wand2 size={16} className="text-foreground" />
+                <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">Add Weekly Holidays (Weekly Off)</h3>
               </div>
-              <p className="text-xs text-zinc-500">Automatically generate weekly rest days between From Date and To Date.</p>
+              <p className="text-xs text-muted-foreground">Automatically generate weekly rest days between From Date and To Date.</p>
               
               <div className="flex flex-wrap items-end gap-3 pt-1">
                 <div className="w-[180px]">
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Weekly Off Day</label>
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Weekly Off Day</label>
                   <SearchableSelect
                     value={weeklyOff}
                     onChange={setWeeklyOff}
                     options={DAYS_OF_WEEK.map((d) => ({ value: d.value, label: d.label }))}
                   />
                 </div>
-                <button
+                <Button variant="dark" size="sm" className="cursor-pointer"
                   type="button"
                   onClick={addWeeklyHolidays}
-                  className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer"
+                  
                 >
                   <Plus size={14} /> Add to Holidays
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* Fixed National & State Holidays */}
-            <div className="border-t border-zinc-200 p-5 bg-zinc-50/80 space-y-3">
+            <div className="border-t border-border p-5 bg-muted/80 space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <div className="flex items-center gap-2">
-                    <Sparkles size={16} className="text-zinc-900" />
-                    <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Fixed National & State Holidays</h3>
+                    <Sparkles size={16} className="text-foreground" />
+                    <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">Fixed National & State Holidays</h3>
                   </div>
-                  <p className="text-xs text-zinc-500 mt-0.5">Select and add fixed calendar holidays (Gandhi Jayanti, Ambedkar Jayanti, Shiv Jayanti, Republic Day, etc.)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Select and add fixed calendar holidays (Gandhi Jayanti, Ambedkar Jayanti, Shiv Jayanti, Republic Day, etc.)</p>
                 </div>
-                <button
+                <Button variant="dark" size="sm" className="cursor-pointer"
                   type="button"
                   onClick={() => setShowFixedPanel((v) => !v)}
-                  className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer"
+                  
                 >
                   <Sparkles size={14} /> Add Fixed National Holidays
-                </button>
+                </Button>
               </div>
 
               <AnimatePresence>
@@ -626,15 +620,15 @@ export default function LeaveHolidayList() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="mt-3 bg-white border border-zinc-200 rounded-xl p-4 shadow-sm space-y-4 overflow-hidden"
+                    className="mt-3 bg-card border border-border rounded-xl p-4 shadow-[0_1px_2px_rgb(0_0_0/0.03)] space-y-4 overflow-hidden"
                   >
-                    <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+                    <div className="flex items-center justify-between pb-2 border-b border-border">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-zinc-900">Select Holidays to Include</span>
+                        <span className="text-xs font-semibold text-foreground">Select Holidays to Include</span>
                         <button
                           type="button"
                           onClick={toggleSelectAllFixed}
-                          className="text-[11px] text-zinc-900 font-bold hover:underline cursor-pointer"
+                          className="text-[11px] text-foreground font-semibold hover:underline cursor-pointer"
                         >
                           {selectedFixedHolidays.length === FIXED_NATIONAL_HOLIDAYS.length ? 'Deselect All' : 'Select All'}
                         </button>
@@ -642,7 +636,7 @@ export default function LeaveHolidayList() {
                       <button
                         type="button"
                         onClick={() => setShowFixedPanel(false)}
-                        className="text-zinc-400 hover:text-zinc-700 cursor-pointer"
+                        className="text-muted-foreground/70 hover:text-foreground/85 cursor-pointer"
                       >
                         <X size={16} />
                       </button>
@@ -657,20 +651,20 @@ export default function LeaveHolidayList() {
                             onClick={() => toggleSelectFixed(h.monthDay)}
                             className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
                               checked
-                                ? 'bg-zinc-100 border-zinc-300 text-zinc-900 shadow-2xs font-semibold'
-                                : 'bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50/50'
+                                ? 'bg-secondary border-input text-foreground shadow-2xs font-semibold'
+                                : 'bg-card border-border text-foreground/70 hover:border-input hover:bg-muted/50'
                             }`}
                           >
                             {checked ? (
-                              <CheckSquare size={16} className="text-zinc-900 shrink-0" />
+                              <CheckSquare size={16} className="text-foreground shrink-0" />
                             ) : (
-                              <Square size={16} className="text-zinc-300 shrink-0" />
+                              <Square size={16} className="text-muted-foreground/50 shrink-0" />
                             )}
                             <div className="min-w-0">
-                              <span className={`text-[10px] font-mono font-bold block leading-none ${checked ? 'text-zinc-700' : 'text-zinc-400'}`}>
+                              <span className={`text-[11px] font-mono font-semibold block leading-none ${checked ? 'text-foreground/85' : 'text-muted-foreground/70'}`}>
                                 {h.monthDay}
                               </span>
-                              <span className={`text-xs block mt-0.5 truncate ${checked ? 'font-bold text-zinc-900' : 'font-medium text-zinc-700'}`}>
+                              <span className={`text-xs block mt-0.5 truncate ${checked ? 'font-bold text-foreground' : 'font-medium text-foreground/85'}`}>
                                 {h.name}
                               </span>
                             </div>
@@ -679,22 +673,22 @@ export default function LeaveHolidayList() {
                       })}
                     </div>
 
-                    <div className="pt-2 border-t border-zinc-100 flex items-center justify-end gap-2">
-                      <button
+                    <div className="pt-2 border-t border-border flex items-center justify-end gap-2">
+                      <Button variant="secondary" size="sm" className="cursor-pointer"
                         type="button"
                         onClick={() => setShowFixedPanel(false)}
-                        className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                        
                       >
                         Cancel
-                      </button>
-                      <button
+                      </Button>
+                      <Button variant="dark" size="sm" className="cursor-pointer"
                         type="button"
                         onClick={addSelectedFixedHolidays}
                         disabled={selectedFixedHolidays.length === 0}
-                        className="flex items-center gap-1.5 px-4 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                        
                       >
                         <Plus size={14} /> Add to Holidays ({selectedFixedHolidays.length})
-                      </button>
+                      </Button>
                     </div>
                   </motion.div>
                 )}
@@ -702,111 +696,111 @@ export default function LeaveHolidayList() {
             </div>
 
             {/* Manual Holiday Addition */}
-            <div className="border-t border-zinc-200 p-5 space-y-3">
-              <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Add Specific Festival / Local Holiday</h3>
+            <div className="border-t border-border p-5 space-y-3">
+              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">Add Specific Festival / Local Holiday</h3>
               <div className="flex flex-wrap items-end gap-3">
                 <div className="w-[160px]">
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Holiday Date</label>
-                  <input type="date" value={holidayDate}
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Holiday Date</label>
+                  <Input type="date" value={holidayDate}
                     onChange={(e) => setHolidayDate(e.target.value)}
-                    className={inputClass} />
+                     />
                 </div>
                 <div className="flex-1 min-w-[200px]">
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Holiday Name / Description</label>
-                  <input type="text" value={holidayName}
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Holiday Name / Description</label>
+                  <Input type="text" value={holidayName}
                     onChange={(e) => setHolidayName(e.target.value)}
                     placeholder="e.g. Diwali, Independence Day"
-                    className={inputClass} />
+                     />
                 </div>
-                <button type="button" onClick={addHoliday}
+                <Button variant="dark" size="sm" className="shrink-0 cursor-pointer" type="button" onClick={addHoliday}
                   disabled={!holidayDate.trim() || !holidayName.trim()}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-zinc-900 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 cursor-pointer">
+                  >
                   <Plus size={14} /> Add Row
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* Holidays Table & Controls */}
-            <div className="border-t border-zinc-200 p-5 space-y-4">
+            <div className="border-t border-border p-5 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-bold text-zinc-900">Holidays List</span>
-                  <span className="inline-flex items-center justify-center min-w-[28px] h-6 rounded-md bg-zinc-900 text-[11px] font-bold text-white px-2">
+                  <span className="text-xs font-semibold text-foreground">Holidays List</span>
+                  <span className="inline-flex items-center justify-center min-w-[28px] h-6 rounded-md bg-foreground text-[11px] font-semibold text-white px-2">
                     {holidays.length}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="relative w-[180px]">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" size={12} />
-                    <input
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={12} />
+                    <Input data-search="" className="w-full pl-8 pr-3"
                       type="text"
                       placeholder="Search table..."
                       value={tableSearch}
                       onChange={(e) => { setTableSearch(e.target.value); setTablePage(1); }}
-                      className="w-full pl-8 pr-3 py-1 bg-zinc-50 border border-zinc-200 rounded-md text-xs outline-none focus:ring-1 focus:ring-zinc-900"
+                      
                     />
                   </div>
                   {holidays.length > 0 && (
-                    <button
+                    <Button variant="outline" size="xs" className="cursor-pointer text-destructive hover:text-destructive bg-destructive/10 hover:bg-destructive/15 border-destructive/20"
                       type="button"
                       onClick={clearAllHolidays}
-                      className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-bold px-3 py-1 bg-red-50 hover:bg-red-100 rounded-md transition-colors border border-red-200 cursor-pointer"
+                      
                     >
                       <Trash2 size={12} /> Clear Table
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
 
               {filteredHolidays.length > 0 ? (
-                <div className="border border-zinc-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="border border-border rounded-xl overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead className="bg-zinc-50 border-b border-zinc-200 sticky top-0 z-10">
-                        <tr>
-                          <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest w-12">#</th>
-                          <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest w-36">Date</th>
-                          <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest w-32">Day</th>
-                          <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Holiday Name</th>
-                          <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right w-16">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-100 bg-white">
+                    <Table>
+                      <TableHeader className="sticky top-0 z-10">
+                        <TableRow>
+                          <TableHead className="uppercase w-12">#</TableHead>
+                          <TableHead className="uppercase w-36">Date</TableHead>
+                          <TableHead className="uppercase w-32">Day</TableHead>
+                          <TableHead className="uppercase">Holiday Name</TableHead>
+                          <TableHead className="uppercase text-right w-16">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {pagedHolidays.map((h, i) => {
                           const globalIdx = (tablePage - 1) * tablePageSize + i + 1;
                           const d = new Date(h.date + 'T00:00:00');
                           const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
                           return (
-                            <tr key={h.id} className="hover:bg-zinc-50/70 transition-colors">
-                              <td className="px-4 py-2.5 text-xs text-zinc-400 font-mono">{globalIdx}</td>
-                              <td className="px-4 py-2.5 text-xs font-semibold text-zinc-900">{h.date}</td>
-                              <td className="px-4 py-2.5 text-xs font-medium text-zinc-500">{dayName}</td>
-                              <td className="px-4 py-2.5 text-xs font-bold text-zinc-900">{h.name}</td>
-                              <td className="px-4 py-2.5 text-right">
-                                <button type="button" onClick={() => removeHoliday(h.id)}
-                                  className="p-1 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors cursor-pointer">
+                            <TableRow key={h.id} className="">
+                              <TableCell className="text-muted-foreground/70 font-mono">{globalIdx}</TableCell>
+                              <TableCell className="font-semibold text-foreground">{h.date}</TableCell>
+                              <TableCell className="font-medium text-muted-foreground">{dayName}</TableCell>
+                              <TableCell className="font-semibold text-foreground">{h.name}</TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="ghost" size="icon-sm" className="cursor-pointer hover:text-destructive hover:bg-destructive/10" type="button" onClick={() => removeHoliday(h.id)}
+                                  >
                                   <Trash2 size={14} />
-                                </button>
-                              </td>
-                            </tr>
+                                </Button>
+                              </TableCell>
+                            </TableRow>
                           );
                         })}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
 
                   {/* Form Inner Table Pagination */}
-                  <div className="px-4 py-2.5 border-t border-zinc-200 flex items-center justify-between text-xs text-zinc-500 bg-zinc-50/50">
+                  <div className="px-4 py-2.5 border-t border-border flex items-center justify-between text-xs text-muted-foreground bg-muted/50">
                     <div className="flex items-center gap-3">
                       <span>
                         Showing {filteredHolidays.length === 0 ? 0 : (tablePage - 1) * tablePageSize + 1}–{Math.min(tablePage * tablePageSize, filteredHolidays.length)} of {filteredHolidays.length} holidays
                       </span>
-                      <div className="flex items-center gap-1 text-[11px] text-zinc-400">
+                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
                         <span>Per page:</span>
                         <select
                           value={tablePageSize}
                           onChange={(e) => { setTablePageSize(Number(e.target.value)); setTablePage(1); }}
-                          className="bg-white border border-zinc-200 rounded px-1.5 py-0.5 text-xs font-semibold text-zinc-700 outline-none cursor-pointer"
+                          className={selectClass}
                         >
                           <option value={5}>5</option>
                           <option value={10}>10</option>
@@ -816,48 +810,48 @@ export default function LeaveHolidayList() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button
+                      <Button variant="ghost" size="icon-sm" className="cursor-pointer"
                         type="button"
                         onClick={() => setTablePage((p) => Math.max(1, p - 1))}
                         disabled={tablePage === 1}
-                        className="p-1 rounded hover:bg-zinc-200 disabled:opacity-30 cursor-pointer"
+                        
                       >
                         <ChevronLeft size={16} />
-                      </button>
-                      <span className="font-bold text-zinc-700 px-2">{tablePage} / {tableTotalPages}</span>
-                      <button
+                      </Button>
+                      <span className="font-semibold text-foreground/85 px-2">{tablePage} / {tableTotalPages}</span>
+                      <Button variant="ghost" size="icon-sm" className="cursor-pointer"
                         type="button"
                         onClick={() => setTablePage((p) => Math.min(tableTotalPages, p + 1))}
                         disabled={tablePage === tableTotalPages}
-                        className="p-1 rounded hover:bg-zinc-200 disabled:opacity-30 cursor-pointer"
+                        
                       >
                         <ChevronRight size={16} />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="p-8 text-center bg-zinc-50/50 border border-dashed border-zinc-200 rounded-xl">
-                  <Calendar className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-                  <p className="text-xs font-semibold text-zinc-600">No holidays added to this list yet.</p>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Use "Add to Holidays" or "Add Fixed National Holidays" above to generate dates or add custom dates.</p>
+                <div className="p-8 text-center bg-muted/50 border border-dashed border-border rounded-xl">
+                  <Calendar className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
+                  <p className="text-xs font-semibold text-foreground/70">No holidays added to this list yet.</p>
+                  <p className="text-[11px] text-muted-foreground/70 mt-0.5">Use "Add to Holidays" or "Add Fixed National Holidays" above to generate dates or add custom dates.</p>
                 </div>
               )}
             </div>
 
             {/* Footer Form Buttons */}
-            <div className="border-t border-zinc-200 p-5 flex gap-3">
-              <button type="button" onClick={() => navigate('/hrms/leave/holiday-list')}
-                className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors cursor-pointer">
+            <div className="border-t border-border p-5 flex gap-3">
+              <Button variant="secondary" className="flex-1 cursor-pointer" type="button" onClick={() => navigate('/hrms/leave/holiday-list')}
+                >
                 Cancel
-              </button>
-              <button type="submit" disabled={saving || !name.trim()}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+              </Button>
+              <Button variant="dark" className="flex-1 cursor-pointer" type="submit" disabled={saving || !name.trim()}
+                >
                 <Save size={16} /> {saving ? 'Saving...' : isEditMode ? 'Update Holiday List' : 'Create Holiday List'}
-              </button>
+              </Button>
             </div>
           </form>
-        </div>
+        </Card>
       </motion.div>
     </div>
   );

@@ -4,6 +4,8 @@ import { motion } from 'motion/react';
 import { ArrowLeft, Save, Banknote, Smartphone, Landmark, FileText, CreditCard, Plus, X } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
 import { useAuth } from '../../context/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input, Textarea, fieldClass } from '@/components/ui/input';
 import {
   Category, Payment, PaymentMethod,
   CATEGORY_OPTIONS, PAYMENT_METHOD_OPTIONS,
@@ -20,11 +22,11 @@ interface FormState {
 }
 
 const PAYMENT_ICON: Record<string, { icon: any; color: string }> = {
-  cash: { icon: Banknote, color: 'text-emerald-600' },
-  card: { icon: CreditCard, color: 'text-blue-600' },
+  cash: { icon: Banknote, color: 'text-primary' },
+  card: { icon: CreditCard, color: 'text-info' },
   upi: { icon: Smartphone, color: 'text-purple-600' },
   net_banking: { icon: Landmark, color: 'text-indigo-600' },
-  cheque: { icon: FileText, color: 'text-amber-600' },
+  cheque: { icon: FileText, color: 'text-warning' },
 };
 
 const defaultForm: FormState = {
@@ -35,7 +37,7 @@ const defaultForm: FormState = {
   payments: [newPayment()],
 };
 
-const inputClass = 'w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all';
+const inputClass = fieldClass;
 
 export default function ExpenseForm() {
   const navigate = useNavigate();
@@ -154,7 +156,7 @@ export default function ExpenseForm() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <p className="text-sm text-zinc-400 animate-pulse">Loading expense...</p>
+        <p className="text-sm text-muted-foreground/70 animate-pulse">Loading expense...</p>
       </div>
     );
   }
@@ -163,31 +165,31 @@ export default function ExpenseForm() {
     <div className="space-y-6">
       {toast && (
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-          className="fixed top-5 right-5 z-[9999] bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
+          className="fixed top-5 right-5 z-[9999] bg-foreground text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
           {toast}
         </motion.div>
       )}
 
       <motion.header initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3">
-        <button onClick={() => navigate('/hrms/expenses')} className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+        <Button variant="ghost" size="icon-sm" onClick={() => navigate('/hrms/expenses')} >
           <ArrowLeft size={18} />
-        </button>
+        </Button>
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{isEdit ? 'Edit Expense' : 'Add Expense'}</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">{isEdit ? 'Update draft expense' : isEmployee ? 'Submit a new expense claim' : 'Log a new team expense'}</p>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">{isEdit ? 'Edit Expense' : 'Add Expense'}</h1>
+          <p className="text-[13px] text-muted-foreground">{isEdit ? 'Update draft expense' : isEmployee ? 'Submit a new expense claim' : 'Log a new team expense'}</p>
         </div>
       </motion.header>
 
       <form onSubmit={handleSave} className="space-y-6">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Expense Details</h2>
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden">
+          <div className="px-4 py-3 border-b border-border bg-muted/50">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Expense Details</h2>
           </div>
           <div className="p-4 space-y-4">
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Date *</label>
-              <input type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} className={inputClass} />
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Date *</label>
+              <Input type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}  />
               {form.date > todayStr() && (
                 <div className="mt-2 p-2.5 bg-purple-50 border border-purple-200 rounded-xl flex items-center gap-2 text-xs text-purple-700 font-medium">
                   <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
@@ -196,12 +198,12 @@ export default function ExpenseForm() {
               )}
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Description</label>
-              <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={3} className={inputClass} placeholder="What was this expense for?" />
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Description</label>
+              <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={3}  placeholder="What was this expense for?" />
             </div>
             {!isEmployee && (
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Status *</label>
+                <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Status *</label>
                 <SearchableSelect
                   value={form.status}
                   onChange={(v) => setForm((p) => ({ ...p, status: v as 'draft' | 'pending' }))}
@@ -214,58 +216,58 @@ export default function ExpenseForm() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Amount & Payment</h2>
-            <span className="text-xs font-bold text-zinc-900">{'₹' + totalAmount.toLocaleString('en-IN')}</span>
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden">
+          <div className="px-4 py-3 border-b border-border bg-muted/50 flex items-center justify-between">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Amount & Payment</h2>
+            <span className="text-xs font-semibold text-foreground">{'₹' + totalAmount.toLocaleString('en-IN')}</span>
           </div>
           <div className="p-4 space-y-4">
             {form.payments.map((pay, index) => {
               const pi = pay.paymentMethod ? PAYMENT_ICON[pay.paymentMethod] : null;
               const Icon = pi?.icon;
               return (
-                <div key={pay.id} className="rounded-xl border border-zinc-200 p-4 space-y-3">
+                <div key={pay.id} className="rounded-xl border border-border p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Payment {index + 1}</p>
+                    <p className="text-xs font-medium text-muted-foreground/70">Payment {index + 1}</p>
                     {form.payments.length > 1 && (
-                      <button type="button" onClick={() => removePayment(index)}
-                        className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                      <Button variant="ghost" size="xs" className="hover:text-destructive hover:bg-destructive/10" type="button" onClick={() => removePayment(index)}
+                        >
                         <X size={12} /> Remove
-                      </button>
+                      </Button>
                     )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Title *</label>
-                      <input type="text" value={pay.title} onChange={(e) => updatePayment(index, { title: e.target.value })} className={inputClass} placeholder="e.g. Client dinner" />
+                      <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Title *</label>
+                      <Input type="text" value={pay.title} onChange={(e) => updatePayment(index, { title: e.target.value })}  placeholder="e.g. Client dinner" />
                     </div>
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Payment Method *</label>
+                      <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Payment Method *</label>
                       <SearchableSelect value={pay.paymentMethod} onChange={(v) => updatePayment(index, { paymentMethod: v as PaymentMethod })} options={PAYMENT_METHOD_OPTIONS} placeholder="Select method" />
                     </div>
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Category *</label>
+                      <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Category *</label>
                       <SearchableSelect value={pay.category} onChange={(v) => updatePayment(index, { category: v as Category })} options={CATEGORY_OPTIONS} placeholder="Select category" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Amount (₹) *</label>
-                      <input type="number" min={0} value={pay.amount || ''} onChange={(e) => updatePayment(index, { amount: Math.max(0, parseFloat(e.target.value) || 0) })} className={inputClass} placeholder="0" />
+                      <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Amount (₹) *</label>
+                      <Input type="number" min={0} value={pay.amount || ''} onChange={(e) => updatePayment(index, { amount: Math.max(0, parseFloat(e.target.value) || 0) })}  placeholder="0" />
                     </div>
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Tax (₹)</label>
-                      <input type="number" min={0} value={pay.taxAmount || ''} onChange={(e) => updatePayment(index, { taxAmount: Math.max(0, parseFloat(e.target.value) || 0) })} className={inputClass} placeholder="0" />
+                      <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Tax (₹)</label>
+                      <Input type="number" min={0} value={pay.taxAmount || ''} onChange={(e) => updatePayment(index, { taxAmount: Math.max(0, parseFloat(e.target.value) || 0) })}  placeholder="0" />
                     </div>
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Time *</label>
-                      <input type="time" value={pay.time} onChange={(e) => updatePayment(index, { time: e.target.value })} className={inputClass} />
+                      <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Time *</label>
+                      <Input type="time" value={pay.time} onChange={(e) => updatePayment(index, { time: e.target.value })}  />
                     </div>
                     <div className="flex items-end">
                       {Icon && (
-                        <div className="flex items-center gap-2 px-3 py-2 bg-zinc-50 rounded-xl w-full">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md w-full">
                           <Icon size={16} className={pi?.color} />
-                          <span className="text-xs font-bold text-zinc-700 truncate">
+                          <span className="text-xs font-semibold text-foreground/85 truncate">
                             {PAYMENT_METHOD_OPTIONS.find((o) => o.value === pay.paymentMethod)?.label || '—'}
                           </span>
                         </div>
@@ -273,12 +275,12 @@ export default function ExpenseForm() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Receipt</label>
-                    <input type="file" accept="image/*" onChange={(e) => handlePaymentReceipt(index, e)} className="w-full text-xs text-zinc-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200 file:cursor-pointer" />
+                    <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Receipt</label>
+                    <input type="file" accept="image/*" onChange={(e) => handlePaymentReceipt(index, e)} className="text-sm file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-[13px] file:font-medium hover:file:bg-accent" />
                     {pay.receipt && (
                       <div className="mt-2 relative inline-block">
-                        <img src={pay.receipt} alt="Receipt preview" className="h-16 rounded-lg border border-zinc-200" />
-                        <button type="button" onClick={() => updatePayment(index, { receipt: '' })} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-zinc-900 text-white rounded-full text-[10px] flex items-center justify-center hover:bg-zinc-700">✕</button>
+                        <img src={pay.receipt} alt="Receipt preview" className="h-16 rounded-lg border border-border" />
+                        <Button variant="dark" size="xs" className="absolute -top-1.5 -right-1.5 w-5" type="button" onClick={() => updatePayment(index, { receipt: '' })} >✕</Button>
                       </div>
                     )}
                   </div>
@@ -286,20 +288,20 @@ export default function ExpenseForm() {
               );
             })}
 
-            <button type="button" onClick={addPayment}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed border-zinc-200 hover:border-zinc-900 text-zinc-500 hover:text-zinc-900 rounded-xl text-xs font-bold transition-colors">
+            <Button variant="outline" size="sm" className="w-full" type="button" onClick={addPayment}
+              >
               <Plus size={14} /> Add Another Payment
-            </button>
+            </Button>
           </div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.11 }}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden">
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden">
           <div className="p-4">
-            <button type="submit" disabled={saving || required}
-              className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed text-xs">
+            <Button variant="dark" size="lg" className="w-full" type="submit" disabled={saving || required}
+              >
               <Save size={16} />{saving ? 'Saving...' : (isEdit ? 'Update Expense' : 'Save Expense')}
-            </button>
+            </Button>
           </div>
         </motion.div>
       </form>

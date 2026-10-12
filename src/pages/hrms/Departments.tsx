@@ -11,13 +11,17 @@ import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
 import { SearchInput, FilterSelect, SortableTh, Pagination } from '../../components/ListControls';
 import { useListControls } from '../../hooks/useListControls';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Input, fieldClass } from '@/components/ui/input';
 import {
   listDepartments, createDepartment, updateDepartment, deleteDepartment,
   type DepartmentOut,
 } from '../../lib/hrmsStaff';
 
-const inputClass =
-  'px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm transition';
+const inputClass = fieldClass;
 
 export default function Departments() {
   const { token } = useAuth();
@@ -89,19 +93,19 @@ export default function Departments() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-extrabold text-zinc-900">
-            Departments <span className="text-zinc-400 font-bold">({list.total})</span>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+            Departments <span className="text-muted-foreground/70 font-semibold">({list.total})</span>
           </h1>
-          <p className="text-xs text-zinc-500 mt-0.5">Used to group staff and drive the HRMS dashboard chart</p>
+          <p className="text-[13px] text-muted-foreground">Used to group staff and drive the HRMS dashboard chart</p>
         </div>
-        <button type="button" onClick={() => { setDialog({ id: null, name: '' }); setDialogError(null); }}
-          className="flex items-center gap-1.5 bg-zinc-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors">
+        <Button variant="dark" size="sm" type="button" onClick={() => { setDialog({ id: null, name: '' }); setDialogError(null); }}
+          >
           <Plus size={14} /> Add New
-        </button>
+        </Button>
       </div>
 
       {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 flex items-center justify-between gap-3">
+        <div className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-center justify-between gap-3">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} className="shrink-0"><X size={16} /></button>
         </div>
@@ -126,82 +130,82 @@ export default function Departments() {
         />
       </div>
 
-      <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-zinc-50 border-b border-zinc-200">
-            <tr>
+      <Card className="overflow-hidden" >
+        <Table>
+          <TableHeader>
+            <TableRow>
               <SortableTh field="name" sortBy={list.sortBy} sortOrder={list.sortOrder} onSort={list.toggleSort}>
                 Department Name
               </SortableTh>
-              <th className="text-left px-5 py-3 text-xs font-bold text-zinc-500 uppercase tracking-wide">
+              <TableHead className="text-left uppercase">
                 Employee Count
-              </th>
+              </TableHead>
               <SortableTh field="created_at" sortBy={list.sortBy} sortOrder={list.sortOrder} onSort={list.toggleSort}>
                 Created
               </SortableTh>
-              <th className="text-right px-5 py-3 text-xs font-bold text-zinc-500 uppercase tracking-wide">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100">
+              <TableHead className="text-right uppercase">Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {loading && !rows.length && (
-              <tr><td colSpan={4} className="px-5 py-10 text-center text-sm text-zinc-400">Loading…</td></tr>
+              <TableRow><TableCell colSpan={4} className="py-10 text-center text-muted-foreground/70">Loading…</TableCell></TableRow>
             )}
 
             {!loading && !rows.length && (
-              <tr>
-                <td colSpan={4} className="px-5 py-12 text-center">
-                  <Building2 size={28} className="mx-auto text-zinc-300 mb-2" />
-                  <p className="text-sm font-semibold text-zinc-600">
+              <TableRow>
+                <TableCell colSpan={4} className="py-10 text-center">
+                  <Building2 size={28} className="mx-auto text-muted-foreground/50 mb-2" />
+                  <p className="text-sm font-semibold text-foreground/70">
                     {list.search ? `No departments match “${list.search}”` : 'No departments yet'}
                   </p>
-                  <p className="text-xs text-zinc-400 mt-1">
+                  <p className="text-xs text-muted-foreground/70 mt-1">
                     {list.search
                       ? 'Try a different search term.'
                       : 'Add one, then assign staff to it from the employee form.'}
                   </p>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
 
             {rows.map((d) => (
-              <tr key={d.id} className="hover:bg-zinc-50/50 transition-colors">
-                <td className="px-5 py-3">
-                  <span className="text-sm font-medium text-zinc-900">{d.name}</span>
-                </td>
-                <td className="px-5 py-3">
+              <TableRow key={d.id} className="">
+                <TableCell>
+                  <span className="text-sm font-medium text-foreground">{d.name}</span>
+                </TableCell>
+                <TableCell>
                   {d.employee_count > 0 ? (
                     <Link to={`/hrms/staff?department_id=${d.id}`}
-                      className="text-sm text-emerald-600 font-semibold hover:underline">
+                      className="text-sm text-primary font-semibold hover:underline">
                       {d.employee_count}
                     </Link>
                   ) : (
-                    <span className="text-sm text-zinc-400">0</span>
+                    <span className="text-sm text-muted-foreground/70">0</span>
                   )}
-                </td>
-                <td className="px-5 py-3 text-sm text-zinc-500">
+                </TableCell>
+                <TableCell className="text-muted-foreground">
                   {d.created_at ? new Date(d.created_at).toLocaleDateString('en-IN', {
                     day: 'numeric', month: 'short', year: 'numeric',
                   }) : '—'}
-                </td>
-                <td className="px-5 py-3">
+                </TableCell>
+                <TableCell>
                   <div className="flex items-center justify-end gap-1">
-                    <button type="button"
+                    <Button variant="ghost" size="icon-sm" type="button"
                       onClick={() => { setDialog({ id: d.id, name: d.name }); setDialogError(null); }}
-                      className="p-2 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+                      
                       title="Rename">
                       <Pencil size={15} />
-                    </button>
-                    <button type="button" onClick={() => setConfirmDelete(d)}
-                      className="p-2 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" type="button" onClick={() => setConfirmDelete(d)}
+                      
                       title="Delete">
                       <Trash2 size={15} />
-                    </button>
+                    </Button>
                   </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
         <Pagination
           page={list.page}
           totalPages={list.totalPages}
@@ -210,7 +214,7 @@ export default function Departments() {
           onPage={list.setPage}
           onPageSize={list.setPageSize}
         />
-      </div>
+      </Card>
 
       {dialog && (
         <Modal
@@ -223,10 +227,10 @@ export default function Departments() {
             className="p-5 space-y-4"
           >
             <div>
-              <label className="block text-xs font-semibold text-zinc-600 mb-1.5">
-                Department Name<span className="text-rose-500 ml-0.5">*</span>
+              <label className="block text-xs font-semibold text-foreground/70 mb-1.5">
+                Department Name<span className="text-destructive ml-0.5">*</span>
               </label>
-              <input
+              <Input
                 autoFocus
                 value={dialog.name}
                 onChange={(e) => setDialog((d) => (d ? { ...d, name: e.target.value } : d))}
@@ -236,46 +240,46 @@ export default function Departments() {
             </div>
 
             {dialogError && (
-              <p className="text-sm text-rose-600">{dialogError}</p>
+              <p className="text-sm text-destructive">{dialogError}</p>
             )}
 
             <div className="flex gap-2 pt-1">
-              <button type="button" onClick={() => setDialog(null)}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-sm font-semibold transition-colors">
+              <Button variant="secondary" className="flex-1" type="button" onClick={() => setDialog(null)}
+                >
                 Cancel
-              </button>
-              <button type="submit" disabled={saving || !dialog.name.trim()}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+              </Button>
+              <Button variant="dark" className="flex-1" type="submit" disabled={saving || !dialog.name.trim()}
+                >
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                 {saving ? 'Saving…' : dialog.id === null ? 'Create' : 'Save'}
-              </button>
+              </Button>
             </div>
           </form>
         </Modal>
       )}
 
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-          onClick={() => setConfirmDelete(null)}>
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-bold text-zinc-900">Delete “{confirmDelete.name}”?</h3>
-            <p className="text-sm text-zinc-500 mt-1.5">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => setConfirmDelete(null))(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-sm">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <h3 className="font-semibold text-foreground">Delete “{confirmDelete.name}”?</h3>
+            <p className="text-sm text-muted-foreground mt-1.5">
               {confirmDelete.employee_count > 0
                 ? `${confirmDelete.employee_count} employee(s) are assigned to it. Reassign them first — the server will refuse this.`
                 : 'This cannot be undone.'}
             </p>
             <div className="flex gap-2 mt-5">
-              <button type="button" onClick={() => setConfirmDelete(null)}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-sm font-semibold transition-colors">
+              <Button variant="secondary" className="flex-1" type="button" onClick={() => setConfirmDelete(null)}
+                >
                 Cancel
-              </button>
-              <button type="button" onClick={handleDelete} disabled={saving}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold transition-colors disabled:opacity-60">
+              </Button>
+              <Button variant="destructive" className="flex-1" type="button" onClick={handleDelete} disabled={saving}
+                >
                 {saving ? 'Deleting…' : 'Delete'}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
     </div>
   );

@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { LogOut, MapPin, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { appApi } from '../lib/appApi';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 const OFFICE_LOCATION = { lat: 19.9975, lng: 73.7898 };
 const GEOFENCE_RADIUS_METERS = 100;
@@ -57,58 +59,58 @@ export default function StaffApp() {
   }, [user]);
 
   return (
-    <div className="min-h-full bg-zinc-50 flex flex-col relative w-full">
+    <div className="min-h-full bg-muted flex flex-col relative w-full">
       {/* Redundant header removed - using global TopBar */}
-      <header className="flex items-center justify-between p-4 bg-white border-b border-zinc-200">
+      <header className="flex items-center justify-between p-4 bg-card border-b border-border">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+        <div className="w-10 h-10 rounded-full bg-info flex items-center justify-center text-white font-semibold">
           {user?.username[0].toUpperCase()}
         </div>
         <div>
-          <h2 className="font-bold text-zinc-900">{user?.username}</h2>
-          <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Staff Member</p>
+          <h2 className="font-semibold text-foreground">{user?.username}</h2>
+          <p className="text-xs text-muted-foreground font-medium">Staff Member</p>
         </div>
       </div>
-      <button onClick={logout} className="p-2 rounded-xl text-zinc-400 hover:text-red-500 transition-colors bg-zinc-100 hover:bg-red-50">
+      <Button variant="secondary" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" onClick={logout} >
         <LogOut size={18} />
-      </button>
+      </Button>
     </header>
 
       {/* Main Content */ }
   <main className="flex-1 p-4 overflow-y-auto flex flex-col items-center justify-center space-y-6">
     <div className="text-center space-y-2">
-      <h1 className="text-2xl font-bold text-zinc-900">Workspace Status</h1>
-      <p className="text-sm text-zinc-500">Live geolocation tracking enabled.</p>
+      <h1 className="text-xl font-semibold tracking-tight text-foreground">Workspace Status</h1>
+      <p className="text-[13px] text-muted-foreground">Live geolocation tracking enabled.</p>
     </div>
 
     {locationError ? (
-      <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 w-full">
-        <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18} />
+      <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl flex items-start gap-3 w-full">
+        <AlertTriangle className="text-destructive shrink-0 mt-0.5" size={18} />
         <div>
-          <p className="text-sm font-bold text-red-800">Location Error</p>
-          <p className="text-xs text-red-600 mt-1">{locationError}</p>
+          <p className="text-sm font-semibold text-destructive">Location Error</p>
+          <p className="text-xs text-destructive mt-1">{locationError}</p>
         </div>
       </div>
     ) : (
-      <div className={`w-full p-6 rounded-3xl border-2 transition-all duration-500 ${isOutside ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
+      <div className={`w-full p-6 rounded-xl border-2 transition-all duration-500 ${isOutside ? 'bg-destructive/10 border-destructive/20' : 'bg-accent border-primary/20'}`}>
         <div className="flex flex-col items-center text-center space-y-4">
-          <div className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg ${isOutside ? 'bg-red-500 shadow-red-200' : 'bg-emerald-500 shadow-emerald-200'}`}>
+          <div className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg ${isOutside ? 'bg-destructive shadow-destructive/20' : 'bg-primary shadow-primary/20'}`}>
             {isOutside ? <AlertTriangle className="text-white" size={32} /> : <CheckCircle2 className="text-white" size={32} />}
           </div>
 
           <div>
-            <h3 className={`text-xl font-bold ${isOutside ? 'text-red-700' : 'text-emerald-700'}`}>
+            <h3 className={`text-xl font-semibold ${isOutside ? 'text-destructive' : 'text-accent-foreground'}`}>
               {isOutside ? 'Outside Premises' : 'Inside Premises'}
             </h3>
             {distance !== null && (
-              <p className={`text-sm font-medium mt-1 ${isOutside ? 'text-red-600' : 'text-emerald-600'}`}>
+              <p className={`text-sm font-medium mt-1 ${isOutside ? 'text-destructive' : 'text-primary'}`}>
                 Distance from office: {distance}m
               </p>
             )}
           </div>
 
           {isOutside && (
-            <p className="text-xs text-red-500 bg-white px-3 py-2 rounded-lg border border-red-100 shadow-sm font-medium">
+            <p className="text-xs text-destructive bg-card px-3 py-2 rounded-lg border border-destructive/20 shadow-[0_1px_2px_rgb(0_0_0/0.03)] font-medium">
               An alert has been sent to the administrators. Please return to the office immediately.
             </p>
           )}
@@ -116,16 +118,16 @@ export default function StaffApp() {
       </div>
     )}
 
-    <div className="bg-white p-4 rounded-xl border border-zinc-200 w-full flex items-center gap-3 shadow-sm">
-      <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
+    <Card className="p-4 w-full flex items-center gap-3" >
+      <div className="w-10 h-10 rounded-full bg-info/10 flex items-center justify-center text-info shrink-0">
         <MapPin size={18} />
       </div>
       <div>
-        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Office Location</p>
-        <p className="text-sm font-bold text-zinc-900">Neomed Headquarters</p>
-        <p className="text-xs text-zinc-500">Radius: {GEOFENCE_RADIUS_METERS}m</p>
+        <p className="text-xs font-medium text-muted-foreground/70">Office Location</p>
+        <p className="text-sm font-semibold text-foreground">Neomed Headquarters</p>
+        <p className="text-xs text-muted-foreground">Radius: {GEOFENCE_RADIUS_METERS}m</p>
       </div>
-    </div>
+    </Card>
   </main>
     </div >
   );

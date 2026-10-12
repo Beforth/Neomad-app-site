@@ -6,6 +6,9 @@ import { TaskSectionFrame, taskInnerCardClassName } from '../../components/tasks
 import { parseTaskRouteId, type AssigneeLike } from './taskShared';
 import { useTaskLoader } from './useTaskLoader';
 import SearchableSelect from '../../components/SearchableSelect';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { Input, Textarea } from '@/components/ui/input';
 
 export default function TaskEditPage() {
   const { token } = useAuth();
@@ -67,7 +70,7 @@ export default function TaskEditPage() {
     return (
       <TaskSectionFrame context="Invalid task.">
         <div className={`p-8 ${taskInnerCardClassName()}`}>
-          <Link to="/tasks" className="text-sm font-bold text-emerald-600 hover:underline">
+          <Link to="/tasks" className="text-sm font-semibold text-primary hover:underline">
             Back to tasks
           </Link>
         </div>
@@ -78,7 +81,7 @@ export default function TaskEditPage() {
   if (loading) {
     return (
       <TaskSectionFrame context="Loading task…">
-        <div className={`p-12 text-center text-zinc-400 text-sm animate-pulse ${taskInnerCardClassName()}`}>Loading…</div>
+        <div className={`p-12 text-center text-muted-foreground/70 text-sm animate-pulse ${taskInnerCardClassName()}`}>Loading…</div>
       </TaskSectionFrame>
     );
   }
@@ -87,8 +90,8 @@ export default function TaskEditPage() {
     return (
       <TaskSectionFrame context={error || 'Task not found.'}>
         <div className={`p-8 ${taskInnerCardClassName()}`}>
-          <p className="text-sm text-red-700">{error || 'Not found'}</p>
-          <Link to="/tasks" className="mt-4 inline-block text-sm font-bold text-emerald-600 hover:underline">
+          <p className="text-sm text-destructive">{error || 'Not found'}</p>
+          <Link to="/tasks" className="mt-4 inline-block text-sm font-semibold text-primary hover:underline">
             Back to tasks
           </Link>
         </div>
@@ -99,39 +102,39 @@ export default function TaskEditPage() {
   return (
     <TaskSectionFrame context={`${task.task_number} · ${task.title}`}>
       <div className={taskInnerCardClassName()}>
-        <div className="p-5 border-b border-zinc-100">
-          <h3 className="text-lg font-bold text-zinc-900">Edit Task</h3>
-          <p className="text-xs text-zinc-500 mt-0.5">{task.task_number}</p>
+        <div className="p-5 border-b border-border">
+          <h3 className="text-lg font-semibold text-foreground">Edit Task</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">{task.task_number}</p>
         </div>
 
         {saveError ? (
-          <div className="mx-5 mt-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm">{saveError}</div>
+          <div className="mx-5 mt-4 bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm">{saveError}</div>
         ) : null}
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">Title</label>
-            <input
+            <label className="text-xs font-medium text-muted-foreground/70 block mb-1.5">Title</label>
+            <Input className="w-full"
               type="text"
               value={editData.title}
               onChange={(e) => setEditData((d) => ({ ...d, title: e.target.value }))}
-              className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              
               placeholder="Task title"
               required
             />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">Description</label>
-            <textarea
+            <label className="text-xs font-medium text-muted-foreground/70 block mb-1.5">Description</label>
+            <Textarea className="w-full"
               value={editData.description}
               onChange={(e) => setEditData((d) => ({ ...d, description: e.target.value }))}
               rows={3}
-              className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
+              
               placeholder="Optional description"
             />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">Status</label>
+            <label className="text-xs font-medium text-muted-foreground/70 block mb-1.5">Status</label>
             <SearchableSelect
               value={editData.status}
               onChange={(v) => setEditData((d) => ({ ...d, status: v }))}
@@ -146,7 +149,7 @@ export default function TaskEditPage() {
             />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">Assigned to</label>
+            <label className="text-xs font-medium text-muted-foreground/70 block mb-1.5">Assigned to</label>
             <SearchableSelect
               value={editData.assigned_to}
               onChange={(v) => setEditData((d) => ({ ...d, assigned_to: v }))}
@@ -158,23 +161,23 @@ export default function TaskEditPage() {
             />
           </div>
           <div className="flex flex-wrap gap-3 pt-2">
-            <button
+            <Button variant="outline" className="flex-1 min-w-[120px]"
               type="button"
               onClick={() => navigate(`/tasks/${task.id}`)}
-              className="flex-1 min-w-[120px] py-2.5 border border-zinc-200 rounded-xl font-bold text-sm text-zinc-600 hover:bg-zinc-50"
+              
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button className="flex-1 min-w-[120px]"
               type="submit"
               disabled={saving}
-              className="flex-1 min-w-[120px] py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center gap-2"
+              
             >
               {saving ? (
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <Spinner className="size-4"  />
               ) : null}
               Save
-            </button>
+            </Button>
           </div>
         </form>
       </div>

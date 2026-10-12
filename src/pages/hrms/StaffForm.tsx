@@ -15,9 +15,11 @@ import {
   type DepartmentOut, type StaffOut, type StaffReference, type Gender,
 } from '../../lib/hrmsStaff';
 import StaffDocuments from './StaffDocuments';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input, Textarea, fieldClass, selectClass } from '@/components/ui/input';
 
-const inputClass =
-  'w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm transition';
+const inputClass = fieldClass;
 
 export interface StaffFormValues {
   employee_code: string;
@@ -198,12 +200,12 @@ export function firstInvalidStep(f: StaffFormValues, mode: 'create' | 'edit'): {
 /** One step panel. Rendered only when its step is active. */
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-zinc-100">
-        <span className="font-semibold text-zinc-900 text-sm">{title}</span>
+    <Card className="overflow-hidden" >
+      <div className="px-5 py-3.5 border-b border-border">
+        <span className="font-semibold text-foreground text-sm">{title}</span>
       </div>
       <div className="px-5 pb-5 pt-1">{children}</div>
-    </div>
+    </Card>
   );
 }
 
@@ -221,7 +223,7 @@ function Stepper({ current, furthest, onJump }: {
   current: number; furthest: number; onJump: (i: number) => void;
 }) {
   return (
-    <div className="bg-white border border-zinc-200 rounded-xl px-4 py-3 overflow-x-auto">
+    <Card className="px-4 py-3 overflow-x-auto" >
       <div className="flex items-center gap-2 min-w-max">
         {STEPS.map((label, i) => {
           const done = i < furthest;
@@ -234,15 +236,15 @@ function Stepper({ current, furthest, onJump }: {
               onClick={() => reachable && onJump(i)}
               disabled={!reachable}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition ${
-                active ? 'bg-zinc-50 border border-zinc-200 text-zinc-900 shadow-sm'
-                : reachable ? 'text-zinc-600 bg-white hover:bg-zinc-50'
-                : 'text-zinc-300 bg-white cursor-not-allowed'
+                active ? 'bg-muted border border-border text-foreground shadow-sm'
+                : reachable ? 'text-foreground/70 bg-card hover:bg-muted'
+                : 'text-muted-foreground/50 bg-card cursor-not-allowed'
               }`}
             >
               <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 ${
-                active ? 'bg-emerald-600 text-white'
-                : done ? 'bg-emerald-500 text-white'
-                : 'bg-zinc-200 text-zinc-500'
+                active ? 'bg-primary text-white'
+                : done ? 'bg-primary text-white'
+                : 'bg-border text-muted-foreground'
               }`}>
                 {done && !active ? <Check size={12} /> : i + 1}
               </span>
@@ -251,7 +253,7 @@ function Stepper({ current, furthest, onJump }: {
           );
         })}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -263,11 +265,11 @@ function PhoneInput({ code, number, onCode, onNumber, required }: {
   return (
     <div className="flex gap-2">
       <select value={code} onChange={(e) => onCode(e.target.value)}
-        className="w-20 shrink-0 px-2 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm">
+        className={`${selectClass.replace("w-full", "")} w-20 shrink-0`}>
         {COUNTRY_CODES.map((c) => <option key={c} value={c}>{c}</option>)}
       </select>
-      <input type="tel" value={number} onChange={(e) => onNumber(e.target.value)}
-        placeholder="Enter Number" required={required} className={inputClass} />
+      <Input type="tel" value={number} onChange={(e) => onNumber(e.target.value)}
+        placeholder="Enter Number" required={required}  />
     </div>
   );
 }
@@ -277,11 +279,11 @@ function Field({ label, required, hint, children }: {
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-zinc-600 mb-1.5">
-        {label}{required && <span className="text-rose-500 ml-0.5">*</span>}
+      <label className="block text-xs font-semibold text-foreground/70 mb-1.5">
+        {label}{required && <span className="text-destructive ml-0.5">*</span>}
       </label>
       {children}
-      {hint && <p className="text-[11px] text-zinc-400 mt-1">{hint}</p>}
+      {hint && <p className="text-[11px] text-muted-foreground/70 mt-1">{hint}</p>}
     </div>
   );
 }
@@ -346,15 +348,15 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
       className="w-full mx-auto px-6 lg:px-0 space-y-3 pb-24"
     >
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-extrabold text-zinc-900">{title}</h1>
-        <button type="button" onClick={() => navigate('/hrms/staff')}
-          className="p-2 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">{title}</h1>
+        <Button variant="ghost" size="icon-sm" type="button" onClick={() => navigate('/hrms/staff')}
+          >
           <X size={20} />
-        </button>
+        </Button>
       </div>
 
       {(error || stepError) && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error || stepError}
         </div>
       )}
@@ -368,35 +370,35 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
           <Section title="Basic Details">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
               <Field label="Employee Code" required>
-                <input value={value.employee_code} onChange={(e) => set('employee_code', e.target.value)}
-                  placeholder="e.g. B102" className={inputClass} required />
+                <Input value={value.employee_code} onChange={(e) => set('employee_code', e.target.value)}
+                  placeholder="e.g. B102"  required />
               </Field>
               <Field label="Employee Name" required>
-                <input value={value.full_name} onChange={(e) => set('full_name', e.target.value)}
-                  placeholder="Full name" className={inputClass} required />
+                <Input value={value.full_name} onChange={(e) => set('full_name', e.target.value)}
+                  placeholder="Full name"  required />
               </Field>
               <Field label="Display Name">
-                <input value={value.display_name} onChange={(e) => set('display_name', e.target.value)}
-                  placeholder="Shown in the app" className={inputClass} />
+                <Input value={value.display_name} onChange={(e) => set('display_name', e.target.value)}
+                  placeholder="Shown in the app"  />
               </Field>
               <Field label="Mobile Number" required>
                 <PhoneInput code={value.country_code} number={value.phone} required
                   onCode={(v) => set('country_code', v)} onNumber={(v) => set('phone', v)} />
               </Field>
               <Field label="Email" required={mode === 'create'}>
-                <input type="email" value={value.email} onChange={(e) => set('email', e.target.value)}
-                  placeholder="employee@neomed.in" className={inputClass} required={mode === 'create'} />
+                <Input type="email" value={value.email} onChange={(e) => set('email', e.target.value)}
+                  placeholder="employee@neomed.in"  required={mode === 'create'} />
               </Field>
               {mode === 'create' && (
                 <Field label="Password" required hint="At least 6 characters.">
-                  <input type="password" value={value.password} onChange={(e) => set('password', e.target.value)}
-                    placeholder="Set a login password" className={inputClass} required minLength={6} />
+                  <Input type="password" value={value.password} onChange={(e) => set('password', e.target.value)}
+                    placeholder="Set a login password"  required minLength={6} />
                 </Field>
               )}
               <Field label="Gender" required>
                 <div className="flex items-center gap-4 pt-1.5">
                   {GENDER_OPTIONS.map((g) => (
-                    <label key={g.value} className="flex items-center gap-1.5 text-sm text-zinc-700 cursor-pointer">
+                    <label key={g.value} className="flex items-center gap-1.5 text-sm text-foreground/85 cursor-pointer">
                       <input type="radio" name="gender" checked={value.gender === g.value}
                         onChange={() => set('gender', g.value)} className="accent-emerald-600" />
                       {g.label}
@@ -405,7 +407,7 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
                 </div>
               </Field>
               <Field label="Role" required hint="Controls what the employee can access.">
-                <select value={value.role_code} onChange={(e) => set('role_code', e.target.value)} className={inputClass}>
+                <select value={value.role_code} onChange={(e) => set('role_code', e.target.value)} className={selectClass}>
                   {roles.length === 0 && <option value="staff">staff</option>}
                   {roles.map((r) => <option key={r.code} value={r.code}>{r.name || r.code}</option>)}
                 </select>
@@ -413,25 +415,25 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
               <Field label="Department" required>
                 <select value={value.department_id}
                   onChange={(e) => set('department_id', e.target.value === '' ? '' : Number(e.target.value))}
-                  className={inputClass}>
+                  className={selectClass}>
                   <option value="">Select department</option>
                   {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </Field>
               <Field label="Designation" required>
-                <input value={value.designation} onChange={(e) => set('designation', e.target.value)}
-                  placeholder="e.g. Billing Executive" className={inputClass} />
+                <Input value={value.designation} onChange={(e) => set('designation', e.target.value)}
+                  placeholder="e.g. Billing Executive"  />
               </Field>
               <Field label="Master Branch" required>
                 <select value={value.master_branch_id}
                   onChange={(e) => set('master_branch_id', e.target.value === '' ? '' : Number(e.target.value))}
-                  className={inputClass}>
+                  className={selectClass}>
                   <option value="">Select branch</option>
                   {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </Field>
               <Field label="Employee Type">
-                <select value={value.employee_type} onChange={(e) => set('employee_type', e.target.value)} className={inputClass}>
+                <select value={value.employee_type} onChange={(e) => set('employee_type', e.target.value)} className={selectClass}>
                   <option value="">Select type</option>
                   {EMPLOYEE_TYPE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
@@ -441,7 +443,7 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
             <div className="mt-4">
               <Field label="Punch In Branch" required hint="Branches this employee may punch in at. Select any number.">
                 {branches.length === 0 ? (
-                  <p className="text-sm text-zinc-400">No working locations configured yet.</p>
+                  <p className="text-sm text-muted-foreground/70">No working locations configured yet.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2 pt-1">
                     {branches.map((b) => {
@@ -449,8 +451,8 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
                       return (
                         <button key={b.id} type="button" onClick={() => togglePunchBranch(b.id)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                            on ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                               : 'bg-white border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
+                            on ? 'bg-accent border-primary/30 text-accent-foreground'
+                               : 'bg-card border-border text-muted-foreground hover:border-input'}`}>
                           {b.name}
                         </button>
                       );
@@ -464,7 +466,7 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
               <Field label="Door Lock Permission" required>
                 <div className="flex items-center gap-4 pt-1.5">
                   {[true, false].map((v) => (
-                    <label key={String(v)} className="flex items-center gap-1.5 text-sm text-zinc-700 cursor-pointer">
+                    <label key={String(v)} className="flex items-center gap-1.5 text-sm text-foreground/85 cursor-pointer">
                       <input type="radio" name="doorlock" checked={value.door_lock_permission === v}
                         onChange={() => set('door_lock_permission', v)} className="accent-emerald-600" />
                       {v ? 'Yes' : 'No'}
@@ -473,23 +475,23 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
                 </div>
               </Field>
               <Field label="Provident Fund (PF)">
-                <input value={value.pf_number} onChange={(e) => set('pf_number', e.target.value)}
-                  placeholder="PF account number" className={inputClass} />
+                <Input value={value.pf_number} onChange={(e) => set('pf_number', e.target.value)}
+                  placeholder="PF account number"  />
               </Field>
               <Field label="Universal Account Number (UAN)">
-                <input value={value.uan_number} onChange={(e) => set('uan_number', e.target.value)}
-                  placeholder="12-digit UAN" maxLength={12} className={inputClass} />
+                <Input value={value.uan_number} onChange={(e) => set('uan_number', e.target.value)}
+                  placeholder="12-digit UAN" maxLength={12}  />
               </Field>
               <Field label="Employee State Insurance (ESIC)">
-                <input value={value.esic_number} onChange={(e) => set('esic_number', e.target.value)}
-                  placeholder="10-digit ESIC IP number" maxLength={10} className={inputClass} />
+                <Input value={value.esic_number} onChange={(e) => set('esic_number', e.target.value)}
+                  placeholder="10-digit ESIC IP number" maxLength={10}  />
               </Field>
             </div>
 
             <div className="mt-4">
               <Field label="Address">
-                <textarea value={value.address} onChange={(e) => set('address', e.target.value)}
-                  rows={3} className={inputClass} />
+                <Textarea value={value.address} onChange={(e) => set('address', e.target.value)}
+                  rows={3}  />
               </Field>
             </div>
           </Section>
@@ -499,20 +501,20 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
           <Section title="Salary Details">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
               <Field label="Date of Joining">
-                <input type="date" value={value.date_of_joining}
-                  onChange={(e) => set('date_of_joining', e.target.value)} className={inputClass} />
+                <Input type="date" value={value.date_of_joining}
+                  onChange={(e) => set('date_of_joining', e.target.value)}  />
               </Field>
               <Field label="Monthly Salary" required>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-zinc-500">&#8377;</span>
-                  <input type="number" min="0" step="1" value={value.monthly_salary}
+                  <span className="text-sm text-muted-foreground">&#8377;</span>
+                  <Input type="number" min="0" step="1" value={value.monthly_salary}
                     onChange={(e) => set('monthly_salary', e.target.value)}
-                    placeholder="0" className={inputClass} />
+                    placeholder="0"  />
                 </div>
               </Field>
               <Field label="Payroll Group" required>
                 <select value={value.payroll_group} onChange={(e) => set('payroll_group', e.target.value)}
-                  className={inputClass}>
+                  className={selectClass}>
                   <option value="">Select payroll group</option>
                   {PAYROLL_GROUP_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
                 </select>
@@ -522,7 +524,7 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
               <Field label="Salary Type" required>
                 <div className="flex items-center gap-4 pt-1.5">
                   {SALARY_TYPE_OPTIONS.map((t) => (
-                    <label key={t.value} className="flex items-center gap-1.5 text-sm text-zinc-700 cursor-pointer">
+                    <label key={t.value} className="flex items-center gap-1.5 text-sm text-foreground/85 cursor-pointer">
                       <input type="radio" name="salary_type" checked={value.salary_type === t.value}
                         onChange={() => set('salary_type', t.value)} className="accent-emerald-600" />
                       {t.label}
@@ -531,7 +533,7 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
                 </div>
               </Field>
             </div>
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">
+            <p className="text-xs text-warning bg-warning/10 border border-warning/25 rounded-lg px-3 py-2 mt-4">
               Payroll runs are calculated from{' '}
               <a href="/hrms/payroll/structures" className="font-semibold underline">Salary Structures</a>,
               not from this field. Update both so they agree.
@@ -543,17 +545,17 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
           <Section title="Bank Details">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
               <Field label="Bank Name">
-                <input value={value.bank_name} onChange={(e) => set('bank_name', e.target.value)} className={inputClass} />
+                <Input value={value.bank_name} onChange={(e) => set('bank_name', e.target.value)}  />
               </Field>
               <Field label="Branch Name">
-                <input value={value.bank_branch_name} onChange={(e) => set('bank_branch_name', e.target.value)} className={inputClass} />
+                <Input value={value.bank_branch_name} onChange={(e) => set('bank_branch_name', e.target.value)}  />
               </Field>
               <Field label="Account No">
-                <input value={value.bank_account_no} onChange={(e) => set('bank_account_no', e.target.value)} className={inputClass} />
+                <Input value={value.bank_account_no} onChange={(e) => set('bank_account_no', e.target.value)}  />
               </Field>
               <Field label="IFSC Code">
-                <input value={value.bank_ifsc} onChange={(e) => set('bank_ifsc', e.target.value.toUpperCase())}
-                  maxLength={11} className={inputClass} />
+                <Input value={value.bank_ifsc} onChange={(e) => set('bank_ifsc', e.target.value.toUpperCase())}
+                  maxLength={11}  />
               </Field>
             </div>
           </Section>
@@ -564,10 +566,10 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
             <div className="pt-4 space-y-4">
               <div className="sm:max-w-md">
                 <Field label="Aadhaar Number" hint="12 digits. Stored on the record; not verified against UIDAI.">
-                  <input value={value.aadhaar_number}
+                  <Input value={value.aadhaar_number}
                     onChange={(e) => set('aadhaar_number', e.target.value.replace(/\D/g, '').slice(0, 12))}
                     inputMode="numeric" maxLength={12}
-                    placeholder="Enter 12-digit Aadhaar number" className={inputClass} />
+                    placeholder="Enter 12-digit Aadhaar number"  />
                 </Field>
               </div>
               <StaffDocuments staffId={staffId} />
@@ -579,7 +581,7 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
           <Section title="Emergency Contact Information">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
               <Field label="Contact Person Name">
-                <input value={value.emergency_contact_name} onChange={(e) => set('emergency_contact_name', e.target.value)} className={inputClass} />
+                <Input value={value.emergency_contact_name} onChange={(e) => set('emergency_contact_name', e.target.value)}  />
               </Field>
               <Field label="Contact Number">
                 <PhoneInput code={value.emergency_contact_country_code}
@@ -588,15 +590,15 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
                   onNumber={(v) => set('emergency_contact_number', v)} />
               </Field>
               <Field label="Relation with the Contact">
-                <input value={value.emergency_contact_relation}
+                <Input value={value.emergency_contact_relation}
                   onChange={(e) => set('emergency_contact_relation', e.target.value)}
-                  placeholder="e.g. Brother" className={inputClass} />
+                  placeholder="e.g. Brother"  />
               </Field>
             </div>
             <div className="mt-4">
               <Field label="Address">
-                <textarea value={value.emergency_contact_address}
-                  onChange={(e) => set('emergency_contact_address', e.target.value)} rows={2} className={inputClass} />
+                <Textarea value={value.emergency_contact_address}
+                  onChange={(e) => set('emergency_contact_address', e.target.value)} rows={2}  />
               </Field>
             </div>
           </Section>
@@ -606,8 +608,8 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
           <Section title="Personal Information">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
               <Field label="Date of Birth">
-                <input type="date" value={value.date_of_birth}
-                  onChange={(e) => set('date_of_birth', e.target.value)} className={inputClass} />
+                <Input type="date" value={value.date_of_birth}
+                  onChange={(e) => set('date_of_birth', e.target.value)}  />
               </Field>
             </div>
           </Section>
@@ -617,18 +619,18 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
           <Section title="Reference">
             <div className="space-y-3 pt-4">
               {value.references.length === 0 && (
-                <p className="text-sm text-zinc-400">No references added.</p>
+                <p className="text-sm text-muted-foreground/70">No references added.</p>
               )}
               {value.references.map((ref, i) => (
                 <div key={i} className="flex items-end gap-3">
                   <div className="flex-1">
                     <Field label="Name">
-                      <input value={ref.name}
+                      <Input value={ref.name}
                         onChange={(e) => {
                           const next = [...value.references];
                           next[i] = { ...next[i], name: e.target.value };
                           set('references', next);
-                        }} className={inputClass} />
+                        }}  />
                     </Field>
                   </div>
                   <div className="flex-1">
@@ -648,39 +650,39 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
                         }} />
                     </Field>
                   </div>
-                  <button type="button"
+                  <Button variant="ghost" size="icon-sm" className="mb-0.5 text-destructive hover:bg-destructive/10" type="button"
                     onClick={() => set('references', value.references.filter((_, j) => j !== i))}
-                    className="p-2.5 mb-0.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors">
+                    >
                     <Trash2 size={16} />
-                  </button>
+                  </Button>
                 </div>
               ))}
-              <button type="button"
+              <Button variant="secondary" type="button"
                 onClick={() => set('references', [...value.references, { name: '', contact_number: '', country_code: '+91' }])}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-sm font-semibold transition-colors">
+                >
                 <Plus size={14} /> Add More
-              </button>
+              </Button>
             </div>
           </Section>
           )}
         </div>
 
-      <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white border-t border-zinc-200 px-6 py-3 flex items-center justify-between gap-3 z-10">
-        <button type="button" onClick={() => navigate('/hrms/staff')}
-          className="px-4 py-2.5 rounded-xl text-zinc-500 hover:text-zinc-700 text-sm font-semibold transition-colors">
+      <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-card border-t border-border px-6 py-3 flex items-center justify-between gap-3 z-10">
+        <Button variant="ghost" type="button" onClick={() => navigate('/hrms/staff')}
+          >
           Cancel
-        </button>
+        </Button>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-400 mr-2 hidden sm:inline">
+          <span className="text-xs text-muted-foreground/70 mr-2 hidden sm:inline">
             Step {step + 1} of {STEPS.length}
           </span>
-          <button type="button" disabled={step === 0}
+          <Button variant="secondary" type="button" disabled={step === 0}
             onClick={() => setStep((n) => Math.max(0, n - 1))}
-            className="flex items-center gap-1 px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            >
             <ChevronLeft size={16} /> Back
-          </button>
+          </Button>
           {step < STEPS.length - 1 && (
-            <button type="button"
+            <Button variant="secondary" type="button"
               onClick={() => {
                 const msg = validateStep(value, step, mode);
                 if (msg) { setStepError(msg); return; }
@@ -689,15 +691,15 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
                 setStep(next);
                 setFurthest((f) => Math.max(f, next));
               }}
-              className="flex items-center gap-1 px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-sm font-semibold transition-colors">
+              >
               Next <ChevronRight size={16} />
-            </button>
+            </Button>
           )}
-          <button type="submit" disabled={saving}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-semibold transition-colors disabled:opacity-60">
+          <Button variant="dark" type="submit" disabled={saving}
+            >
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             {saving ? 'Saving…' : mode === 'create' ? 'Create Employee' : 'Save Details'}
-          </button>
+          </Button>
         </div>
       </div>
     </form>

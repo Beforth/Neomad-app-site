@@ -5,6 +5,13 @@ import { Trash2, Inbox, UserPlus, Plus, Loader2, Users, Search, X, Eye } from 'l
 import SearchableSelect from '../../components/SearchableSelect';
 import { useAuth } from '../../context/AuthContext';
 import { getUsers } from '../../lib/api';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input, selectClass } from '@/components/ui/input';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   listLeavePolicies,
   listLeavePeriods,
@@ -185,23 +192,23 @@ export default function LeavePolicyAssign() {
         className="flex items-center justify-between gap-3"
       >
         <div className="flex items-center gap-3">
-          <button
+          <Button variant="ghost" size="icon-sm"
             onClick={() => navigate('/hrms/leave/policy')}
-            className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+            
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
-          </button>
+          </Button>
           <div>
-            <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Assign Leave Policy</h1>
-            <p className="text-sm text-zinc-500 mt-0.5">Assign a leave policy to an employee</p>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">Assign Leave Policy</h1>
+            <p className="text-[13px] text-muted-foreground">Assign a leave policy to an employee</p>
           </div>
         </div>
-        <button
+        <Button variant="dark" size="sm"
           onClick={() => navigate('/hrms/leave/policy/new')}
-          className="flex items-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm"
+          
         >
           <Plus size={14} /> Create Policy
-        </button>
+        </Button>
       </motion.div>
 
       {/* Assign Form */}
@@ -209,14 +216,14 @@ export default function LeavePolicyAssign() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden"
+        className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
       >
-        <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50">
-          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">New Assignment</h2>
+        <div className="px-5 py-3.5 border-b border-border bg-muted/50">
+          <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">New Assignment</h2>
         </div>
         <div className="p-5 space-y-4">
           <div>
-            <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Select Policy *</label>
+            <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Select Policy *</label>
             <SearchableSelect
               value={selectedPolicy}
               onChange={setSelectedPolicy}
@@ -225,28 +232,28 @@ export default function LeavePolicyAssign() {
               disabled={policyOptions.length === 0}
             />
             {policyOptions.length === 0 && (
-              <p className="text-[10px] text-zinc-400 mt-1">No policies available. Create one first.</p>
+              <p className="text-[11px] text-muted-foreground/70 mt-1">No policies available. Create one first.</p>
             )}
           </div>
           {/* Bulk Employee Selector */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1">
-                <Users size={12} className="text-zinc-500" /> Select Employees (Bulk Assign) *
+              <label className="text-xs text-muted-foreground/70 font-medium flex items-center gap-1">
+                <Users size={12} className="text-muted-foreground" /> Select Employees (Bulk Assign) *
               </label>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedEmployees(employeeOptions.map((e) => e.value))}
-                  className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline"
+                  className="text-[11px] font-semibold text-primary hover:text-accent-foreground hover:underline"
                 >
                   Select All ({employeeOptions.length})
                 </button>
-                <span className="text-zinc-300">·</span>
+                <span className="text-muted-foreground/50">·</span>
                 <button
                   type="button"
                   onClick={() => setSelectedEmployees([])}
-                  className="text-[10px] font-bold text-zinc-400 hover:text-zinc-600 hover:underline"
+                  className="text-[11px] font-semibold text-muted-foreground/70 hover:text-foreground/70 hover:underline"
                 >
                   Clear Selection
                 </button>
@@ -254,34 +261,34 @@ export default function LeavePolicyAssign() {
             </div>
 
             <div className="space-y-2">
-              <div
+              <Card className="w-full px-3 py-2.5 text-xs text-foreground cursor-pointer flex items-center justify-between hover:border-input transition-all"
                 onClick={() => setShowEmpDropdown((v) => !v)}
-                className="w-full px-3 py-2.5 text-xs border border-zinc-200 rounded-xl bg-white text-zinc-900 cursor-pointer flex items-center justify-between hover:border-zinc-300 transition-all"
+                
               >
-                <span className="font-semibold text-zinc-700">
+                <span className="font-semibold text-foreground/85">
                   {selectedEmployees.length === 0
                     ? 'Choose employees...'
                     : `${selectedEmployees.length} of ${employeeOptions.length} Employee${selectedEmployees.length > 1 ? 's' : ''} Selected`}
                 </span>
-                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider bg-zinc-100 px-2 py-0.5 rounded-md">
+                <Badge>
                   {showEmpDropdown ? 'Close ▲' : 'Select ▼'}
-                </span>
-              </div>
+                </Badge>
+              </Card>
 
               {showEmpDropdown && (
                 <motion.div
                   initial={{ opacity: 0, y: -5 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-3 border border-zinc-200 rounded-xl bg-white shadow-lg space-y-2 max-h-60 overflow-y-auto"
+                  className="p-3 border border-border rounded-xl bg-card shadow-lg space-y-2 max-h-60 overflow-y-auto"
                 >
                   <div className="relative mb-2">
-                    <Search size={14} className="absolute left-2.5 top-2.5 text-zinc-400" />
-                    <input
+                    <Search size={14} className="absolute left-2.5 top-2.5 text-muted-foreground/70" />
+                    <Input className="w-full pl-8 pr-3"
                       type="text"
                       value={empSearch}
                       onChange={(e) => setEmpSearch(e.target.value)}
                       placeholder="Search employee by name..."
-                      className="w-full pl-8 pr-3 py-1.5 text-xs border border-zinc-200 rounded-lg outline-none focus:border-zinc-400"
+                      
                     />
                   </div>
 
@@ -294,18 +301,17 @@ export default function LeavePolicyAssign() {
                           <label
                             key={emp.value}
                             className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
-                              isSelected ? 'bg-emerald-50 text-emerald-900 font-bold' : 'hover:bg-zinc-50 text-zinc-700'
+                              isSelected ? 'bg-accent text-accent-foreground font-bold' : 'hover:bg-muted text-foreground/85'
                             }`}
                           >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {
+                            <Checkbox
+                              checked={!!(isSelected)}
+                              onCheckedChange={() => {
                                 setSelectedEmployees((prev) =>
                                   isSelected ? prev.filter((x) => x !== emp.value) : [...prev, emp.value]
                                 );
                               }}
-                              className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                              
                             />
                             <span>{emp.label}</span>
                           </label>
@@ -316,9 +322,9 @@ export default function LeavePolicyAssign() {
               )}
 
               {selectedEmployees.length > 0 && (
-                <div className="flex items-center justify-between px-3 py-2 bg-emerald-50/70 border border-emerald-200/80 rounded-xl text-xs font-semibold text-emerald-800">
+                <div className="flex items-center justify-between px-3 py-2 bg-accent/70 border border-primary/20 rounded-md text-xs font-semibold text-accent-foreground">
                   <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                     {selectedEmployees.length === employeeOptions.length
                       ? `All Employees Selected (${employeeOptions.length} Employees)`
                       : `${selectedEmployees.length} Employee${selectedEmployees.length > 1 ? 's' : ''} Selected for Assignment`}
@@ -326,7 +332,7 @@ export default function LeavePolicyAssign() {
                   <button
                     type="button"
                     onClick={() => setSelectedEmployees([])}
-                    className="text-[11px] text-emerald-700 hover:text-emerald-950 font-bold underline"
+                    className="text-[11px] text-accent-foreground hover:text-primary font-semibold underline"
                   >
                     Clear All
                   </button>
@@ -335,11 +341,11 @@ export default function LeavePolicyAssign() {
             </div>
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Assign Based On *</label>
+            <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Assign Based On *</label>
             <select
               value={assignBasis}
               onChange={(e) => setAssignBasis(e.target.value)}
-              className="w-full px-3 py-2.5 text-xs border border-zinc-200 rounded-xl bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all"
+              className={`${selectClass.replace("w-full", "")} w-full`}
             >
               <option value="">Select...</option>
               <option value="leave_period">Leave Period</option>
@@ -348,11 +354,11 @@ export default function LeavePolicyAssign() {
           </div>
           {assignBasis === 'leave_period' && (
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Select Leave Period *</label>
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Select Leave Period *</label>
               <select
                 value={selectedPeriod}
                 onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="w-full px-3 py-2.5 text-xs border border-zinc-200 rounded-xl bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all"
+                className={`${selectClass.replace("w-full", "")} w-full`}
               >
                 <option value="">Select a leave period...</option>
                 {periodOptions.map((p) => (
@@ -360,34 +366,34 @@ export default function LeavePolicyAssign() {
                 ))}
               </select>
               {periodOptions.length === 0 && (
-                <p className="text-[10px] text-zinc-400 mt-1">No leave periods available. Create one first.</p>
+                <p className="text-[11px] text-muted-foreground/70 mt-1">No leave periods available. Create one first.</p>
               )}
             </div>
           )}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Start Date *</label>
-              <input
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Start Date *</label>
+              <Input className="w-full"
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 disabled={assignBasis !== 'joining_date'}
-                className="w-full px-3 py-2.5 text-xs border border-zinc-200 rounded-xl bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all disabled:bg-zinc-50 disabled:text-zinc-400 disabled:cursor-not-allowed"
+                
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">End Date *</label>
-              <input
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">End Date *</label>
+              <Input className="w-full"
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 disabled={assignBasis !== 'joining_date'}
-                className="w-full px-3 py-2.5 text-xs border border-zinc-200 rounded-xl bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all disabled:bg-zinc-50 disabled:text-zinc-400 disabled:cursor-not-allowed"
+                
               />
             </div>
           </div>
           <label className="flex items-center gap-3 cursor-pointer">
-            <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${carryOverUnused ? 'bg-zinc-900' : 'border-2 border-zinc-400 hover:border-zinc-600'}`}>
+            <span className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 transition-all ${carryOverUnused ? 'bg-foreground' : 'border-2 border-input hover:border-muted-foreground'}`}>
               <input type="checkbox" checked={carryOverUnused}
                 onChange={() => setCarryOverUnused((p) => !p)}
                 className="sr-only" />
@@ -397,18 +403,18 @@ export default function LeavePolicyAssign() {
                 </svg>
               )}
             </span>
-            <span className="text-sm text-zinc-700">Add unused leaves from previous allocations</span>
+            <span className="text-sm text-foreground/85">Add unused leaves from previous allocations</span>
           </label>
           <div className="flex justify-end">
-            <button
+            <Button variant="dark"
               type="button"
               onClick={handleAssign}
               disabled={saving || !selectedPolicy || selectedEmployees.length === 0}
-              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 text-white rounded-xl text-sm font-bold hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              
             >
               {saving ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
               <span>{saving ? 'Assigning...' : `Assign Policy to ${selectedEmployees.length > 0 ? selectedEmployees.length : ''} Employee${selectedEmployees.length > 1 ? 's' : ''}`}</span>
-            </button>
+            </Button>
           </div>
         </div>
       </motion.div>
@@ -418,90 +424,84 @@ export default function LeavePolicyAssign() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.08 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+        className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
       >
-        <div className="p-4 border-b border-zinc-100">
-          <h2 className="font-bold text-zinc-900 text-sm">Assigned Policies</h2>
-          <p className="text-xs text-zinc-400 mt-0.5">{assignments.length} assignment{assignments.length !== 1 ? 's' : ''}</p>
+        <div className="p-4 border-b border-border">
+          <h2 className="font-semibold text-foreground text-sm">Assigned Policies</h2>
+          <p className="text-xs text-muted-foreground/70 mt-0.5">{assignments.length} assignment{assignments.length !== 1 ? 's' : ''}</p>
         </div>
 
         {assignments.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-              <Inbox size={24} className="text-zinc-300" />
-            </div>
-            <h3 className="text-sm font-bold text-zinc-900 mb-1">No assignments yet</h3>
-            <p className="text-xs text-zinc-400 max-w-xs">Assign a leave policy to an employee above.</p>
-          </div>
+          <EmptyState icon={<Inbox />} title="No assignments yet" description="Assign a leave policy to an employee above." className="border-0" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-zinc-50/50 border-b border-zinc-100">
-                <tr>
+            <Table>
+              <TableHeader>
+                <TableRow>
                   {['Employee', 'Policy', 'Allocated Leave', 'Basis', 'Start Date', 'End Date', 'Assigned Date', ''].map((label) => (
-                    <th key={label} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">
+                    <TableHead key={label} className="uppercase whitespace-nowrap">
                       {label}
-                    </th>
+                    </TableHead>
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-50">
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {assignments.map((a, i) => (
                   <motion.tr
                     key={a.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: i * 0.02 }}
-                    className="hover:bg-zinc-50/50 transition-colors"
+                    className="border-b transition-colors hover:bg-muted/70"
                   >
-                    <td className="px-4 py-3 text-xs font-bold text-zinc-900">{a.employeeName}</td>
-                    <td className="px-4 py-3 text-xs text-zinc-500">{a.policyName}</td>
-                    <td className="px-4 py-3 text-xs">
+                    <TableCell className="font-semibold text-foreground">{a.employeeName}</TableCell>
+                    <TableCell className="text-muted-foreground">{a.policyName}</TableCell>
+                    <TableCell>
                       {a.entitlements && a.entitlements.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {a.entitlements.map((ent, idx) => (
-                            <span
+                            <Badge variant="success"
                               key={idx}
-                              className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                              
                             >
                               {ent.leaveTypeName} {ent.days ? `(${ent.days}d)` : ''}
-                            </span>
+                            </Badge>
                           ))}
                         </div>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        <Badge variant="success" >
                           {a.maxPaidLeaves || a.maxUnpaidLeaves
                             ? `${a.maxPaidLeaves || 0} Paid / ${a.maxUnpaidLeaves || 0} LWP Monthly`
                             : 'Policy monthly caps'}
-                        </span>
+                        </Badge>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-zinc-500">{a.assignBasis === 'leave_period' ? 'Leave Period' : 'Joining Date'}</td>
-                    <td className="px-4 py-3 text-xs text-zinc-500">{a.startDate}</td>
-                    <td className="px-4 py-3 text-xs text-zinc-500">{a.endDate}</td>
-                    <td className="px-4 py-3 text-xs text-zinc-500">{a.assignedAt}</td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{a.assignBasis === 'leave_period' ? 'Leave Period' : 'Joining Date'}</TableCell>
+                    <TableCell className="text-muted-foreground">{a.startDate}</TableCell>
+                    <TableCell className="text-muted-foreground">{a.endDate}</TableCell>
+                    <TableCell className="text-muted-foreground">{a.assignedAt}</TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-2">
-                        <button
+                        <Button variant="ghost" size="icon-sm"
                           onClick={() => navigate(`/hrms/leave/policy/assign/${a.id}`)}
-                          className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+                          
                           title="View Assignment Details"
                         >
                           <Eye size={15} />
-                        </button>
-                        <button
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10"
                           onClick={() => removeAssignment(a.id)}
-                          className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          
                           title="Remove Assignment"
                         >
                           <Trash2 size={15} />
-                        </button>
+                        </Button>
                       </div>
-                    </td>
+                    </TableCell>
                   </motion.tr>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </motion.div>

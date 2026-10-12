@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Package, UserCircle, FileText, Users, Settings as SettingsIcon, CalendarCheck, Wallet, Banknote, CalendarOff, CalendarClock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { isNavItemActive } from '../lib/navActive';
+import { BottomNav as UiBottomNav } from '@/components/ui/bottom-nav';
 
 export default function BottomNav() {
     const navigate = useNavigate();
@@ -32,25 +33,14 @@ export default function BottomNav() {
 
     const filteredTabs = tabs.filter(tab => tab.roles.includes(user.role));
 
+    const active = filteredTabs.find((tab) => isNavItemActive(tab.path, location.pathname));
+
     return (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-zinc-100 flex items-center justify-around px-2 pb-safe-bottom h-16 z-50">
-            {filteredTabs.map(tab => {
-                const isActive = isNavItemActive(tab.path, location.pathname);
-                const Icon = tab.icon;
-                return (
-                    <button
-                        key={tab.path}
-                        onClick={() => navigate(tab.path)}
-                        className={`flex flex-col items-center justify-center flex-1 gap-1 transition-all ${isActive ? 'text-emerald-500 font-bold' : 'text-zinc-400 font-medium'
-                            }`}
-                    >
-                        <div className={`p-1 rounded-xl transition-all ${isActive ? 'bg-emerald-50' : ''}`}>
-                            <Icon size={20} className={isActive ? 'animate-in zoom-in-50 duration-300' : ''} />
-                        </div>
-                        <span className="text-[10px] tracking-tight">{tab.label}</span>
-                    </button>
-                );
-            })}
-        </nav>
+        <UiBottomNav
+            className="fixed inset-x-0 bottom-0 z-40"
+            value={active?.path ?? ''}
+            onValueChange={(path) => navigate(path)}
+            items={filteredTabs.map((tab) => ({ id: tab.path, label: tab.label, icon: <tab.icon /> }))}
+        />
     );
 }

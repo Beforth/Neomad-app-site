@@ -4,11 +4,18 @@ import { motion } from 'motion/react';
 import {
   Banknote, Search, XCircle, Eye, X, Pen, Trash2, Inbox,
   ChevronLeft, ChevronRight, ArrowUpDown, ChevronUp, ChevronDown,
-  IndianRupee, CheckCircle2, Zap, Users, Receipt, Repeat,
-} from 'lucide-react';
+  IndianRupee, CheckCircle2, Zap, Users, Receipt, Repeat, MoreHorizontal } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
 import { useAuth } from '../../context/AuthContext';
 import { formatINR } from '../../lib/hrmsExpenses';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input, fieldClass } from '@/components/ui/input';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   PayrollRun, PayEntry, EntryStatus,
   getPayrollRun, calculatePayrollRun, approvePayrollRun, payPayrollRun,
@@ -21,10 +28,10 @@ type SortKey = 'name' | 'net';
 const PAGE_SIZE = 10;
 
 const ENTRY_STATUS_BADGE: Record<EntryStatus, { base: string; label: string }> = {
-  draft: { base: 'bg-zinc-100 text-zinc-500', label: 'Draft' },
-  calculated: { base: 'bg-amber-50 text-amber-600', label: 'Calculated' },
-  approved: { base: 'bg-blue-50 text-blue-600', label: 'Approved' },
-  paid: { base: 'bg-emerald-50 text-emerald-600', label: 'Paid' },
+  draft: { base: 'bg-secondary text-muted-foreground', label: 'Draft' },
+  calculated: { base: 'bg-warning/10 text-warning', label: 'Calculated' },
+  approved: { base: 'bg-info/10 text-info', label: 'Approved' },
+  paid: { base: 'bg-accent text-primary', label: 'Paid' },
 };
 
 const STATUS_OPTIONS = [
@@ -244,23 +251,23 @@ export default function PayrollRunDetail() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <p className="text-sm text-zinc-400 animate-pulse py-16 text-center">Loading payroll run...</p>
+        <p className="text-sm text-muted-foreground/70 animate-pulse py-16 text-center">Loading payroll run...</p>
       </div>
     );
   }
 
   if (!run) {
     return (
-      <div className="bg-white border border-zinc-100 rounded-2xl p-10 flex flex-col items-center justify-center text-center shadow-sm">
-        <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-          <Inbox size={24} className="text-zinc-300" />
+      <Card className="p-10 flex flex-col items-center justify-center text-center" >
+        <div className="w-14 h-14 bg-muted rounded-xl flex items-center justify-center mb-3">
+          <Inbox size={24} className="text-muted-foreground/50" />
         </div>
-        <h2 className="text-sm font-bold text-zinc-900 mb-1">Payroll run not found</h2>
-        <p className="text-xs text-zinc-400 max-w-xs mb-4">This run may have been deleted.</p>
-        <button onClick={() => navigate('/hrms/payroll')} className="flex items-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+        <h2 className="text-sm font-semibold text-foreground mb-1">Payroll run not found</h2>
+        <p className="text-xs text-muted-foreground/70 max-w-xs mb-4">This run may have been deleted.</p>
+        <Button variant="dark" size="sm" onClick={() => navigate('/hrms/payroll')} >
           <ChevronLeft size={14} />Back to Payroll
-        </button>
-      </div>
+        </Button>
+      </Card>
     );
   }
 
@@ -270,10 +277,10 @@ export default function PayrollRunDetail() {
   );
 
   const statCards = [
-    { label: 'Employees', value: run.entries.length, icon: Users, color: 'bg-blue-50 text-blue-600' },
+    { label: 'Employees', value: run.entries.length, icon: Users, color: 'bg-info/10 text-info' },
     { label: 'Gross', value: formatINR(totals.gross), icon: Banknote, color: 'bg-purple-50 text-purple-600' },
-    { label: 'Deductions', value: formatINR(totals.ded), icon: Receipt, color: 'bg-rose-50 text-rose-600' },
-    { label: 'Net Pay', value: formatINR(totals.net), icon: IndianRupee, color: 'bg-emerald-50 text-emerald-600' },
+    { label: 'Deductions', value: formatINR(totals.ded), icon: Receipt, color: 'bg-destructive/10 text-destructive' },
+    { label: 'Net Pay', value: formatINR(totals.net), icon: IndianRupee, color: 'bg-accent text-primary' },
   ];
 
   const hasFilters = search || statusFilter !== 'all' || modelFilter !== 'all';
@@ -288,9 +295,9 @@ export default function PayrollRunDetail() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="fixed top-5 right-5 z-[9999] bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium"
+          className="fixed top-5 right-5 z-[9999] bg-foreground text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium"
         >
-          <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
+          <CheckCircle2 size={16} className="text-primary" /> {toast}
         </motion.div>
       )}
 
@@ -300,38 +307,38 @@ export default function PayrollRunDetail() {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{monthLabel(run.month)}</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5 flex items-center gap-2">
-            Payroll run <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${ENTRY_STATUS_BADGE[run.status].base}`}>{ENTRY_STATUS_BADGE[run.status].label}</span>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">{monthLabel(run.month)}</h1>
+          <p className="text-[13px] text-muted-foreground">
+            Payroll run <Badge className={`${ENTRY_STATUS_BADGE[run.status].base}`}>{ENTRY_STATUS_BADGE[run.status].label}</Badge>
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {(run.status === 'draft' || run.status === 'calculated') && (
             <>
-              <button onClick={handleSync} className="flex items-center gap-2 bg-white text-zinc-700 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm">
+              <Button variant="outline" size="sm" onClick={handleSync} >
                 <Users size={14} />Sync employees
-              </button>
-              <button onClick={handleCalculate} className="flex items-center gap-2 bg-white text-zinc-900 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm">
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleCalculate} >
                 <Zap size={14} />{run.status === 'draft' ? 'Calculate' : 'Recalculate'}
-              </button>
+              </Button>
             </>
           )}
           {run.status === 'calculated' && (
-            <button onClick={handleApprove} className="flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+            <Button variant="dark" size="sm" onClick={handleApprove} >
               <CheckCircle2 size={14} />Approve Run
-            </button>
+            </Button>
           )}
           {run.status === 'approved' && (
-            <button onClick={handlePayAll} className="flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+            <Button variant="dark" size="sm" onClick={handlePayAll} >
               <Banknote size={14} />Pay All
-            </button>
+            </Button>
           )}
-          <button onClick={() => setConfirmRegenerate(true)} className="flex items-center gap-2 bg-white text-zinc-900 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm">
+          <Button variant="outline" size="sm" onClick={() => setConfirmRegenerate(true)} >
             <Repeat size={14} />Regenerate
-          </button>
-          <button onClick={() => setConfirmDelete(true)} className="flex items-center gap-2 bg-white text-red-500 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-50 transition-colors shadow-sm">
+          </Button>
+          <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => setConfirmDelete(true)} >
             <Trash2 size={14} />Delete
-          </button>
+          </Button>
         </div>
       </motion.header>
 
@@ -342,33 +349,28 @@ export default function PayrollRunDetail() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.04 }}
-            className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm"
+            className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
           >
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${card.color}`}>
               <card.icon size={18} />
             </div>
             <div className="min-w-0">
-              <p className="text-lg font-extrabold text-zinc-900 leading-none truncate">{card.value}</p>
-              <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">{card.label}</p>
+              <p className="text-lg font-semibold text-foreground leading-none truncate">{card.value}</p>
+              <p className="text-xs font-medium text-muted-foreground/70 mt-1 truncate">{card.label}</p>
             </div>
           </motion.div>
         ))}
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center"
-      >
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+          <Input data-search="" className="w-full pl-9 pr-4"
             type="text"
             placeholder="Search employees..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+            
           />
         </div>
         <div className="w-[150px]">
@@ -378,47 +380,41 @@ export default function PayrollRunDetail() {
           <SearchableSelect value={modelFilter} onChange={setModelFilter} options={MODEL_FILTER_OPTIONS} placeholder="Pay Model" />
         </div>
         {hasFilters && (
-          <button onClick={() => { setSearch(''); setStatusFilter('all'); setModelFilter('all'); }} className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors">
+          <button onClick={() => { setSearch(''); setStatusFilter('all'); setModelFilter('all'); }} className="text-xs text-muted-foreground/70 hover:text-foreground/85 flex items-center gap-1 transition-colors">
             <XCircle size={12} />Clear
           </button>
         )}
-      </motion.div>
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+        className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
       >
         {paged.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-              <Inbox size={24} className="text-zinc-300" />
-            </div>
-            <h3 className="text-sm font-bold text-zinc-900 mb-1">No results found</h3>
-            <p className="text-xs text-zinc-400 max-w-xs">Try adjusting your search or filters</p>
-          </div>
+          <EmptyState icon={<Inbox />} title="No results found" description="Try adjusting your search or filters" className="border-0" />
         ) : (
           <>
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-zinc-50/50 border-b border-zinc-100">
-                  <tr>
-                    <th onClick={() => toggleSort('name')} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600 select-none">
-                      <span className="flex items-center gap-1">Employee{sortBy === 'name' ? (sortOrder === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />) : <ArrowUpDown size={12} className="text-zinc-300" />}</span>
-                    </th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Type</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Attendance</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Gross</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Deductions</th>
-                    <th onClick={() => toggleSort('net')} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600 select-none">
-                      <span className="flex items-center gap-1">Net{sortBy === 'net' ? (sortOrder === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />) : <ArrowUpDown size={12} className="text-zinc-300" />}</span>
-                    </th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Status</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-50">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead onClick={() => toggleSort('name')} className="uppercase whitespace-nowrap cursor-pointer hover:text-foreground/70 select-none">
+                      <span className="flex items-center gap-1">Employee{sortBy === 'name' ? (sortOrder === 'asc' ? <ChevronUp size={12} className="text-foreground" /> : <ChevronDown size={12} className="text-foreground" />) : <ArrowUpDown size={12} className="text-muted-foreground/50" />}</span>
+                    </TableHead>
+                    <TableHead className="uppercase whitespace-nowrap">Type</TableHead>
+                    <TableHead className="uppercase whitespace-nowrap">Attendance</TableHead>
+                    <TableHead className="uppercase whitespace-nowrap">Gross</TableHead>
+                    <TableHead className="uppercase whitespace-nowrap">Deductions</TableHead>
+                    <TableHead onClick={() => toggleSort('net')} className="uppercase whitespace-nowrap cursor-pointer hover:text-foreground/70 select-none">
+                      <span className="flex items-center gap-1">Net{sortBy === 'net' ? (sortOrder === 'asc' ? <ChevronUp size={12} className="text-foreground" /> : <ChevronDown size={12} className="text-foreground" />) : <ArrowUpDown size={12} className="text-muted-foreground/50" />}</span>
+                    </TableHead>
+                    <TableHead className="uppercase whitespace-nowrap">Status</TableHead>
+                    <TableHead className="uppercase whitespace-nowrap">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {paged.map((e, i) => (
                     <motion.tr
                       key={e.id}
@@ -426,69 +422,68 @@ export default function PayrollRunDetail() {
                       animate={{ opacity: 1 }}
                       transition={{ delay: i * 0.02 }}
                       onClick={() => navigate(`/hrms/payroll/run/${run.id}/payslip/${e.id}`)}
-                      className="hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                      className="border-b transition-colors hover:bg-muted/70 cursor-pointer"
                     >
-                      <td className="px-4 py-3">
-                        <p className="text-xs font-bold text-zinc-900">{e.employeeName}</p>
-                        <p className="text-[10px] text-zinc-400">{ROLE_LABELS[e.role] || e.role}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${e.payModel === 'monthly' ? 'bg-purple-50 text-purple-600' : 'bg-cyan-50 text-cyan-600'}`}>
+                      <TableCell>
+                        <p className="text-xs font-semibold text-foreground">{e.employeeName}</p>
+                        <p className="text-[11px] text-muted-foreground/70">{ROLE_LABELS[e.role] || e.role}</p>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`${e.payModel === 'monthly' ? 'bg-purple-50 text-purple-600' : 'bg-cyan-50 text-cyan-600'}`}>
                           {payModelLabel(e.payModel)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-[10px] text-zinc-500 whitespace-nowrap">
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-[11px] text-muted-foreground whitespace-nowrap">
                           P {e.presentDays} · H {e.halfDays} · LOP {e.lopDays}
                           {(e.latePenalty > 0 || e.overtimeAmount > 0) && (
                             <span className="block mt-0.5">
-                              {e.latePenalty > 0 && <span className="text-rose-500">−₹{e.latePenalty} pen </span>}
+                              {e.latePenalty > 0 && <span className="text-destructive">−₹{e.latePenalty} pen </span>}
                               {e.overtimeAmount > 0 && <span className="text-violet-600">+₹{e.overtimeAmount} OT</span>}
                             </span>
                           )}
                         </p>
-                      </td>
-                      <td className="px-4 py-3 text-xs font-bold text-zinc-900">{formatINR(e.gross)}</td>
-                      <td className="px-4 py-3 text-xs text-rose-500">{formatINR(e.totalDeductions)}</td>
-                      <td className="px-4 py-3 text-xs font-extrabold text-emerald-600">
+                      </TableCell>
+                      <TableCell className="font-semibold text-foreground">{formatINR(e.gross)}</TableCell>
+                      <TableCell className="text-destructive">{formatINR(e.totalDeductions)}</TableCell>
+                      <TableCell className="font-semibold text-primary">
                         {formatINR(e.netPay)}
                         {/* Without this the row reads as broken arithmetic: the
                             reimbursement is in Net but deliberately not in Gross. */}
                         {(e.expenseReimbursement || 0) > 0 && (
-                          <span className="block mt-0.5 text-[10px] font-semibold text-zinc-400 whitespace-nowrap">
+                          <span className="block mt-0.5 text-[11px] font-semibold text-muted-foreground/70 whitespace-nowrap">
                             incl. +{formatINR(e.expenseReimbursement || 0)} reimb.
                           </span>
                         )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${ENTRY_STATUS_BADGE[e.status].base}`}>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`${ENTRY_STATUS_BADGE[e.status].base}`}>
                           {ENTRY_STATUS_BADGE[e.status].label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3" onClick={(ev) => ev.stopPropagation()}>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => navigate(`/hrms/payroll/run/${run.id}/payslip/${e.id}`)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="Payslip">
-                            <Eye size={14} />
-                          </button>
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="w-10 pl-0" onClick={(e) => e.stopPropagation()}>
+<DropdownMenu>
+<DropdownMenuTrigger asChild>
+<Button variant="ghost" size="icon-sm" data-row-menu="" aria-label="Row actions"><MoreHorizontal /></Button>
+</DropdownMenuTrigger>
+<DropdownMenuContent align="end" className="w-52">
+<DropdownMenuItem onSelect={() => navigate(`/hrms/payroll/run/${run.id}/payslip/${e.id}`)}><Eye /> Payslip</DropdownMenuItem>
                           {run.status === 'calculated' && (
-                            <button onClick={() => openEdit(e)} className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
-                              <Pen size={14} />
-                            </button>
+                            <DropdownMenuItem onSelect={() => openEdit(e)}><Pen /> Edit</DropdownMenuItem>
                           )}
                           {e.status === 'approved' && (
-                            <button onClick={() => payEntry(e)} className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors" title="Mark Paid">
-                              <Banknote size={14} />
-                            </button>
+                            <DropdownMenuItem onSelect={() => payEntry(e)}><Banknote /> Mark Paid</DropdownMenuItem>
                           )}
-                        </div>
-                      </td>
+</DropdownMenuContent>
+</DropdownMenu>
+</TableCell>
                     </motion.tr>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
 
-            <div className="md:hidden divide-y divide-zinc-100">
+            <div className="md:hidden divide-y divide-border">
               {paged.map((e, i) => (
                 <motion.div
                   key={e.id}
@@ -500,33 +495,33 @@ export default function PayrollRunDetail() {
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-xs font-bold text-zinc-900">{e.employeeName}</p>
-                      <p className="text-[10px] text-zinc-400">{ROLE_LABELS[e.role] || e.role} · {payModelLabel(e.payModel)}</p>
+                      <p className="text-xs font-semibold text-foreground">{e.employeeName}</p>
+                      <p className="text-[11px] text-muted-foreground/70">{ROLE_LABELS[e.role] || e.role} · {payModelLabel(e.payModel)}</p>
                     </div>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${ENTRY_STATUS_BADGE[e.status].base}`}>
+                    <Badge className={`shrink-0 ${ENTRY_STATUS_BADGE[e.status].base}`}>
                       {ENTRY_STATUS_BADGE[e.status].label}
-                    </span>
+                    </Badge>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-500">
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                     <span>P {e.presentDays}</span><span>H {e.halfDays}</span><span>LOP {e.lopDays}</span>
-                    {e.latePenalty > 0 && <span className="text-rose-500">−₹{e.latePenalty}</span>}
+                    {e.latePenalty > 0 && <span className="text-destructive">−₹{e.latePenalty}</span>}
                     {e.overtimeAmount > 0 && <span className="text-violet-600">+₹{e.overtimeAmount} OT</span>}
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-extrabold text-emerald-600">{formatINR(e.netPay)}</p>
+                    <p className="text-xs font-semibold text-primary">{formatINR(e.netPay)}</p>
                     <div className="flex items-center gap-1" onClick={(ev) => ev.stopPropagation()}>
-                      <button onClick={() => navigate(`/hrms/payroll/run/${run.id}/payslip/${e.id}`)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="Payslip">
+                      <Button variant="ghost" size="icon-sm" onClick={() => navigate(`/hrms/payroll/run/${run.id}/payslip/${e.id}`)}  title="Payslip">
                         <Eye size={14} />
-                      </button>
+                      </Button>
                       {run.status === 'calculated' && (
-                        <button onClick={() => openEdit(e)} className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
+                        <Button variant="ghost" size="icon-sm" className="hover:text-warning hover:bg-warning/10" onClick={() => openEdit(e)}  title="Edit">
                           <Pen size={14} />
-                        </button>
+                        </Button>
                       )}
                       {e.status === 'approved' && (
-                        <button onClick={() => payEntry(e)} className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors" title="Mark Paid">
+                        <Button variant="ghost" size="icon-sm" className="hover:text-primary hover:bg-accent" onClick={() => payEntry(e)}  title="Mark Paid">
                           <Banknote size={14} />
-                        </button>
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -535,19 +530,19 @@ export default function PayrollRunDetail() {
             </div>
 
             {filtered.length > PAGE_SIZE && (
-              <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-zinc-100">
-                <p className="text-xs text-zinc-500">
-                  Showing <span className="font-bold text-zinc-900">{startRow}</span>–
-                  <span className="font-bold text-zinc-900">{endRow}</span> of{' '}
-                  <span className="font-bold text-zinc-900">{filtered.length}</span> entries
+              <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  Showing <span className="font-semibold text-foreground">{startRow}</span>–
+                  <span className="font-semibold text-foreground">{endRow}</span> of{' '}
+                  <span className="font-semibold text-foreground">{filtered.length}</span> entries
                 </p>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    <ChevronLeft size={16} className="text-zinc-600" />
-                  </button>
-                  <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    <ChevronRight size={16} className="text-zinc-600" />
-                  </button>
+                  <Button variant="outline" size="icon-sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} >
+                    <ChevronLeft size={16} className="text-foreground/70" />
+                  </Button>
+                  <Button variant="outline" size="icon-sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} >
+                    <ChevronRight size={16} className="text-foreground/70" />
+                  </Button>
                 </div>
               </div>
             )}
@@ -556,52 +551,47 @@ export default function PayrollRunDetail() {
       </motion.div>
 
       {editEntry && editForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-          onClick={() => setEditEntry(null)} role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden"
-          >
-            <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
-              <h3 className="font-bold text-zinc-900">Edit Entry — {editForm.employeeName}</h3>
-              <button type="button" onClick={() => setEditEntry(null)} className="text-zinc-400 hover:text-zinc-600 transition-colors">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => setEditEntry(null))(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-lg overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-5 border-b border-border flex items-center justify-between">
+              <h3 className="font-semibold text-foreground">Edit Entry — {editForm.employeeName}</h3>
+              <button type="button" onClick={() => setEditEntry(null)} className="text-muted-foreground/70 hover:text-foreground/70 transition-colors">
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={saveEdit} className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Present Days">
-                  <input type="number" className={inputClass} value={editForm.presentDays} onChange={(e) => setEditForm({ ...editForm, presentDays: num(e.target.value) })} />
+                  <Input type="number"  value={editForm.presentDays} onChange={(e) => setEditForm({ ...editForm, presentDays: num(e.target.value) })} />
                 </Field>
                 <Field label="Half Days">
-                  <input type="number" className={inputClass} value={editForm.halfDays} onChange={(e) => setEditForm({ ...editForm, halfDays: num(e.target.value) })} />
+                  <Input type="number"  value={editForm.halfDays} onChange={(e) => setEditForm({ ...editForm, halfDays: num(e.target.value) })} />
                 </Field>
                 <Field label="Overtime Hours">
-                  <input type="number" className={inputClass} value={editForm.overtimeHours} onChange={(e) => setEditForm({ ...editForm, overtimeHours: num(e.target.value) })} />
+                  <Input type="number"  value={editForm.overtimeHours} onChange={(e) => setEditForm({ ...editForm, overtimeHours: num(e.target.value) })} />
                 </Field>
                 <Field label="LOP Days (Unpaid)">
-                  <input type="number" className={inputClass} value={editForm.lopDays} onChange={(e) => setEditForm({ ...editForm, lopDays: num(e.target.value) })} />
+                  <Input type="number"  value={editForm.lopDays} onChange={(e) => setEditForm({ ...editForm, lopDays: num(e.target.value) })} />
                 </Field>
                 <Field label="Bonus / Incentive">
-                  <input type="number" className={inputClass} value={editForm.bonus} onChange={(e) => setEditForm({ ...editForm, bonus: num(e.target.value) })} />
+                  <Input type="number"  value={editForm.bonus} onChange={(e) => setEditForm({ ...editForm, bonus: num(e.target.value) })} />
                 </Field>
                 <Field label="Late Penalty (₹)">
-                  <input type="number" className={inputClass} value={editForm.latePenalty} onChange={(e) => setEditForm({ ...editForm, latePenalty: num(e.target.value) })} />
+                  <Input type="number"  value={editForm.latePenalty} onChange={(e) => setEditForm({ ...editForm, latePenalty: num(e.target.value) })} />
                 </Field>
                 <Field label="Overtime Amount (₹)">
-                  <input type="number" className={inputClass} value={editForm.overtimeAmount} onChange={(e) => setEditForm({ ...editForm, overtimeAmount: num(e.target.value) })} />
+                  <Input type="number"  value={editForm.overtimeAmount} onChange={(e) => setEditForm({ ...editForm, overtimeAmount: num(e.target.value) })} />
                 </Field>
                 <Field label="Salary Advance Repayment (₹)">
-                  <input type="number" className={inputClass} value={editForm.advanceDeduction || 0} onChange={(e) => setEditForm({ ...editForm, advanceDeduction: num(e.target.value) })} />
+                  <Input type="number"  value={editForm.advanceDeduction || 0} onChange={(e) => setEditForm({ ...editForm, advanceDeduction: num(e.target.value) })} />
                 </Field>
                 <Field label="Mediclaim Premium (₹)">
-                  <input type="number" className={inputClass} value={editForm.mediclaimDeduction || 0} onChange={(e) => setEditForm({ ...editForm, mediclaimDeduction: num(e.target.value) })} />
+                  <Input type="number"  value={editForm.mediclaimDeduction || 0} onChange={(e) => setEditForm({ ...editForm, mediclaimDeduction: num(e.target.value) })} />
                 </Field>
                 <Field label="Expense Reimbursement (₹)">
-                  <input type="number" className={inputClass} value={editForm.expenseReimbursement || 0} onChange={(e) => setEditForm({ ...editForm, expenseReimbursement: num(e.target.value) })} />
-                  <p className="mt-1 text-[10px] text-zinc-400 leading-snug">
+                  <Input type="number"  value={editForm.expenseReimbursement || 0} onChange={(e) => setEditForm({ ...editForm, expenseReimbursement: num(e.target.value) })} />
+                  <p className="mt-1 text-[11px] text-muted-foreground/70 leading-snug">
                     Filled from approved expense claims dated in this month. Added after deductions, so it is not taxed.
                   </p>
                 </Field>
@@ -614,53 +604,47 @@ export default function PayrollRunDetail() {
                   />
                 </Field>
               </div>
-              <p className="text-[10px] text-zinc-400">
+              <p className="text-[11px] text-muted-foreground/70">
                 Calculate pulls these from attendance. You can override here; saving recomputes the payslip.
               </p>
-              <button type="submit" className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2">
+              <Button variant="dark" size="lg" className="w-full" type="submit" >
                 <Pen size={16} />Save & Recalculate
-              </button>
+              </Button>
             </form>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm" role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
-          >
+        <Dialog open onOpenChange={(open) => { if (!open) (() => {})(); }}>
+<DialogContent hideClose aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="gap-0 p-0 max-w-sm overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
             <div className="p-5">
-              <h3 className="font-bold text-zinc-900 mb-1">Delete this run?</h3>
-              <p className="text-xs text-zinc-500">This permanently removes the {monthLabel(run.month)} run. You can Generate Run again for that month afterward.</p>
+              <h3 className="font-semibold text-foreground mb-1">Delete this run?</h3>
+              <p className="text-xs text-muted-foreground">This permanently removes the {monthLabel(run.month)} run. You can Generate Run again for that month afterward.</p>
             </div>
             <div className="px-5 pb-5 flex gap-2">
-              <button onClick={() => setConfirmDelete(false)} className="flex-1 py-2.5 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition-colors">Cancel</button>
-              <button onClick={handleDelete} className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 transition-colors">Delete</button>
+              <Button variant="secondary" size="sm" className="flex-1" onClick={() => setConfirmDelete(false)} >Cancel</Button>
+              <Button variant="destructive" size="sm" className="flex-1" onClick={handleDelete} >Delete</Button>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {confirmRegenerate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm" role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
-          >
+        <Dialog open onOpenChange={(open) => { if (!open) (() => {})(); }}>
+<DialogContent hideClose aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="gap-0 p-0 max-w-sm overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
             <div className="p-5">
-              <h3 className="font-bold text-zinc-900 mb-1">Regenerate this run?</h3>
-              <p className="text-xs text-zinc-500">Rebuilds {monthLabel(run.month)} from all active salary structures, resets to draft, and replaces existing entries.</p>
+              <h3 className="font-semibold text-foreground mb-1">Regenerate this run?</h3>
+              <p className="text-xs text-muted-foreground">Rebuilds {monthLabel(run.month)} from all active salary structures, resets to draft, and replaces existing entries.</p>
             </div>
             <div className="px-5 pb-5 flex gap-2">
-              <button onClick={() => setConfirmRegenerate(false)} className="flex-1 py-2.5 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition-colors">Cancel</button>
-              <button onClick={handleRegenerate} className="flex-1 py-2.5 bg-violet-600 text-white rounded-xl text-xs font-bold hover:bg-violet-700 transition-colors">Regenerate</button>
+              <Button variant="secondary" size="sm" className="flex-1" onClick={() => setConfirmRegenerate(false)} >Cancel</Button>
+              <Button size="sm" className="flex-1 bg-violet-600 text-white hover:bg-violet-700 hover:text-white" onClick={handleRegenerate} >Regenerate</Button>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
     </div>
   );
@@ -669,10 +653,10 @@ export default function PayrollRunDetail() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{label}</label>
+      <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">{label}</label>
       {children}
     </div>
   );
 }
 
-const inputClass = 'w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all';
+const inputClass = fieldClass;

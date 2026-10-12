@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Search, XCircle, ChevronLeft, ChevronRight,
-  Download, RefreshCw, AlertCircle, Plus, CheckCircle2, X,
+  Download, RefreshCw, AlertCircle, Plus, CheckCircle2, X, MoreHorizontal, BarChart3,
 } from 'lucide-react';
 import { getUsers, createInvoice, updateInvoice, uploadSignedCopy } from '../lib/api';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -25,6 +25,14 @@ import { fakeDuration } from './invoices/invoiceShared';
 import type { ApiInvoice } from '../lib/api';
 import { INVOICES_PAGE_SUBTITLE, INVOICES_PAGE_TITLE } from '../components/invoices/InvoiceSectionFrame';
 import { NEW_INVOICE_EVENT, appApi } from '../lib/appApi';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { Segmented } from '@/components/ui/segmented';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function Invoices() {
   const { user, token } = useAuth();
@@ -41,7 +49,7 @@ export default function Invoices() {
 
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(() => new URLSearchParams(window.location.search).get('status') || 'all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [invoiceTab, setInvoiceTab] = useState<'active' | 'deleted'>('active');
   const [boyFilter, setBoyFilter] = useState('all');
@@ -384,202 +392,164 @@ export default function Invoices() {
   const startRow = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
   const endRow = Math.min(page * pageSize, totalCount);
 
+  const refreshList = () => {
+    if (!token) return;
+    dispatch(
+      fetchInvoicesList({
+        token,
+        params: {
+          sort_by: sortBy,
+          sort_order: sortOrder,
+          page,
+          page_size: pageSize,
+          ...(searchDebounced.trim() ? { search: searchDebounced.trim() } : {}),
+          ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+          ...(boyFilter !== 'all' ? { assigned_to: Number(boyFilter) } : {}),
+          ...(dateFilter ? { date_from: dateFilter, date_to: dateFilter } : {}),
+          ...(invoiceTab === 'deleted' ? { deleted: true } : {}),
+        },
+      })
+    );
+  };
+  const toggleMetrics = () => {
+    if (!showMetrics || !invoiceMetrics) {
+      setMetricsLoading(true);
+      const dateParams = dateFilter ? { date_from: dateFilter, date_to: dateFilter } : undefined;
+      appApi.getInvoiceMetrics(dateParams).then((m: any) => { setInvoiceMetrics(m); setMetricsLoading(false); });
+    }
+    setShowMetrics((v) => !v);
+  };
+
   return (
     <div className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">{INVOICES_PAGE_TITLE}</h1>
-          <p className="text-xs text-zinc-500 font-medium">{INVOICES_PAGE_SUBTITLE}</p>
-        </div>
-        <div className="flex items-center gap-3 self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => {
-              if (!token) return;
-              dispatch(
-                fetchInvoicesList({
-                  token,
-                  params: {
-                    sort_by: sortBy,
-                    sort_order: sortOrder,
-                    page,
-                    page_size: pageSize,
-                    ...(searchDebounced.trim() ? { search: searchDebounced.trim() } : {}),
-                    ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
-                    ...(boyFilter !== 'all' ? { assigned_to: Number(boyFilter) } : {}),
-                    ...(dateFilter ? { date_from: dateFilter, date_to: dateFilter } : {}),
-                    ...(invoiceTab === 'deleted' ? { deleted: true } : {}),
-                  },
-                })
-              );
-            }}
-            disabled={listLoading || isRefreshing}
-            className="bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={listLoading || isRefreshing ? 'animate-spin' : ''} /> Refresh
-          </button>
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={filtered.length === 0}
-            className="bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
-          >
-            <Download size={14} />Export
-          </button>
-          {(user?.role === 'admin' || user?.role === 'manager') && (
-            <button
-              type="button"
-              onClick={() => { setShowCreateModal(true); setCreateError(''); }}
-              className="bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors flex items-center gap-2 shadow-sm"
-            >
-              <Plus size={14} /> Create Invoice
-            </button>
-          )}
-        </div>
-      </header>
+      <PageHeader title={INVOICES_PAGE_TITLE} description={INVOICES_PAGE_SUBTITLE} className="mb-1" actions={<>
+        <Button variant="ghost" size="icon" type="button" data-hotkey-refresh="" aria-label="Refresh" title="Refresh (r)"
+          disabled={listLoading || isRefreshing}
+          onClick={refreshList}>
+          <RefreshCw className={listLoading || isRefreshing ? 'animate-spin' : ''} />
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" aria-label="More"><MoreHorizontal /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem disabled={filtered.length === 0} onSelect={handleExport}><Download /> Export CSV</DropdownMenuItem>
+            <DropdownMenuItem onSelect={toggleMetrics}><BarChart3 /> {showMetrics ? 'Hide metrics' : 'Show metrics'}</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {(user?.role === 'admin' || user?.role === 'manager') && (
+          <Button type="button" data-hotkey-new="" onClick={() => { setShowCreateModal(true); setCreateError(''); }}>
+            <Plus /> New invoice
+          </Button>
+        )}
+      </>} />
       {listError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg flex items-center justify-between gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm px-4 py-2 rounded-lg flex items-center justify-between gap-2">
           <span className="flex items-center gap-2">
             <AlertCircle size={16} /> {listError}
           </span>
           <button
             type="button"
             onClick={() => dispatch(clearInvoicesError())}
-            className="text-xs font-bold text-red-800 hover:underline shrink-0"
+            className="text-xs font-semibold text-destructive hover:underline shrink-0"
           >
             Dismiss
           </button>
         </div>
       )}
 
-      <div className="sticky top-0 z-20 bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center">
-        <div className="flex rounded-lg bg-zinc-100 p-1">
-          <button
-            type="button"
-            onClick={() => {
-              setInvoiceTab('active');
-              updatePage(1);
-            }}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold ${invoiceTab === 'active' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'}`}
-          >
-            Active invoices
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setInvoiceTab('deleted');
-              updatePage(1);
-            }}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold ${invoiceTab === 'deleted' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'}`}
-          >
-            Deleted invoices
-          </button>
-        </div>
-        <div className="relative flex-1 min-w-[160px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Segmented
+          value={statusFilter}
+          onValueChange={setStatusFilter}
+          options={[
+            { value: 'all', label: <>All</> },
+            { value: 'pending', label: <>Pending</> },
+            { value: 'assigned', label: <>Assigned</> },
+            { value: 'delivered', label: <>Delivered</> },
+            { value: 'completed', label: <>Completed</> },
+            { value: 'cancelled', label: <>Cancelled</> },
+          ]}
+        />
+        <Segmented
+          value={invoiceTab}
+          onValueChange={(v) => { setInvoiceTab(v as 'active' | 'deleted'); updatePage(1); }}
+          options={[
+            { value: 'active', label: <>Active</> },
+            { value: 'deleted', label: <>Deleted</> },
+          ]}
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+          <Input
+            data-search=""
+            className="w-full pl-9"
             type="text"
-            placeholder="Search tasks / entities..."
+            placeholder="Search invoice, hospital…   ( / )"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
           />
         </div>
-        <SearchableSelect
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={[
-            { value: 'all', label: 'All Status' },
-            { value: 'pending', label: 'Pending' },
-            { value: 'assigned', label: 'Assigned' },
-            { value: 'delivered', label: 'Delivered' },
-            { value: 'completed', label: 'Completed' },
-            { value: 'cancelled', label: 'Cancelled' },
-          ]}
-          className="min-w-[150px]"
-        />
         <SearchableSelect
           value={typeFilter}
           onChange={setTypeFilter}
           options={[
-            { value: 'all', label: 'All Types' },
+            { value: 'all', label: 'All types' },
             { value: 'challan', label: 'Challan' },
             { value: 'price_difference', label: 'Price Diff' },
             { value: 'sale_bill', label: 'Sale Bill' },
             { value: 'sale_return_credit_note', label: 'Sale Return' },
           ]}
-          className="min-w-[150px]"
+          className="w-[150px]"
         />
         <SearchableSelect
           value={boyFilter}
           onChange={setBoyFilter}
           options={[
-            { value: 'all', label: 'All Assignees' },
+            { value: 'all', label: 'All riders' },
             ...availableAssignees.map((b) => ({ value: String(b.id), label: b.name })),
           ]}
-          className="min-w-[180px]"
+          className="w-[170px]"
         />
-        <input
-          type="date"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none cursor-pointer"
-        />
-        <button onClick={() => {
-          if (!showMetrics || !invoiceMetrics) {
-            setMetricsLoading(true);
-            const dateParams = dateFilter ? { date_from: dateFilter, date_to: dateFilter } : undefined;
-            appApi.getInvoiceMetrics(dateParams).then(m => { setInvoiceMetrics(m); setMetricsLoading(false); });
-          }
-          setShowMetrics(v => !v);
-        }} className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-bold text-zinc-600 hover:bg-zinc-100 transition-colors flex items-center gap-1.5">
-          📊 Metrics
-        </button>
+        <Input className="w-[150px]" type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} aria-label="Date" />
         {(search || statusFilter !== 'all' || typeFilter !== 'all' || boyFilter !== 'all' || dateFilter) && (
-          <button
-            onClick={() => {
-              setSearch('');
-              setStatusFilter('all');
-              setTypeFilter('all');
-              setBoyFilter('all');
-              setDateFilter('');
-            }}
-            className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1"
-          >
-            <XCircle size={12} />
-            Clear
-          </button>
+          <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setStatusFilter('all'); setTypeFilter('all'); setBoyFilter('all'); setDateFilter(''); }}>
+            <XCircle /> Clear
+          </Button>
         )}
       </div>
 
       {/* Invoice Metrics */}
       {showMetrics && (
-        <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4">
+        <Card className="p-4" >
           {metricsLoading ? (
-            <p className="text-xs text-zinc-400">Loading metrics…</p>
+            <p className="text-xs text-muted-foreground/70">Loading metrics…</p>
           ) : invoiceMetrics && (
             <div className="space-y-4">
               {/* Summary row */}
               <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase">Total</span>
-                  <span className="text-lg font-bold text-zinc-900">{invoiceMetrics.totalCount}</span>
+                  <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase">Total</span>
+                  <span className="text-lg font-semibold text-foreground">{invoiceMetrics.totalCount}</span>
                 </div>
-                <div className="w-px h-6 bg-zinc-200" />
+                <div className="w-px h-6 bg-border" />
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase">Today</span>
-                  <span className="text-lg font-bold text-emerald-600">{invoiceMetrics.todayCount}</span>
+                  <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase">Today</span>
+                  <span className="text-lg font-semibold text-primary">{invoiceMetrics.todayCount}</span>
                 </div>
               </div>
 
               {/* Per-type */}
               <div>
-                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">By Type</span>
+                <span className="text-xs font-medium text-muted-foreground/70">By Type</span>
                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                   {invoiceMetrics.typeCounts.map((t: any) => (
-                    <span key={t.type} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-zinc-50 text-xs font-medium text-zinc-700">
+                    <span key={t.type} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted text-xs font-medium text-foreground/85">
                       {t.label}
-                      <span className="font-bold text-zinc-900">{t.count}</span>
+                      <span className="font-semibold text-foreground">{t.count}</span>
                     </span>
                   ))}
                 </div>
@@ -587,90 +557,77 @@ export default function Invoices() {
 
               {/* Per-boy */}
               <div>
-                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Per Delivery Boy</span>
+                <span className="text-xs font-medium text-muted-foreground/70">Per Delivery Boy</span>
                 <div className="overflow-x-auto mt-1.5">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="text-[10px] font-bold text-zinc-400 uppercase border-b border-zinc-50">
-                        <th className="py-1.5 pr-3">Boy</th>
-                        <th className="py-1.5 pr-3">Total</th>
-                        <th className="py-1.5 pr-3 text-amber-600">Pending</th>
-                        <th className="py-1.5 pr-3 text-blue-600">Assigned</th>
-                        <th className="py-1.5 pr-3 text-emerald-600">Completed</th>
-                        <th className="py-1.5 pr-3 text-purple-600">Return</th>
-                        <th className="py-1.5 pr-3 text-red-600">Cancelled</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Boy</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Pending</TableHead>
+                        <TableHead>Assigned</TableHead>
+                        <TableHead>Completed</TableHead>
+                        <TableHead>Return</TableHead>
+                        <TableHead>Cancelled</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {invoiceMetrics.perBoy.map((b: any) => (
-                        <tr key={b.id} className="border-b border-zinc-50 hover:bg-zinc-50/50">
-                          <td className="py-1.5 pr-3 font-medium text-zinc-900">{b.name}</td>
-                          <td className="py-1.5 pr-3 font-bold text-zinc-900">{b.total}</td>
-                          <td className="py-1.5 pr-3 text-amber-600 font-medium">{b.pending}</td>
-                          <td className="py-1.5 pr-3 text-blue-600 font-medium">{b.assigned}</td>
-                          <td className="py-1.5 pr-3 text-emerald-600 font-medium">{b.completed}</td>
-                          <td className="py-1.5 pr-3 text-purple-600 font-medium">{b.return}</td>
-                          <td className="py-1.5 pr-3 text-red-600 font-medium">{b.cancelled}</td>
-                        </tr>
+                        <TableRow key={b.id} className="">
+                          <TableCell className="font-medium text-foreground">{b.name}</TableCell>
+                          <TableCell className="font-semibold text-foreground">{b.total}</TableCell>
+                          <TableCell className="text-warning font-medium">{b.pending}</TableCell>
+                          <TableCell className="text-info font-medium">{b.assigned}</TableCell>
+                          <TableCell className="text-primary font-medium">{b.completed}</TableCell>
+                          <TableCell className="text-purple-600 font-medium">{b.return}</TableCell>
+                          <TableCell className="text-destructive font-medium">{b.cancelled}</TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
             </div>
           )}
-        </div>
+        </Card>
       )}
 
-      <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
+      <Card className="overflow-hidden" >
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-zinc-50/50 border-b border-zinc-100">
-              <tr>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Invoice / ID</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Type</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Task / Entity</th>
-                <th
-                  className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600"
-                  onClick={() => {
-                    setSortBy('amount');
-                    setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
-                  }}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Invoice</TableHead>
+                <TableHead>Hospital</TableHead>
+                <TableHead
+                  className="cursor-pointer select-none text-right"
+                  onClick={() => { setSortBy('amount'); setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc')); }}
                 >
                   Amount {sortBy === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
-                </th>
-                <th
-                  className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600"
-                  onClick={() => {
-                    setSortBy('status');
-                    setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
-                  }}
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer select-none"
+                  onClick={() => { setSortBy('status'); setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc')); }}
                 >
                   Status {sortBy === 'status' && (sortOrder === 'asc' ? '↑' : '↓')}
-                </th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Signed Copy</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Assigned To</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Travel</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Waiting</th>
-                <th
-                  className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600"
-                  onClick={() => {
-                    setSortBy('created_at');
-                    setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
-                  }}
+                </TableHead>
+                <TableHead>Rider</TableHead>
+                <TableHead
+                  className="cursor-pointer select-none"
+                  onClick={() => { setSortBy('created_at'); setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc')); }}
                 >
-                  Date {sortBy === 'created_at' && (sortOrder === 'asc' ? '↑' : '↓')}
-                </th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-50">
+                  Created {sortBy === 'created_at' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </TableHead>
+                <TableHead className="w-10"><span className="sr-only">Actions</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {listLoading ? (
-                <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-xs text-zinc-400">
+                <TableRow>
+                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                     Loading invoices...
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 filtered.map((invoice) => {
                   const dur = fakeDuration(invoice);
@@ -697,13 +654,13 @@ export default function Invoices() {
                   );
                 })
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
-        <div className="md:hidden divide-y divide-zinc-100">
+        <div className="md:hidden divide-y divide-border">
           {listLoading ? (
-            <div className="p-8 text-center text-zinc-400 text-sm">Loading...</div>
+            <div className="p-8 text-center text-muted-foreground/70 text-sm">Loading...</div>
           ) : (
             filtered.map((invoice) => (
               <InvoiceMobileCard
@@ -715,48 +672,49 @@ export default function Invoices() {
             ))
           )}
         </div>
-      </div>
+      </Card>
 
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <p className="text-sm text-zinc-500">
-          Showing <span className="font-bold text-zinc-900">{startRow}</span>–<span className="font-bold text-zinc-900">{endRow}</span> of{' '}
-          <span className="font-bold text-zinc-900">{totalCount}</span> invoices
+        <p className="text-sm text-muted-foreground">
+          Showing <span className="font-semibold text-foreground">{startRow}</span>–<span className="font-semibold text-foreground">{endRow}</span> of{' '}
+          <span className="font-semibold text-foreground">{totalCount}</span> invoices
           {totalPages > 1 && (
-            <span className="ml-2 text-zinc-400">
+            <span className="ml-2 text-muted-foreground/70">
               (page {page} of {totalPages})
             </span>
           )}
         </p>
         <div className="flex items-center gap-2">
-          <button
+          <Button variant="outline" size="icon-sm"
             type="button"
             onClick={() => updatePage(Math.max(1, page - 1))}
             disabled={page <= 1 || listLoading || isRefreshing}
-            className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            
             aria-label="Previous page"
           >
-            <ChevronLeft size={18} className="text-zinc-600" />
-          </button>
-          <button
+            <ChevronLeft size={18} className="text-foreground/70" />
+          </Button>
+          <Button variant="outline" size="icon-sm"
             type="button"
             onClick={() => updatePage(Math.min(totalPages, page + 1))}
             disabled={page >= totalPages || listLoading || isRefreshing}
-            className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            
             aria-label="Next page"
           >
-            <ChevronRight size={18} className="text-zinc-600" />
-          </button>
+            <ChevronRight size={18} className="text-foreground/70" />
+          </Button>
         </div>
       </div>
 
       {assignModalInvId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-zinc-100 flex justify-between items-center bg-zinc-50 relative">
-              <h3 className="font-bold text-zinc-900">Assign Invoice</h3>
+        <Dialog open onOpenChange={(open) => { if (!open) (() => {})(); }}>
+<DialogContent hideClose aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="gap-0 p-0 max-w-sm overflow-hidden flex flex-col">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-4 border-b border-border flex justify-between items-center bg-muted relative">
+              <h3 className="font-semibold text-foreground">Assign Invoice</h3>
               <button 
                 onClick={() => setAssignModalInvId(null)} 
-                className="text-zinc-400 hover:text-zinc-600 absolute right-4"
+                className="text-muted-foreground/70 hover:text-foreground/70 absolute right-4"
               >
                 <XCircle size={18} />
               </button>
@@ -772,13 +730,13 @@ export default function Invoices() {
                 className="w-full"
               />
               <div className="flex gap-2 justify-end">
-                <button 
+                <Button variant="outline" size="sm" 
                   onClick={() => setAssignModalInvId(null)} 
-                  className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-600 hover:bg-zinc-50"
+                  
                 >
                   Cancel
-                </button>
-                <button 
+                </Button>
+                <Button size="sm" 
                   disabled={!assignTarget}
                   onClick={() => {
                     if (!token) return;
@@ -787,46 +745,47 @@ export default function Invoices() {
                     setAssignModalInvId(null);
                     setAssignTarget('');
                   }}
-                  className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 disabled:opacity-50"
+                  
                 >
                   Assign
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-zinc-100 flex justify-between items-center bg-zinc-50 relative">
-              <h3 className="font-bold text-zinc-900">Create Invoice</h3>
-              <button onClick={() => setShowCreateModal(false)} className="text-zinc-400 hover:text-zinc-600 absolute right-4">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => {})(); }}>
+<DialogContent hideClose aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="gap-0 p-0 max-w-md overflow-hidden flex flex-col">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-4 border-b border-border flex justify-between items-center bg-muted relative">
+              <h3 className="font-semibold text-foreground">Create Invoice</h3>
+              <button onClick={() => setShowCreateModal(false)} className="text-muted-foreground/70 hover:text-foreground/70 absolute right-4">
                 <XCircle size={18} />
               </button>
             </div>
             <div className="p-4 space-y-3">
-              {createError && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{createError}</p>}
-              <input
+              {createError && <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{createError}</p>}
+              <Input className="w-full"
                 type="text" placeholder="Invoice number *" value={createForm.invoice_number}
                 onChange={(e) => setCreateForm({ ...createForm, invoice_number: e.target.value })}
-                className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5"
+                
               />
-              <input
+              <Input className="w-full"
                 type="text" placeholder="Hospital / Entity *" value={createForm.hospital_name}
                 onChange={(e) => setCreateForm({ ...createForm, hospital_name: e.target.value })}
-                className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5"
+                
               />
-              <input
+              <Input className="w-full"
                 type="number" step="0.01" min="0" placeholder="Amount" value={createForm.amount}
                 onChange={(e) => setCreateForm({ ...createForm, amount: e.target.value })}
-                className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5"
+                
               />
-              <input
+              <Input className="w-full"
                 type="text" placeholder="Description (optional)" value={createForm.description}
                 onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-                className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5"
+                
               />
               <SearchableSelect
                 value={createForm.assigned_to}
@@ -838,10 +797,10 @@ export default function Invoices() {
                 className="w-full"
               />
               <div className="flex gap-2 justify-end pt-2">
-                <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-600 hover:bg-zinc-50">
+                <Button variant="outline" size="sm" onClick={() => setShowCreateModal(false)} >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button variant="dark" size="sm"
                   disabled={createBusy || !createForm.invoice_number.trim() || !createForm.hospital_name.trim()}
                   onClick={async () => {
                     if (!token) return;
@@ -875,29 +834,30 @@ export default function Invoices() {
                       setCreateBusy(false);
                     }
                   }}
-                  className="px-4 py-2 rounded-xl bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 disabled:opacity-50"
+                  
                 >
                   {createBusy ? 'Creating…' : 'Create'}
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {completeTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-zinc-100 flex justify-between items-center bg-zinc-50 relative">
-              <h3 className="font-bold text-zinc-900">Mark Complete</h3>
-              <button onClick={() => setCompleteTarget(null)} className="text-zinc-400 hover:text-zinc-600 absolute right-4">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => {})(); }}>
+<DialogContent hideClose aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="gap-0 p-0 max-w-md overflow-hidden flex flex-col">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-4 border-b border-border flex justify-between items-center bg-muted relative">
+              <h3 className="font-semibold text-foreground">Mark Complete</h3>
+              <button onClick={() => setCompleteTarget(null)} className="text-muted-foreground/70 hover:text-foreground/70 absolute right-4">
                 <XCircle size={18} />
               </button>
             </div>
             <div className="p-4 space-y-3">
-              {completeError && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{completeError}</p>}
-              <p className="text-xs text-zinc-600">
-                Invoice: <span className="font-bold text-zinc-900">{completeTarget.invoice_number}</span>
+              {completeError && <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{completeError}</p>}
+              <p className="text-xs text-foreground/70">
+                Invoice: <span className="font-semibold text-foreground">{completeTarget.invoice_number}</span>
               </p>
 
               {(() => {
@@ -905,13 +865,13 @@ export default function Invoices() {
                 if (existingCopy && !completeReplace && !completeUploadedUrl) {
                   return (
                     <div className="space-y-2">
-                      <p className="text-xs text-emerald-600 flex items-center gap-1">
+                      <p className="text-xs text-primary flex items-center gap-1">
                         <CheckCircle2 size={14} /> Signed copy already uploaded
                       </p>
                       <button
                         type="button"
                         onClick={() => setCompleteReplace(true)}
-                        className="text-xs font-bold text-amber-600 hover:text-amber-700 underline"
+                        className="text-xs font-semibold text-warning hover:text-warning underline"
                       >
                         Replace with a different image
                       </button>
@@ -920,29 +880,29 @@ export default function Invoices() {
                 }
                 if (completeUploadedUrl) {
                   return (
-                    <p className="text-xs text-emerald-600 flex items-center gap-1">
+                    <p className="text-xs text-primary flex items-center gap-1">
                       <CheckCircle2 size={14} /> New signed copy uploaded
                     </p>
                   );
                 }
                 return (
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 mb-1">Upload signed copy *</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Upload signed copy *</label>
                     <input
                       type="file"
                       accept="image/*,application/pdf"
                       onChange={(e) => setCompleteFile(e.target.files?.[0] ?? null)}
-                      className="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-900 file:text-white hover:file:bg-zinc-800 cursor-pointer"
+                      className="text-sm file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-[13px] file:font-medium hover:file:bg-accent"
                     />
                   </div>
                 );
               })()}
 
               <div className="flex gap-2 justify-end pt-2">
-                <button onClick={() => setCompleteTarget(null)} className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-600 hover:bg-zinc-50">
+                <Button variant="outline" size="sm" onClick={() => setCompleteTarget(null)} >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button size="sm"
                   disabled={completeBusy || (!completeFile && !completeUploadedUrl && (!completeTarget.signed_copy_url || completeReplace))}
                   onClick={async () => {
                     if (!token) return;
@@ -978,46 +938,46 @@ export default function Invoices() {
                       setCompleteBusy(false);
                     }
                   }}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5"
+                  
                 >
                   {completeBusy ? 'Completing…' : <><CheckCircle2 size={14} /> Complete</>}
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {previewImage && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-foreground/60 backdrop-blur-sm"
           onClick={() => setPreviewImage(null)}
           role="dialog"
           aria-modal="true"
         >
-          <div
-            className="bg-white rounded-2xl border border-zinc-200 shadow-2xl w-full max-w-3xl overflow-hidden"
+          <Card className="w-full max-w-3xl overflow-hidden"
+            
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/40">
-              <span className="text-xs font-bold text-zinc-600">Signed copy — {previewImage.number}</span>
-              <button
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/40">
+              <span className="text-xs font-semibold text-foreground/70">Signed copy — {previewImage.number}</span>
+              <Button variant="ghost" size="icon-sm"
                 type="button"
                 onClick={() => setPreviewImage(null)}
-                className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+                
                 aria-label="Close preview"
               >
                 <X size={18} />
-              </button>
+              </Button>
             </div>
-            <div className="p-4 flex justify-center bg-zinc-50/30 max-h-[80vh] overflow-auto">
+            <div className="p-4 flex justify-center bg-muted/30 max-h-[80vh] overflow-auto">
               <img
                 src={previewImage.url}
                 alt={`Signed copy — ${previewImage.number}`}
                 className="max-w-full h-auto object-contain rounded-lg"
               />
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </div>

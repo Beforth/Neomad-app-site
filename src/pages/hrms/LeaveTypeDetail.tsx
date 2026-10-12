@@ -4,11 +4,13 @@ import { motion } from 'motion/react';
 import { ArrowLeft, Calendar, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getLeaveType, LeaveTypeOut } from '../../lib/hrmsLeave';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 function Check({ checked }: { checked: boolean }) {
   return checked
-    ? <span className="text-emerald-600 font-bold">&#10003;</span>
-    : <span className="text-zinc-300">&#8212;</span>;
+    ? <span className="text-primary font-semibold">&#10003;</span>
+    : <span className="text-muted-foreground/50">&#8212;</span>;
 }
 
 function FieldsGrid({ fields }: { fields: { label: string; value: string }[] }) {
@@ -16,8 +18,8 @@ function FieldsGrid({ fields }: { fields: { label: string; value: string }[] }) 
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {fields.map((f) => (
         <div key={f.label}>
-          <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1">{f.label}</p>
-          <p className="text-sm font-medium text-zinc-900">{f.value}</p>
+          <p className="text-xs text-muted-foreground/70 font-medium mb-1">{f.label}</p>
+          <p className="text-sm font-medium text-foreground">{f.value}</p>
         </div>
       ))}
     </div>
@@ -50,7 +52,7 @@ export default function LeaveTypeDetail() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="animate-spin text-zinc-400" size={24} />
+        <Loader2 className="animate-spin text-muted-foreground/70" size={24} />
       </div>
     );
   }
@@ -59,12 +61,12 @@ export default function LeaveTypeDetail() {
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <h3 className="text-sm font-bold text-zinc-900 mb-1">Leave type not found</h3>
-          <p className="text-xs text-zinc-400 mb-4">The leave type doesn't exist.</p>
-          <button onClick={() => navigate('/hrms/leave/type')}
-            className="px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors">
+          <h3 className="text-sm font-semibold text-foreground mb-1">Leave type not found</h3>
+          <p className="text-xs text-muted-foreground/70 mb-4">The leave type doesn't exist.</p>
+          <Button variant="dark" size="sm" onClick={() => navigate('/hrms/leave/type')}
+            >
             Back to Leave Types
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -88,41 +90,41 @@ export default function LeaveTypeDetail() {
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center gap-3"
       >
-        <button
+        <Button variant="ghost" size="icon-sm"
           onClick={() => navigate('/hrms/leave/type')}
-          className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+          
         >
           <ArrowLeft size={18} />
-        </button>
+        </Button>
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{item.name}</h1>
-            <p className="text-sm text-zinc-500 mt-0.5">Leave type details</p>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">{item.name}</h1>
+            <p className="text-[13px] text-muted-foreground">Leave type details</p>
           </div>
-          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold capitalize ${item.status === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+          <Badge className={`capitalize ${item.status === 'active' ? 'bg-accent text-primary' : 'bg-destructive/10 text-destructive'}`}>
             {item.status}
-          </span>
+          </Badge>
         </div>
       </motion.div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[
-          { label: 'Days Per Year', value: `${item.days_per_year}`, icon: Calendar, color: 'bg-blue-50 text-blue-600' },
+          { label: 'Days Per Year', value: `${item.days_per_year}`, icon: Calendar, color: 'bg-info/10 text-info' },
         ].map((stat, i) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.04 }}
-            className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm"
+            className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
           >
             <div className={`w-10 h-10 rounded-lg ${stat.color} flex items-center justify-center shrink-0`}>
               <stat.icon size={18} />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-extrabold text-zinc-900 leading-none">{stat.value}</p>
-              <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">{stat.label}</p>
+              <p className="text-sm font-semibold text-foreground leading-none">{stat.value}</p>
+              <p className="text-xs font-medium text-muted-foreground/70 mt-1 truncate">{stat.label}</p>
             </div>
           </motion.div>
         ))}
@@ -134,10 +136,10 @@ export default function LeaveTypeDetail() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08 }}
-          className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm"
+          className="bg-card border border-border rounded-xl p-4 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
         >
-          <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1">Description</p>
-          <p className="text-sm text-zinc-700">{item.description}</p>
+          <p className="text-xs text-muted-foreground/70 font-medium mb-1">Description</p>
+          <p className="text-sm text-foreground/85">{item.description}</p>
         </motion.div>
       )}
 
@@ -146,10 +148,10 @@ export default function LeaveTypeDetail() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+        className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
       >
-        <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Restrictions</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/50">
+          <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Restrictions</h2>
         </div>
         <div className="p-4">
           <FieldsGrid fields={[
@@ -165,17 +167,17 @@ export default function LeaveTypeDetail() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.12 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+        className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
       >
-        <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Leave Settings</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/50">
+          <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Leave Settings</h2>
         </div>
         <div className="p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
             {settingsCheckboxes.map((cb) => (
               <div key={cb.key} className="flex items-center gap-2">
                 <Check checked={(item as any)[cb.key] as boolean} />
-                <span className="text-xs text-zinc-600">{cb.label}</span>
+                <span className="text-xs text-foreground/70">{cb.label}</span>
               </div>
             ))}
           </div>
@@ -188,10 +190,10 @@ export default function LeaveTypeDetail() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.14 }}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
-          <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Carry Forward</h2>
+          <div className="px-4 py-3 border-b border-border bg-muted/50">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Carry Forward</h2>
           </div>
           <div className="p-4">
             <FieldsGrid fields={[
@@ -208,10 +210,10 @@ export default function LeaveTypeDetail() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.18 }}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
-          <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Encashment</h2>
+          <div className="px-4 py-3 border-b border-border bg-muted/50">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Encashment</h2>
           </div>
           <div className="p-4">
             <FieldsGrid fields={[
@@ -228,10 +230,10 @@ export default function LeaveTypeDetail() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
-          <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Earned Leave</h2>
+          <div className="px-4 py-3 border-b border-border bg-muted/50">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Earned Leave</h2>
           </div>
           <div className="p-4">
             <FieldsGrid fields={[

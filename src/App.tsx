@@ -2,8 +2,16 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppProvider, useApp } from './context/AppContext';
 import Sidebar from './components/Sidebar';
+import KeyboardLayer from './components/KeyboardLayer';
 import NotificationBell from './components/NotificationBell';
-import { ChevronLeft, LogOut } from 'lucide-react';
+import { ChevronLeft, LogOut, UserCircle } from 'lucide-react';
+import { AppContent, AppShell, Topbar } from '@/components/ui/app-shell';
+import { Avatar } from '@/components/ui/avatar';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { SortIcon, SearchIcon } from '@/components/ui/icons';
+import { Kbd } from '@/components/ui/kbd';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Invoices from './pages/Invoices';
@@ -163,27 +171,38 @@ function TopBar() {
   }
   const showBack = p !== '/' && p !== '/hrms/dashboard' && p !== '/hrms/attendance' && p !== '/hrms/staff' && p !== '/hrms/expenses' && p !== '/hrms/payroll' && p !== '/hrms/payroll/structures' && p !== '/hrms/payroll/settings' && p !== '/hrms/leave';
   return (
-    <header className="h-16 bg-white border-b border-zinc-100 px-5 flex items-center justify-between sticky top-0 z-30 shadow-sm grow-0 shrink-0 print:hidden">
-      <div className="flex items-center gap-3">
-        {showBack && (
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
-            aria-label="Go back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-        )}
-        <h2 className="text-base font-extrabold text-zinc-900 tracking-tight">{title}</h2>
-      </div>
-      <div className="flex items-center gap-2">
+    <Topbar className="print:hidden">
+      {showBack && (
+        <Button variant="ghost" size="icon-sm" onClick={() => navigate(-1)} aria-label="Go back">
+          <ChevronLeft />
+        </Button>
+      )}
+      <Breadcrumb className="ml-1 min-w-0" items={[{ label: activeApp === 'hrms' || user?.role === 'staff' || user?.role === 'delivery_boy' ? 'HRMS' : 'Delivery' }, { label: title }]} />
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new Event('neomed:open-palette'))}
+        className="ml-auto hidden h-8 w-56 items-center gap-2 rounded-md border bg-muted/60 px-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-secondary md:flex"
+      >
+        <SearchIcon className="size-3.5" /> Jump to… <Kbd className="ml-auto">Ctrl K</Kbd>
+      </button>
+      <div className="flex items-center gap-1 max-md:ml-auto">
         <NotificationBell />
-        <button onClick={logout} className="p-2 rounded-xl text-zinc-400 hover:text-red-500 transition-colors">
-          <LogOut size={20} />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 rounded-md p-1 pr-1.5 outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40">
+              <Avatar name={user?.username || 'User'} size="sm" />
+              <SortIcon className="hidden size-3.5 text-muted-foreground sm:block" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuLabel>{user?.email || user?.username}</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => navigate('/profile')}><UserCircle /> Profile</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem destructive onSelect={logout}><LogOut /> Sign out</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-    </header>
+    </Topbar>
   );
 }
 function AppRoutes() {
@@ -193,7 +212,7 @@ function AppRoutes() {
   useWebPush();
   useTrackingSocket(Boolean(user && (user.role === 'admin' || user.role === 'manager')));
 
-  if (loading) return <div className="min-h-[100dvh] flex items-center justify-center bg-white font-bold text-zinc-400 animate-pulse">Loading...</div>;
+  if (loading) return <div className="min-h-[100dvh] flex items-center justify-center bg-background font-medium text-muted-foreground animate-pulse">Loading...</div>;
 
   if (!user) return <Login />;
 
@@ -201,14 +220,12 @@ function AppRoutes() {
 
   // Admin/Manager/Employee layout (Desktop has Sidebar, Mobile has BottomNav)
   return (
-    <div className="flex min-h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#F8F9FA]">
+    <AppShell className="bg-muted" sidebar={<Sidebar />}>
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-foreground focus:px-3 focus:py-2 focus:text-sm focus:text-background">Skip to content</a>
       <ToastManager />
-      <div className="hidden lg:block print:hidden">
-        <Sidebar />
-      </div>
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        <TopBar />
-        <main className="flex-1 p-4 md:p-8 lg:p-10 overflow-y-auto pb-20 lg:pb-10">
+      <KeyboardLayer />
+      <TopBar />
+      <AppContent id="main" className="pb-20 lg:pb-6 print:p-0">
           <Routes>
             <Route path="/" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <Dashboard />} />
             <Route path="/tasks/new" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <TaskCreatePage />} />
@@ -285,12 +302,11 @@ function AppRoutes() {
             <Route path="/hrms/leave/period/:id" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <LeavePeriodDetail />} />
             <Route path="*" element={<Navigate to={isEmployee ? "/hrms/dashboard" : "/"} />} />
           </Routes>
-        </main>
-        <div className="lg:hidden print:hidden">
-          <BottomNav />
-        </div>
+      </AppContent>
+      <div className="lg:hidden print:hidden">
+        <BottomNav />
       </div>
-    </div>
+    </AppShell>
   );
 }
 

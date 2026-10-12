@@ -35,7 +35,7 @@ export default function InvoiceAssignPage() {
   if (id == null) {
     return (
       <InvoiceSectionFrame context="Invalid link">
-        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-red-700 bg-red-50/50`}>Invalid invoice in URL.</div>
+        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-destructive bg-destructive/10`}>Invalid invoice in URL.</div>
       </InvoiceSectionFrame>
     );
   }
@@ -43,7 +43,7 @@ export default function InvoiceAssignPage() {
   if (user?.role !== 'admin' && user?.role !== 'manager') {
     return (
       <InvoiceSectionFrame context="Access denied">
-        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-zinc-600`}>
+        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-foreground/70`}>
           You don&apos;t have access to assign invoices.
         </div>
       </InvoiceSectionFrame>
@@ -53,7 +53,7 @@ export default function InvoiceAssignPage() {
   if (loading && !invoice) {
     return (
       <InvoiceSectionFrame context="Loading…">
-        <div className={`${invoiceInnerCardClassName()} px-4 py-12 text-center text-sm text-zinc-400 animate-pulse`}>Loading…</div>
+        <div className={`${invoiceInnerCardClassName()} px-4 py-12 text-center text-sm text-muted-foreground/70 animate-pulse`}>Loading…</div>
       </InvoiceSectionFrame>
     );
   }
@@ -61,7 +61,7 @@ export default function InvoiceAssignPage() {
   if (error || !invoice) {
     return (
       <InvoiceSectionFrame context="Error">
-        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-red-700 bg-red-50/50`}>{error || 'Not found'}</div>
+        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-destructive bg-destructive/10`}>{error || 'Not found'}</div>
       </InvoiceSectionFrame>
     );
   }
@@ -90,7 +90,7 @@ export default function InvoiceAssignPage() {
           <button
             type="button"
             onClick={() => navigate(`/invoices/${invoice.id}?page=${currentPage}`)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card text-xs font-semibold text-foreground hover:bg-muted"
           >
             Cancel
           </button>
@@ -98,7 +98,7 @@ export default function InvoiceAssignPage() {
             type="button"
             onClick={() => void onAssign()}
             disabled={!assignTarget || busy || !canAssign}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 disabled:opacity-40 shadow-sm shadow-emerald-100"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 disabled:opacity-40 shadow-sm shadow-primary/20"
           >
             Confirm assign
           </button>
@@ -106,12 +106,12 @@ export default function InvoiceAssignPage() {
       }
     >
       {sliceError ? (
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm">{sliceError}</div>
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-md px-4 py-3 text-sm">{sliceError}</div>
       ) : null}
 
       <div className={`${invoiceInnerCardClassName()} p-6 space-y-5`}>
         {!canAssign ? (
-          <p className="text-sm text-zinc-600">This invoice can no longer be assigned.</p>
+          <p className="text-sm text-foreground/70">This invoice can no longer be assigned.</p>
         ) : (
           <SearchableSelect
             value={assignTarget}

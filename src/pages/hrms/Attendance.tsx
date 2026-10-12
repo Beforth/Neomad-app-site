@@ -6,14 +6,23 @@ import {
   CheckCircle2, Download, Shield, Search, MapPin, Loader2,
   Settings as SettingsIcon, Navigation, LogIn, LogOut,
   ChevronLeft, ChevronRight, ArrowUpDown, ChevronUp, ChevronDown, Inbox, XCircle, ClipboardList,
-  ThumbsUp, ThumbsDown, Bell, Pencil, Cpu,
-} from 'lucide-react';
+  ThumbsUp, ThumbsDown, Bell, Pencil, Cpu, MoreHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getUsers, mapBackendRoleToFrontend } from '../../lib/api';
 import { appApi, APP_NOTIFICATIONS_UPDATED_EVENT } from '../../lib/appApi';
 import SearchableSelect from '../../components/SearchableSelect';
 import { toDateStr } from '../../lib/hrmsAttendance';
 import { exportAttendanceXlsx } from '../../lib/hrmsExports';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input, Textarea, fieldClass } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { Segmented } from '@/components/ui/segmented';
+import { EmptyState } from '@/components/ui/empty-state';
+import Modal from '../../components/Modal';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import KpiStrip from '@/components/KpiStrip';
 import {
   getAttendanceRecords,
   getAttendanceSummary,
@@ -32,10 +41,10 @@ import {
 } from '../../lib/hrmsApi';
 
 const STATUS_STYLES: Record<string, string> = {
-  present: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-  absent: 'bg-red-50 text-red-700 border-red-100',
-  late: 'bg-amber-50 text-amber-700 border-amber-100',
-  half_day: 'bg-blue-50 text-blue-700 border-blue-100',
+  present: 'bg-accent text-accent-foreground border-primary/20',
+  absent: 'bg-destructive/10 text-destructive border-destructive/20',
+  late: 'bg-warning/10 text-warning border-warning/25',
+  half_day: 'bg-info/10 text-info border-info/25',
   overtime: 'bg-violet-50 text-violet-700 border-violet-100',
 };
 
@@ -62,8 +71,8 @@ const REQUEST_TYPE_LABELS: Record<string, string> = {
 };
 
 const REQUEST_TYPE_STYLES: Record<string, string> = {
-  regularization: 'bg-zinc-50 text-zinc-600',
-  half_day: 'bg-blue-50 text-blue-700',
+  regularization: 'bg-muted text-foreground/70',
+  half_day: 'bg-info/10 text-info',
   full_day_change: 'bg-violet-50 text-violet-700',
 };
 
@@ -102,26 +111,7 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * c;
 }
 
-function Modal({ title, onClose, children, closeOnBackdropClick = true }: { title: string; onClose: () => void; children: React.ReactNode; closeOnBackdropClick?: boolean }) {
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') { if (closeOnBackdropClick) onClose(); else e.preventDefault(); }
-  };
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-      onClick={closeOnBackdropClick ? onClose : undefined} onKeyDown={handleKeyDown} role="dialog" aria-modal="true">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-        onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-        <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
-          <h3 className="font-bold text-zinc-900">{title}</h3>
-          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors"><X size={20} /></button>
-        </div>
-        {children}
-      </motion.div>
-    </div>
-  );
-}
-
-const inputClassName = "w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all";
+const inputClassName = fieldClass;
 
 interface AttendanceSettings {
   officeName: string;
@@ -700,138 +690,85 @@ export default function Attendance() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-5 right-5 z-[9999] bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium"
+            className="fixed top-5 right-5 z-[9999] bg-foreground text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium"
           >
-            <CheckCircle2 size={16} className="text-emerald-400" />
+            <CheckCircle2 size={16} className="text-primary" />
             {toast}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <motion.header
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Attendance</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">Track staff attendance with geo-fenced punch in/out</p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader title="Attendance" description="Track staff attendance with geo-fenced punch in/out" actions={<>
+<div className="flex items-center gap-2">
           {canManage && (
-            <button onClick={() => setShowSettings(true)}
-              className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm">
+            <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}
+              >
               <SettingsIcon size={14} />
               Office Settings
-            </button>
+            </Button>
           )}
-          <button onClick={handleExport} disabled={exporting}
-            className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}
+            >
             {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             {exporting ? 'Exporting…' : 'Export Excel'}
-          </button>
-          <button onClick={() => { setPunchMode('in'); setPunchStaffId(currentUser?.id ? String(currentUser.id) : ''); setPunchDates([toDateStr(new Date())]); setPunchTime(timeNow()); resetGeoState(); setShowPunchModal(true); }}
-            className="flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+          </Button>
+          <Button variant="dark" size="sm" onClick={() => { setPunchMode('in'); setPunchStaffId(currentUser?.id ? String(currentUser.id) : ''); setPunchDates([toDateStr(new Date())]); setPunchTime(timeNow()); resetGeoState(); setShowPunchModal(true); }}
+            >
             <LogIn size={14} />
             Punch In / Out
-          </button>
+          </Button>
           {canManage && (
-            <button onClick={() => { setPunchMode('in'); setPunchStaffId(''); setPunchDates([toDateStr(new Date())]); setPunchTime(timeNow()); resetGeoState(); setShowPunchModal(true); }}
-              className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm">
+            <Button variant="outline" size="sm" onClick={() => { setPunchMode('in'); setPunchStaffId(''); setPunchDates([toDateStr(new Date())]); setPunchTime(timeNow()); resetGeoState(); setShowPunchModal(true); }}
+              >
               <Plus size={14} />
               Mark for Staff
-            </button>
+            </Button>
           )}
         </div>
-      </motion.header>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {[
-          { label: 'Total Staff', value: stats.totalStaff, icon: Shield, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Present Today', value: stats.presentToday, icon: UserCheck, color: 'bg-emerald-50 text-emerald-600' },
-          { label: 'Absent Today', value: stats.absentToday, icon: UserX, color: 'bg-red-50 text-red-600' },
-        ].map((card, i) => (
-          <motion.div
-            key={card.label}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04 }}
-            className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm"
-          >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${card.color}`}>
-              <card.icon size={18} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-lg font-extrabold text-zinc-900 leading-none truncate">{card.value}</p>
-              <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">{card.label}</p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+</>} />
+      <KpiStrip items={[
+  { label: 'Total Staff', value: stats.totalStaff },
+  { label: 'Present Today', value: stats.presentToday },
+  { label: 'Absent Today', value: stats.absentToday },
+]} />
       {/* Tab Switcher */}
-      <div className="flex gap-1 bg-zinc-100 p-1 rounded-xl w-fit">
-        <button
-          type="button"
-          onClick={() => setActiveTab('records')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-            activeTab === 'records'
-              ? 'bg-white text-zinc-900 shadow-sm'
-              : 'text-zinc-500 hover:text-zinc-700'
-          }`}
-        >
-          <ClipboardList size={13} />
-          Records
-        </button>
-        <button
-          type="button"
-          onClick={() => { setActiveTab('requests'); refreshRequests(); }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-            activeTab === 'requests'
-              ? 'bg-white text-zinc-900 shadow-sm'
-              : 'text-zinc-500 hover:text-zinc-700'
-          }`}
-        >
-          <Bell size={13} />
+      <Segmented className="w-fit" value={String(activeTab)} onValueChange={(v) => { ({ ['records']: (() => setActiveTab('records')), ['requests']: (() => { setActiveTab('requests'); refreshRequests(); }) } as Record<string, () => void>)[v]?.(); }} options={[
+  { value: 'records', label: <><ClipboardList size={13} />
+          Records</> },
+  { value: 'requests', label: <><Bell size={13} />
           Requests
           {pendingRequestsCount > 0 && (
-            <span className="ml-0.5 px-1.5 py-0.5 bg-amber-500 text-white text-[9px] font-bold rounded-full leading-none">
+            <Badge variant="warning" className="ml-0.5" >
               {pendingRequestsCount}
-            </span>
-          )}
-        </button>
-      </div>
+            </Badge>
+          )}</> }
+]} />
 
       {activeTab === 'requests' ? (
         /* ── Requests Tab ── */
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden"
+          className="bg-card rounded-xl border border-border shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
           {allRequests.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-                <Inbox size={24} className="text-zinc-300" />
-              </div>
-              <h3 className="text-sm font-bold text-zinc-900 mb-1">No attendance requests</h3>
-              <p className="text-xs text-zinc-400">Employees can submit regularization requests from their attendance page.</p>
-            </div>
+            <EmptyState icon={<Inbox />} title="No attendance requests" description="Employees can submit regularization requests from their attendance page." className="border-0" />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-zinc-50/50 border-b border-zinc-100">
-                  <tr>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Employee</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Range</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Type</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Days</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Reason</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Submitted</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Status</th>
-                    {canManage && <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Actions</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-50">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="uppercase">Employee</TableHead>
+                    <TableHead className="uppercase">Range</TableHead>
+                    <TableHead className="uppercase">Type</TableHead>
+                    <TableHead className="uppercase">Days</TableHead>
+                    <TableHead className="uppercase">Reason</TableHead>
+                    <TableHead className="uppercase">Submitted</TableHead>
+                    <TableHead className="uppercase">Status</TableHead>
+                    {canManage && <TableHead className="uppercase">Actions</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {[...allRequests]
                     .sort((a, b) => {
                       if (a.status === 'pending' && b.status !== 'pending') return -1;
@@ -840,9 +777,9 @@ export default function Attendance() {
                     })
                     .map((req, i) => {
                       const statusBadge =
-                        req.status === 'approved' ? 'bg-emerald-50 text-emerald-700' :
-                        req.status === 'rejected' ? 'bg-rose-50 text-rose-700' :
-                        'bg-amber-50 text-amber-700';
+                        req.status === 'approved' ? 'bg-accent text-accent-foreground' :
+                        req.status === 'rejected' ? 'bg-destructive/10 text-destructive' :
+                        'bg-warning/10 text-warning';
                       const fromLabel = new Date(req.from_date + 'T00:00:00').toLocaleDateString('default', { day: 'numeric', month: 'short', year: 'numeric' });
                       const toLabel = new Date(req.to_date + 'T00:00:00').toLocaleDateString('default', { day: 'numeric', month: 'short', year: 'numeric' });
                       const submittedLabel = new Date(req.submitted_at).toLocaleDateString('default', { day: 'numeric', month: 'short' });
@@ -852,110 +789,90 @@ export default function Attendance() {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: i * 0.02 }}
-                          className="hover:bg-zinc-50/50 transition-colors"
+                          className="border-b transition-colors hover:bg-muted/70"
                         >
-                          <td className="px-4 py-3">
+                          <TableCell>
                             <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-[10px] font-bold text-zinc-600 shrink-0">
+                              <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-[11px] font-semibold text-foreground/70 shrink-0">
                                 {(req.employee_username?.[0] ?? '?').toUpperCase()}
                               </div>
-                              <span className="text-xs font-semibold text-zinc-900">{req.employee_username}</span>
+                              <span className="text-xs font-semibold text-foreground">{req.employee_username}</span>
                             </div>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-zinc-600 whitespace-nowrap">
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
                             {req.from_date === req.to_date ? fromLabel : `${fromLabel} \u2192 ${toLabel}`}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${REQUEST_TYPE_STYLES[req.request_type] || 'bg-zinc-50 text-zinc-600'}`}>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={`${REQUEST_TYPE_STYLES[req.request_type] || 'bg-muted text-foreground/70'}`}>
                               {REQUEST_TYPE_LABELS[req.request_type] || 'Request'}
-                            </span>
+                            </Badge>
                             {(req.from_time || req.to_time) && (
-                              <span className="flex items-center gap-1 text-[10px] font-semibold text-zinc-500 mt-1">
+                              <span className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground mt-1">
                                 <Clock size={10} /> {req.from_time || '--'}–{req.to_time || '--'}
                               </span>
                             )}
-                          </td>
-                          <td className="px-4 py-3 text-xs font-bold text-zinc-900">{req.days}</td>
-                          <td className="px-4 py-3 text-xs text-zinc-500 max-w-[200px] truncate" title={req.reason}>{req.reason}</td>
-                          <td className="px-4 py-3 text-xs text-zinc-400 whitespace-nowrap">{submittedLabel}</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold capitalize ${statusBadge}`}>
+                          </TableCell>
+                          <TableCell className="font-semibold">{req.days}</TableCell>
+                          <TableCell className="max-w-[200px] truncate" title={req.reason}>{req.reason}</TableCell>
+                          <TableCell className="whitespace-nowrap">{submittedLabel}</TableCell>
+                          <TableCell>
+                            <Badge className={`capitalize ${statusBadge}`}>
                               {req.status}
-                            </span>
+                            </Badge>
                             {req.notes && (
-                              <p className="text-[10px] text-zinc-400 mt-0.5 italic truncate max-w-[120px]" title={req.notes}>{req.notes}</p>
+                              <p className="text-[11px] text-muted-foreground/70 mt-0.5 italic truncate max-w-[120px]" title={req.notes}>{req.notes}</p>
                             )}
-                          </td>
+                          </TableCell>
                           {canManage && (
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-1">
-                                {req.status === 'pending' && (
+                            <TableCell className="w-10 pl-0" onClick={(e) => e.stopPropagation()}>
+<DropdownMenu>
+<DropdownMenuTrigger asChild>
+<Button variant="ghost" size="icon-sm" data-row-menu="" aria-label="Row actions"><MoreHorizontal /></Button>
+</DropdownMenuTrigger>
+<DropdownMenuContent align="end" className="w-52">
+{req.status === 'pending' && (
                                   <>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleApproveRequest(req)}
-                                      className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
-                                      title="Approve"
-                                    >
-                                      <CheckCircle2 size={15} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => { setRejectTarget(req); setRejectNote(''); }}
-                                      className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                      title="Reject"
-                                    >
-                                      <XCircle size={15} />
-                                    </button>
+                                    <DropdownMenuItem onSelect={() => handleApproveRequest(req)}><CheckCircle2 /> Approve</DropdownMenuItem>
+                                    <DropdownMenuItem destructive onSelect={() => { setRejectTarget(req); setRejectNote(''); }}><XCircle /> Reject</DropdownMenuItem>
                                   </>
                                 )}
-                                <button
-                                  type="button"
-                                  onClick={() => openEditRequest(req)}
-                                  className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
-                                  title="Edit request"
-                                >
-                                  <Pencil size={15} />
-                                </button>
-                              </div>
+                                <DropdownMenuItem onSelect={() => openEditRequest(req)}><Pencil /> Edit request</DropdownMenuItem>
+                              
                               {req.status !== 'pending' && (
-                                <span className="text-[10px] text-zinc-300 mt-1 block">
+                                <span className="text-[11px] text-muted-foreground/50 mt-1 block">
                                   {req.resolved_by_name ? `by ${req.resolved_by_name}` : '—'}
                                 </span>
                               )}
-                            </td>
+</DropdownMenuContent>
+</DropdownMenu>
+</TableCell>
                           )}
                         </motion.tr>
                       );
                     })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
         </motion.div>
       ) : (
         /* ── Records Tab ── */
         <>
-          <motion.div
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center"
-          >
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative flex-1 min-w-[180px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-              <input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+              <Input data-search="" className="w-full pl-9 pr-4"
                 type="text"
                 placeholder="Search staff..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+                
               />
             </div>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-              className="h-8 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all" />
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-              className="h-8 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all" />
+            <Input className="w-auto" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+               />
+            <Input className="w-auto" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+               />
 
             {/* Name Sort Filter */}
             <button
@@ -963,12 +880,12 @@ export default function Attendance() {
               onClick={() => toggleSort('staff')}
               className={`h-8 px-3 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm shrink-0 ${
                 sortField === 'staff'
-                  ? 'bg-zinc-900 text-white border-zinc-900'
-                  : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
+                  ? 'bg-foreground text-white border-foreground'
+                  : 'bg-muted text-foreground/70 border-border hover:bg-secondary'
               }`}
               title="Sort by Name (A-Z / Z-A)"
             >
-              <ArrowUpDown size={13} className={sortField === 'staff' ? 'text-emerald-400' : 'text-zinc-400'} />
+              <ArrowUpDown size={13} className={sortField === 'staff' ? 'text-primary' : 'text-muted-foreground/70'} />
               <span>
                 Name {sortField === 'staff' ? (sortDir === 'asc' ? '(A-Z)' : '(Z-A)') : 'Sort'}
               </span>
@@ -985,136 +902,140 @@ export default function Attendance() {
             {hasFilters && (
               <button
                 onClick={() => { setSearch(''); setSearchDebounced(''); setStatusFilter('all'); setDateFrom(monthStartStr()); setDateTo(todayStr()); setSortField('date'); setSortDir('desc'); }}
-                className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors"
+                className="text-xs text-muted-foreground/70 hover:text-foreground/85 flex items-center gap-1 transition-colors"
               >
                 <XCircle size={12} />Clear
               </button>
             )}
-          </motion.div>
+          </div>
 
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden"
+            className="bg-card rounded-xl border border-border shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
           >
             {loading ? (
-              <div className="p-12 text-center text-zinc-500 text-sm">Loading attendance records...</div>
+              <div className="p-12 text-center text-muted-foreground text-sm">Loading attendance records...</div>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-                  <Inbox size={24} className="text-zinc-300" />
-                </div>
-                <h3 className="text-sm font-bold text-zinc-900 mb-1">No attendance records found</h3>
-                <p className="text-xs text-zinc-400 max-w-xs">Try adjusting your search or filters</p>
-              </div>
+              <EmptyState icon={<Inbox />} title="No attendance records found" description="Try adjusting your search or filters" className="border-0" />
             ) : (
               <>
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-zinc-50/50 border-b border-zinc-100">
-                      <tr>
-                        <th onClick={() => toggleSort('staff')} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600 select-none">
-                          <span className="flex items-center gap-1">Staff{sortField !== 'staff' ? <ArrowUpDown size={12} className="text-zinc-300" /> : sortDir === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />}</span>
-                        </th>
-                        <th onClick={() => toggleSort('date')} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600 select-none">
-                          <span className="flex items-center gap-1">Date{sortField !== 'date' ? <ArrowUpDown size={12} className="text-zinc-300" /> : sortDir === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />}</span>
-                        </th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Check In</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Check Out</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Hours</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Overtime</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Location</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Status</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Marked By</th>
-                        {canManage && <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Actions</th>}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-50">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead onClick={() => toggleSort('staff')} className="uppercase whitespace-nowrap cursor-pointer hover:text-foreground/70 select-none">
+                          <span className="flex items-center gap-1">Staff{sortField !== 'staff' ? <ArrowUpDown size={12} className="text-muted-foreground/50" /> : sortDir === 'asc' ? <ChevronUp size={12} className="text-foreground" /> : <ChevronDown size={12} className="text-foreground" />}</span>
+                        </TableHead>
+                        <TableHead onClick={() => toggleSort('date')} className="uppercase whitespace-nowrap cursor-pointer hover:text-foreground/70 select-none">
+                          <span className="flex items-center gap-1">Date{sortField !== 'date' ? <ArrowUpDown size={12} className="text-muted-foreground/50" /> : sortDir === 'asc' ? <ChevronUp size={12} className="text-foreground" /> : <ChevronDown size={12} className="text-foreground" />}</span>
+                        </TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Check In</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Check Out</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Hours</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Overtime</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Location</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Status</TableHead>
+                        <TableHead className="uppercase whitespace-nowrap">Marked By</TableHead>
+                        {canManage && <TableHead className="uppercase whitespace-nowrap">Actions</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {paged.map((r, i) => (
                         <motion.tr
                           key={r.id}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: i * 0.02 }}
-                          className="hover:bg-zinc-50/50 transition-colors"
+                          className="border-b transition-colors hover:bg-muted/70"
                         >
-                          <td className="px-4 py-3">
+                          <TableCell>
                             <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500 border border-zinc-200 shadow-sm shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-semibold text-muted-foreground border border-border shadow-sm shrink-0">
                                 {(r.staff_name?.[0] ?? '?').toUpperCase()}
                               </div>
                               <div>
-                                <p className="text-xs font-bold text-zinc-900">{r.staff_name}</p>
-                                <p className="text-[10px] text-zinc-500">{r.staff_email}</p>
+                                <p className="text-xs font-semibold text-foreground">{r.staff_name}</p>
+                                <p className="text-[11px] text-muted-foreground">{r.staff_email}</p>
                               </div>
                             </div>
-                          </td>
-                          <td className="py-3 px-4 text-xs text-zinc-600">{r.date}</td>
-                          <td className="py-3 px-4 text-xs text-zinc-900 font-medium">{r.check_in || '—'}</td>
-                          <td className="py-3 px-4 text-xs text-zinc-900 font-medium">{r.check_out || '—'}</td>
-                          <td className="py-3 px-4 text-xs text-zinc-600">{formatHours(r.hours_worked)}</td>
-                          <td className="py-3 px-4">
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">{r.date}</TableCell>
+                          <TableCell className="font-medium">{r.check_in || '—'}</TableCell>
+                          <TableCell className="font-medium">{r.check_out || '—'}</TableCell>
+                          <TableCell>{formatHours(r.hours_worked)}</TableCell>
+                          <TableCell>
                             {r.overtime > 0 ? (
                               <span className="text-xs font-medium text-violet-600">+{r.overtime}h</span>
                             ) : (
-                              <span className="text-xs text-zinc-300">—</span>
+                              <span className="text-xs text-muted-foreground/50">—</span>
                             )}
-                          </td>
-                          <td className="py-3 px-4 text-xs font-mono text-zinc-700">
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap font-mono text-xs">
                             {r.source === 'biometric' || r.device_id ? (
                               <div className="flex flex-col">
-                                <span className="font-semibold text-zinc-900 flex items-center gap-1">
-                                  <Cpu size={11} className="text-emerald-600 shrink-0" />
+                                <span className="font-semibold text-foreground flex items-center gap-1">
+                                  <Cpu size={11} className="text-primary shrink-0" />
                                   {r.device_id || 'Biometric'}
                                 </span>
-                                <span className="text-[10px] text-zinc-400 font-sans">via biometric terminal</span>
+                                <span className="text-[11px] text-muted-foreground/70 font-sans">via biometric terminal</span>
+                              </div>
+                            ) : r.location_area ? (
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-foreground flex items-center gap-1">
+                                  <MapPin size={11} className="text-primary shrink-0" />
+                                  {r.location_area}
+                                </span>
+                                <span className="text-[11px] text-muted-foreground/70 font-sans">
+                                  ({Math.round(r.distance_from_office ?? 0)}m away)
+                                </span>
                               </div>
                             ) : r.punch_in_lat !== null && r.punch_in_lat !== undefined && r.punch_in_lng !== null && r.punch_in_lng !== undefined ? (
                               <div className="flex flex-col">
-                                <span className="font-semibold text-zinc-900 flex items-center gap-1">
-                                  <MapPin size={11} className="text-emerald-600 shrink-0" />
+                                <span className="font-semibold text-foreground flex items-center gap-1">
+                                  <MapPin size={11} className="text-primary shrink-0" />
                                   {Number(r.punch_in_lat).toFixed(4)}, {Number(r.punch_in_lng).toFixed(4)}
                                 </span>
-                                <span className="text-[10px] text-zinc-400 font-sans">
+                                <span className="text-[11px] text-muted-foreground/70 font-sans">
                                   ({Math.round(r.distance_from_office ?? 0)}m away)
                                 </span>
                               </div>
                             ) : r.distance_from_office !== null && r.distance_from_office !== undefined ? (
                               <div className="flex flex-col">
-                                <span className="font-semibold text-zinc-900 flex items-center gap-1">
-                                  <MapPin size={11} className="text-blue-600 shrink-0" />
+                                <span className="font-semibold text-foreground flex items-center gap-1">
+                                  <MapPin size={11} className="text-info shrink-0" />
                                   {settings.latitude?.toFixed(4) || '18.5204'}, {settings.longitude?.toFixed(4) || '73.8567'}
                                 </span>
-                                <span className="text-[10px] text-zinc-400 font-sans">
+                                <span className="text-[11px] text-muted-foreground/70 font-sans">
                                   ({Math.round(r.distance_from_office)}m away)
                                 </span>
                               </div>
                             ) : (
                               <div className="flex flex-col">
-                                <span className="font-semibold text-zinc-800 flex items-center gap-1">
-                                  <MapPin size={11} className="text-zinc-500 shrink-0" />
+                                <span className="font-semibold text-foreground flex items-center gap-1">
+                                  <MapPin size={11} className="text-muted-foreground shrink-0" />
                                   {settings.latitude?.toFixed(4) || '18.5204'}, {settings.longitude?.toFixed(4) || '73.8567'}
                                 </span>
-                                <span className="text-[10px] text-zinc-400 font-sans">
+                                <span className="text-[11px] text-muted-foreground/70 font-sans">
                                   (0m away)
                                 </span>
                               </div>
                             )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold capitalize ${STATUS_STYLES[r.status] || ''}`}>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={`capitalize ${STATUS_STYLES[r.status] || ''}`}>
                               {STATUS_LABELS[r.status] || r.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-zinc-500">
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
                             {r.source === 'biometric' || r.device_id
                               ? (r.device_id ? `Machine ${r.device_id}` : 'Biometric machine')
                               : r.marked_by_name || 'self'}
-                          </td>
+                          </TableCell>
                           {canManage && (
-                            <td className="px-4 py-3">
-                              <button
+                            <TableCell>
+                              <Button variant="ghost" size="icon-sm"
                                 type="button"
                                 onClick={() => {
                                   setEditRecordTarget(r);
@@ -1122,20 +1043,20 @@ export default function Attendance() {
                                   setRecordCheckOut(r.check_out || '');
                                   setRecordStatus(r.status || 'present');
                                 }}
-                                className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+                                
                                 title="Edit attendance time & status"
                               >
                                 <Pencil size={15} />
-                              </button>
-                            </td>
+                              </Button>
+                            </TableCell>
                           )}
                         </motion.tr>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
 
-                <div className="md:hidden divide-y divide-zinc-100">
+                <div className="md:hidden divide-y divide-border">
                   {paged.map((r, i) => (
                     <motion.div
                       key={r.id}
@@ -1146,33 +1067,33 @@ export default function Attendance() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500 border border-zinc-200 shadow-sm shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-semibold text-muted-foreground border border-border shadow-sm shrink-0">
                             {(r.staff_name?.[0] ?? '?').toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-zinc-900">{r.staff_name}</p>
-                            <p className="text-[10px] text-zinc-500">{r.date}</p>
+                            <p className="text-xs font-semibold text-foreground">{r.staff_name}</p>
+                            <p className="text-[11px] text-muted-foreground">{r.date}</p>
                           </div>
                         </div>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold capitalize ${STATUS_STYLES[r.status] || ''}`}>
+                        <Badge className={`capitalize ${STATUS_STYLES[r.status] || ''}`}>
                           {STATUS_LABELS[r.status] || r.status}
-                        </span>
+                        </Badge>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div><span className="text-zinc-500">In:</span> <span className="font-medium text-zinc-900 ml-1">{r.check_in || '—'}</span></div>
-                        <div><span className="text-zinc-500">Out:</span> <span className="font-medium text-zinc-900 ml-1">{r.check_out || '—'}</span></div>
-                        <div><span className="text-zinc-500">Hours:</span> <span className="font-medium text-zinc-900 ml-1">{formatHours(r.hours_worked)}</span></div>
-                        {(r.overtime_amount ?? 0) > 0 && <div><span className="text-zinc-500">OT:</span> <span className="font-medium text-violet-600 ml-1">+₹{r.overtime_amount}</span></div>}
-                        {(r.penalty_amount ?? 0) > 0 && <div><span className="text-zinc-500">Penalty:</span> <span className="font-medium text-rose-600 ml-1">−₹{r.penalty_amount}</span></div>}
-                        {!(r.overtime_amount ?? 0) && r.overtime > 0 && <div><span className="text-zinc-500">OT:</span> <span className="font-medium text-violet-600 ml-1">+{r.overtime}h</span></div>}
+                        <div><span className="text-muted-foreground">In:</span> <span className="font-medium text-foreground ml-1">{r.check_in || '—'}</span></div>
+                        <div><span className="text-muted-foreground">Out:</span> <span className="font-medium text-foreground ml-1">{r.check_out || '—'}</span></div>
+                        <div><span className="text-muted-foreground">Hours:</span> <span className="font-medium text-foreground ml-1">{formatHours(r.hours_worked)}</span></div>
+                        {(r.overtime_amount ?? 0) > 0 && <div><span className="text-muted-foreground">OT:</span> <span className="font-medium text-violet-600 ml-1">+₹{r.overtime_amount}</span></div>}
+                        {(r.penalty_amount ?? 0) > 0 && <div><span className="text-muted-foreground">Penalty:</span> <span className="font-medium text-destructive ml-1">−₹{r.penalty_amount}</span></div>}
+                        {!(r.overtime_amount ?? 0) && r.overtime > 0 && <div><span className="text-muted-foreground">OT:</span> <span className="font-medium text-violet-600 ml-1">+{r.overtime}h</span></div>}
                         <div className="flex items-center gap-1">
-                          <span className="text-zinc-400">Loc:</span>
+                          <span className="text-muted-foreground/70">Loc:</span>
                           {r.distance_from_office !== null ? (
-                            <span className={`font-semibold ml-1 ${r.distance_from_office <= settings.radiusMeters ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            <span className={`font-semibold ml-1 ${r.distance_from_office <= settings.radiusMeters ? 'text-primary' : 'text-warning'}`}>
                               <MapPin size={10} className="inline" /> {r.distance_from_office}m
                             </span>
                           ) : (
-                            <span className="font-semibold text-blue-600 ml-1"><Shield size={10} className="inline" /> Manual</span>
+                            <span className="font-semibold text-info ml-1"><Shield size={10} className="inline" /> Manual</span>
                           )}
                         </div>
                       </div>
@@ -1181,31 +1102,31 @@ export default function Attendance() {
                 </div>
 
                 {filtered.length > PAGE_SIZE && (
-                  <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-100 bg-white">
-                    <p className="text-xs text-zinc-500">
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card">
+                    <p className="text-xs text-muted-foreground">
                       Showing {startRow}–{endRow} of {filtered.length} records
                     </p>
                     <div className="flex items-center gap-1">
-                      <button
+                      <Button variant="ghost" size="icon-sm"
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                         disabled={page <= 1}
-                        className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        
                       >
                         <ChevronLeft size={16} />
-                      </button>
+                      </Button>
                       {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                         <button key={p} onClick={() => setPage(p)}
-                          className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${p === page ? 'bg-zinc-100 text-zinc-800 border border-zinc-300' : 'text-zinc-500 hover:bg-zinc-100'}`}>
+                          className={`w-8 h-8 rounded-lg text-xs font-semibold transition-all ${p === page ? 'bg-secondary text-foreground border border-input' : 'text-muted-foreground hover:bg-secondary'}`}>
                           {p}
                         </button>
                       ))}
-                      <button
+                      <Button variant="ghost" size="icon-sm"
                         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                         disabled={page >= totalPages}
-                        className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        
                       >
                         <ChevronRight size={16} />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -1219,10 +1140,10 @@ export default function Attendance() {
       {rejectTarget && (
         <Modal title="Reject Attendance Request" onClose={() => { setRejectTarget(null); setRejectNote(''); }}>
           <div className="p-5 space-y-4">
-            <p className="text-sm text-zinc-600">
-              Rejecting request from <strong className="text-zinc-900">{rejectTarget.employee_username}</strong> for{' '}
-              <strong className="text-zinc-900">{rejectTarget.days} day{rejectTarget.days > 1 ? 's' : ''}</strong> from{' '}
-              <strong className="text-zinc-900">
+            <p className="text-sm text-foreground/70">
+              Rejecting request from <strong className="text-foreground">{rejectTarget.employee_username}</strong> for{' '}
+              <strong className="text-foreground">{rejectTarget.days} day{rejectTarget.days > 1 ? 's' : ''}</strong> from{' '}
+              <strong className="text-foreground">
                 {new Date(rejectTarget.from_date + 'T00:00:00').toLocaleDateString('default', { day: 'numeric', month: 'short', year: 'numeric' })}
                 {rejectTarget.from_date !== rejectTarget.to_date
                   ? ` \u2192 ${new Date(rejectTarget.to_date + 'T00:00:00').toLocaleDateString('default', { day: 'numeric', month: 'short', year: 'numeric' })}`
@@ -1230,24 +1151,24 @@ export default function Attendance() {
               </strong>.
             </p>
             <div>
-              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Rejection Note (optional)</label>
-              <textarea
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Rejection Note (optional)</label>
+              <Textarea
                 value={rejectNote}
                 onChange={e => setRejectNote(e.target.value)}
                 rows={2}
                 placeholder="Reason for rejection..."
-                className={inputClassName}
+                
               />
             </div>
             <div className="flex gap-3 pt-1">
-              <button type="button" onClick={() => { setRejectTarget(null); setRejectNote(''); }}
-                className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
+              <Button variant="secondary" className="flex-1" type="button" onClick={() => { setRejectTarget(null); setRejectNote(''); }}
+                >
                 Cancel
-              </button>
-              <button type="button" onClick={() => handleRejectRequest(rejectTarget, rejectNote)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-medium transition-colors">
+              </Button>
+              <Button variant="destructive" className="flex-1" type="button" onClick={() => handleRejectRequest(rejectTarget, rejectNote)}
+                >
                 <ThumbsDown size={14} /> Reject
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>
@@ -1257,7 +1178,7 @@ export default function Attendance() {
       {editTarget && (
         <Modal title={`Edit Request${editTarget.employee_username ? ` — ${editTarget.employee_username}` : ''}`} onClose={() => setEditTarget(null)}>
           <div className="p-5 space-y-4">
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted-foreground">
               Update the submitted request. If the request is already approved, the attendance record is re-marked according to the new type.
             </p>
             <div className="grid grid-cols-3 gap-2">
@@ -1268,8 +1189,8 @@ export default function Attendance() {
                   onClick={() => setEditReqType(t)}
                   className={`px-2 py-2 rounded-xl border text-[11px] font-bold transition-all ${
                     editReqType === t
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                      : 'border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50'
+                      ? 'border-primary/30 bg-accent text-accent-foreground'
+                      : 'border-border bg-card text-muted-foreground hover:bg-muted'
                   }`}
                 >
                   {REQUEST_TYPE_LABELS[t]}
@@ -1278,51 +1199,51 @@ export default function Attendance() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">From Date</label>
-                <input type="date" value={editFromDate} onChange={e => setEditFromDate(e.target.value)} className={inputClassName} />
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">From Date</label>
+                <Input type="date" value={editFromDate} onChange={e => setEditFromDate(e.target.value)}  />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">To Date</label>
-                <input
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">To Date</label>
+                <Input
                   type="date"
                   value={editReqType === 'regularization' ? editToDate : editFromDate}
                   min={editFromDate || undefined}
                   disabled={editReqType !== 'regularization'}
                   onChange={e => setEditToDate(e.target.value)}
-                  className={inputClassName}
+                  
                 />
               </div>
             </div>
             {editReqType === 'half_day' && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">From Time</label>
-                  <input type="time" value={editFromTime} onChange={e => setEditFromTime(e.target.value)} className={inputClassName} />
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">From Time</label>
+                  <Input type="time" value={editFromTime} onChange={e => setEditFromTime(e.target.value)}  />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">To Time</label>
-                  <input type="time" value={editToTime} onChange={e => setEditToTime(e.target.value)} className={inputClassName} />
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">To Time</label>
+                  <Input type="time" value={editToTime} onChange={e => setEditToTime(e.target.value)}  />
                 </div>
               </div>
             )}
             <div>
-              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Reason</label>
-              <textarea
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Reason</label>
+              <Textarea
                 value={editReason}
                 onChange={e => setEditReason(e.target.value)}
                 rows={2}
-                className={inputClassName}
+                
               />
             </div>
             <div className="flex gap-3 pt-1">
-              <button type="button" onClick={() => setEditTarget(null)}
-                className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
+              <Button variant="secondary" className="flex-1" type="button" onClick={() => setEditTarget(null)}
+                >
                 Cancel
-              </button>
-              <button type="button" onClick={handleEditRequestSubmit} disabled={editSaving || !editFromDate}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              </Button>
+              <Button className="flex-1" type="button" onClick={handleEditRequestSubmit} disabled={editSaving || !editFromDate}
+                >
                 {editSaving ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <><Save size={14} /> Save Changes</>}
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>
@@ -1332,26 +1253,20 @@ export default function Attendance() {
         <Modal title="Punch Attendance" onClose={() => { setShowPunchModal(false); resetGeoState(); }}>
           <div className="p-5 space-y-4">
             {toast && (
-              <div className="p-3 bg-zinc-900 text-white rounded-xl text-xs font-medium flex items-center gap-2 shadow-md">
-                <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+              <div className="p-3 bg-foreground text-white rounded-xl text-xs font-medium flex items-center gap-2 shadow-md">
+                <CheckCircle2 size={14} className="text-primary shrink-0" />
                 <span>{toast}</span>
               </div>
             )}
-            <div className="flex items-center bg-zinc-100 rounded-xl p-1">
-              <button type="button" onClick={() => setPunchMode('in')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${punchMode === 'in' ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
-                <LogIn size={16} />
-                Punch In
-              </button>
-              <button type="button" onClick={() => setPunchMode('out')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${punchMode === 'out' ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
-                <LogOut size={16} />
-                Punch Out
-              </button>
-            </div>
+            <Segmented value={String(punchMode)} onValueChange={(v) => { ({ ['in']: (() => setPunchMode('in')), ['out']: (() => setPunchMode('out')) } as Record<string, () => void>)[v]?.(); }} options={[
+  { value: 'in', label: <><LogIn size={16} />
+                Punch In</> },
+  { value: 'out', label: <><LogOut size={16} />
+                Punch Out</> }
+]} />
             {canManage && !punchStaffId && (
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Staff Member</label>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Staff Member</label>
                 <SearchableSelect
                   options={allStaff.map(s => ({ value: String(s.id), label: `${s.name} (${s.role})` }))}
                   value={punchStaffId}
@@ -1363,50 +1278,50 @@ export default function Attendance() {
 
             {canManage && punchStaffId && !isPunchingSelf && (
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Marking for</label>
-                <div className="flex items-center gap-2 px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm text-zinc-700">
-                  <Shield size={14} className="text-amber-500" />
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Marking for</label>
+                <div className="flex items-center gap-2 px-4 py-2 bg-muted border border-border rounded-md text-sm text-foreground/85">
+                  <Shield size={14} className="text-warning" />
                   {allStaff.find(s => String(s.id) === String(punchStaffId))?.name || 'Staff'}
-                  <button type="button" onClick={() => setPunchStaffId('')} className="ml-auto text-zinc-400 hover:text-zinc-600"><X size={14} /></button>
+                  <button type="button" onClick={() => setPunchStaffId('')} className="ml-auto text-muted-foreground/70 hover:text-foreground/70"><X size={14} /></button>
                 </div>
               </div>
             )}
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide">
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Select Attendance Date{punchDates.length > 1 ? `s (${punchDates.length})` : ''}
                 </label>
-                <button
+                <Button variant="soft" size="xs" className="text-primary hover:text-accent-foreground bg-accent hover:bg-primary/15 border-primary/20"
                   type="button"
                   onClick={handleAddPunchDate}
-                  className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-lg border border-emerald-200 transition-colors shadow-sm"
+                  
                   title="Add another date"
                 >
                   <Plus size={13} />
                   <span>Add Date</span>
-                </button>
+                </Button>
               </div>
 
               <div className="space-y-2">
                 {punchDates.map((d, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <input
+                    <Input
                       type="date"
                       value={d}
                       max={toDateStr(new Date())}
                       onChange={(e) => handleUpdatePunchDate(idx, e.target.value)}
-                      className={inputClassName}
+                      
                     />
                     {punchDates.length > 1 && (
-                      <button
+                      <Button variant="ghost" size="icon-sm" className="shrink-0 hover:text-destructive hover:bg-destructive/10"
                         type="button"
                         onClick={() => handleRemovePunchDate(idx)}
-                        className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
+                        
                         title="Remove date"
                       >
                         <X size={16} />
-                      </button>
+                      </Button>
                     )}
                   </div>
                 ))}
@@ -1415,68 +1330,68 @@ export default function Attendance() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide">
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Punch Time ({punchMode === 'in' ? 'Check In Time' : 'Check Out Time'})
                 </label>
                 <button
                   type="button"
                   onClick={() => setPunchTime(timeNow())}
-                  className="text-[10px] text-emerald-600 hover:underline font-semibold"
+                  className="text-[11px] text-primary hover:underline font-semibold"
                 >
                   Set to Current Time
                 </button>
               </div>
-              <input
+              <Input
                 type="time"
                 value={punchTime}
                 onChange={(e) => setPunchTime(e.target.value)}
-                className={inputClassName}
+                
               />
             </div>
 
             {isPunchingSelf && (
-              <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4">
+              <div className="bg-muted border border-border rounded-xl p-4">
                 {geoStatus === 'fetching' && (
-                  <div className="flex items-center justify-center gap-2 text-sm text-zinc-500">
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                     <Loader2 size={16} className="animate-spin" />
                     Verifying location...
                   </div>
                 )}
                 {geoStatus === 'success' && isWithinRadius && (
-                  <div className="flex items-center justify-center gap-2 text-sm text-emerald-600 font-medium">
+                  <div className="flex items-center justify-center gap-2 text-sm text-primary font-medium">
                     <CheckCircle2 size={16} />
                     Location verified — {Math.round(geoDistance || 0)}m from office
                   </div>
                 )}
                 {geoStatus === 'success' && !isWithinRadius && (
-                  <div className="flex items-center justify-center gap-2 text-sm text-red-600 font-medium">
+                  <div className="flex items-center justify-center gap-2 text-sm text-destructive font-medium">
                     <MapPin size={16} />
                     You are outside the work area ({Math.round(geoDistance || 0)}m)
                   </div>
                 )}
                 {geoStatus === 'error' && (
-                  <div className="text-center text-sm text-red-500">{geoError}</div>
+                  <div className="text-center text-sm text-destructive">{geoError}</div>
                 )}
               </div>
             )}
 
             {!isPunchingSelf && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2">
-                <Shield size={16} className="text-amber-600 shrink-0" />
-                <p className="text-xs text-amber-700">Admin/Manager override: Location check bypassed for manual attendance.</p>
+              <div className="bg-warning/10 border border-warning/25 rounded-xl p-3 flex items-center gap-2">
+                <Shield size={16} className="text-warning shrink-0" />
+                <p className="text-xs text-warning">Admin/Manager override: Location check bypassed for manual attendance.</p>
               </div>
             )}
 
             <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => { setShowPunchModal(false); resetGeoState(); }}
-                className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
+              <Button variant="secondary" className="flex-1" type="button" onClick={() => { setShowPunchModal(false); resetGeoState(); }}
+                >
                 Cancel
-              </button>
+              </Button>
               <button type="button" onClick={handlePunchSubmit} disabled={punchLoading || (isPunchingSelf && !canPunch)}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all
                   ${punchLoading || (isPunchingSelf && !canPunch)
-                    ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
-                    : 'bg-zinc-900 hover:bg-zinc-800 text-white'}`}>
+                    ? 'bg-secondary text-muted-foreground/70 cursor-not-allowed'
+                    : 'bg-foreground hover:bg-foreground text-white'}`}>
                 {punchLoading ? (
                   <><Loader2 size={16} className="animate-spin" /> Processing...</>
                 ) : punchMode === 'in' ? (
@@ -1494,34 +1409,34 @@ export default function Attendance() {
         <Modal title="Office Location Settings" onClose={() => setShowSettings(false)}>
           <div className="p-5 space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Office Name</label>
-              <input type="text" value={settings.officeName} onChange={(e) => setSettings(s => ({ ...s, officeName: e.target.value }))}
-                className={inputClassName} />
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Office Name</label>
+              <Input type="text" value={settings.officeName} onChange={(e) => setSettings(s => ({ ...s, officeName: e.target.value }))}
+                 />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Latitude</label>
-                <input type="number" step="0.0001" value={settings.latitude}
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Latitude</label>
+                <Input type="number" step="0.0001" value={settings.latitude}
                   onChange={(e) => setSettings(s => ({ ...s, latitude: parseFloat(e.target.value) || 0 }))}
-                  className={inputClassName} />
+                   />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Longitude</label>
-                <input type="number" step="0.0001" value={settings.longitude}
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Longitude</label>
+                <Input type="number" step="0.0001" value={settings.longitude}
                   onChange={(e) => setSettings(s => ({ ...s, longitude: parseFloat(e.target.value) || 0 }))}
-                  className={inputClassName} />
+                   />
               </div>
             </div>
-            <button type="button" onClick={handleGetCurrentLocation} disabled={settingsSaving}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-sm font-medium transition-colors disabled:opacity-60">
+            <Button variant="soft" className="w-full bg-info/10 hover:bg-info/15 text-info" type="button" onClick={handleGetCurrentLocation} disabled={settingsSaving}
+              >
               <Navigation size={16} />
               {settingsSaving ? 'Saving office pin…' : 'Use My Current Location (saves immediately)'}
-            </button>
-            <p className="text-[11px] text-zinc-500">
+            </Button>
+            <p className="text-[11px] text-muted-foreground">
               Do this while standing at the office, on a phone if possible. A computer can save the wrong pin (often ~2 km off). Staff then pull-to-refresh the app.
             </p>
             <div>
-              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
                 Geo-Fence Radius
               </label>
               <div className="flex items-center gap-3">
@@ -1529,7 +1444,7 @@ export default function Attendance() {
                   onChange={(e) => setSettings(s => ({ ...s, radiusMeters: parseInt(e.target.value) || 0 }))}
                   className="flex-1 accent-emerald-600" />
                 <div className="flex items-center gap-1 shrink-0">
-                  <input type="number" min="0" max="5000" step="1" value={settings.radiusMeters}
+                  <Input className="w-20 text-right" type="number" min="0" max="5000" step="1" value={settings.radiusMeters}
                     onChange={(e) => {
                       const raw = e.target.value;
                       if (raw === '') { setSettings(s => ({ ...s, radiusMeters: 0 })); return; }
@@ -1537,42 +1452,55 @@ export default function Attendance() {
                       if (Number.isNaN(n)) return;
                       setSettings(s => ({ ...s, radiusMeters: Math.min(5000, Math.max(0, n)) }));
                     }}
-                    className="w-20 px-2 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm text-right" />
-                  <span className="text-xs font-medium text-zinc-500">m</span>
+                     />
+                  <span className="text-xs font-medium text-muted-foreground">m</span>
                 </div>
               </div>
-              <div className="flex justify-between text-xs text-zinc-400 mt-1">
+              <div className="flex justify-between text-xs text-muted-foreground/70 mt-1">
                 <span>0m</span>
                 <span>5000m</span>
               </div>
-              <p className="text-[11px] text-zinc-500 mt-1">
+              <p className="text-[11px] text-muted-foreground mt-1">
                 Type an exact value in the box for a tight fence (e.g. 1m or 2m), or drag to adjust.
               </p>
             </div>
-            <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3">
-              <p className="text-xs text-zinc-500">
+            <div className="bg-muted border border-border rounded-xl p-3">
+              <p className="text-xs text-muted-foreground">
                 {settings.radiusMeters <= 0 ? (
                   <>
-                    Radius is <strong className="text-zinc-700">0m</strong> — geo-fence is off and staff can punch from anywhere.
+                    Radius is <strong className="text-foreground/85">0m</strong> — geo-fence is off and staff can punch from anywhere.
                   </>
                 ) : (
                   <>
-                    Employees must be within <strong className="text-zinc-700">{settings.radiusMeters}m</strong> of
-                    <strong className="text-zinc-700"> {settings.officeName}</strong> to punch in/out.
+                    Employees must be within <strong className="text-foreground/85">{settings.radiusMeters}m</strong> of
+                    <strong className="text-foreground/85"> {settings.officeName}</strong> to punch in/out.
                   </>
                 )}
                 {' '}Admins and managers can override this for manual attendance marking.
               </p>
             </div>
+          <div className="mt-3 flex items-center gap-2">
+            <button type="button"
+              onClick={() => { /* set to office-only: restore a sane default if currently 0 */ setSettings(s => ({ ...s, radiusMeters: (s.radiusMeters && s.radiusMeters > 0) ? s.radiusMeters : 500 })); }}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${settings.radiusMeters > 0 ? 'bg-accent text-accent-foreground border border-primary/20' : 'bg-card text-foreground/70 border border-border hover:bg-muted'}`}>
+              Office only
+            </button>
+            <button type="button"
+              onClick={() => { /* set to anywhere */ setSettings(s => ({ ...s, radiusMeters: 0 })); }}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${settings.radiusMeters <= 0 ? 'bg-accent text-accent-foreground border border-primary/20' : 'bg-card text-foreground/70 border border-border hover:bg-muted'}`}>
+              Anywhere
+            </button>
+            <p className="text-xs text-muted-foreground/70 ml-2">Quick toggle: 0m = anywhere</p>
+          </div>
             <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => setShowSettings(false)}
-                className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors">
+              <Button variant="secondary" className="flex-1" type="button" onClick={() => setShowSettings(false)}
+                >
                 Cancel
-              </button>
-              <button type="button" onClick={handleSaveSettings} disabled={settingsSaving}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors">
+              </Button>
+              <Button className="flex-1" type="button" onClick={handleSaveSettings} disabled={settingsSaving}
+                >
                 {settingsSaving ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : <><Save size={16} /> Save Settings</>}
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>
@@ -1582,33 +1510,33 @@ export default function Attendance() {
       {editRecordTarget && (
         <Modal title={`Edit Attendance — ${editRecordTarget.staff_name || 'Staff'}`} onClose={() => setEditRecordTarget(null)}>
           <div className="p-5 space-y-4">
-            <p className="text-xs text-zinc-500">
-              Update attendance check-in/out times and status for <strong className="text-zinc-800">{editRecordTarget.staff_name}</strong> on <strong className="text-zinc-800">{editRecordTarget.date}</strong>.
+            <p className="text-xs text-muted-foreground">
+              Update attendance check-in/out times and status for <strong className="text-foreground">{editRecordTarget.staff_name}</strong> on <strong className="text-foreground">{editRecordTarget.date}</strong>.
             </p>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Check In Time</label>
-                <input
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Check In Time</label>
+                <Input
                   type="time"
                   value={recordCheckIn}
                   onChange={(e) => setRecordCheckIn(e.target.value)}
-                  className={inputClassName}
+                  
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Check Out Time</label>
-                <input
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Check Out Time</label>
+                <Input
                   type="time"
                   value={recordCheckOut}
                   onChange={(e) => setRecordCheckOut(e.target.value)}
-                  className={inputClassName}
+                  
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Attendance Status</label>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Attendance Status</label>
               <SearchableSelect
                 options={[
                   { value: 'present', label: 'Present' },
@@ -1623,25 +1551,25 @@ export default function Attendance() {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button
+              <Button variant="secondary" className="flex-1"
                 type="button"
                 onClick={() => setEditRecordTarget(null)}
-                className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors"
+                
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button className="flex-1"
                 type="button"
                 onClick={handleSaveRecordEdit}
                 disabled={recordSaving}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                
               >
                 {recordSaving ? (
                   <><Loader2 size={16} className="animate-spin" /> Saving...</>
                 ) : (
                   <><Save size={16} /> Save Changes</>
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>

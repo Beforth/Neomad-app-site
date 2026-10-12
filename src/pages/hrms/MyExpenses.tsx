@@ -6,9 +6,15 @@ import {
   Receipt, Plus, Search, XCircle, Eye, X, Pen, Trash2, RotateCcw,
   ChevronLeft, ChevronRight, ArrowUpDown, ChevronUp, ChevronDown,
   Inbox, IndianRupee, CheckCircle2, Clock, Banknote, CreditCard,
-  Smartphone, Landmark, FileText, Calendar,
-} from 'lucide-react';
+  Smartphone, Landmark, FileText, Calendar, MoreHorizontal } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input, fieldClass } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   Category, Expense, ExpenseStatus,
   expenseAmount, expenseTotal, primaryPayment, formatINR, paymentsToApi,
@@ -28,33 +34,33 @@ function formatCreatedTime(createdAt?: string) {
 }
 
 const STATUS_BADGE: Record<ExpenseStatus, { base: string; label: string }> = {
-  draft: { base: 'bg-zinc-100 text-zinc-500', label: 'Draft' },
-  pending: { base: 'bg-amber-50 text-amber-600', label: 'Pending' },
-  approved: { base: 'bg-emerald-50 text-emerald-600', label: 'Approved' },
-  rejected: { base: 'bg-rose-50 text-rose-600', label: 'Rejected' },
+  draft: { base: 'bg-secondary text-muted-foreground', label: 'Draft' },
+  pending: { base: 'bg-warning/10 text-warning', label: 'Pending' },
+  approved: { base: 'bg-accent text-primary', label: 'Approved' },
+  rejected: { base: 'bg-destructive/10 text-destructive', label: 'Rejected' },
 };
 
 const CATEGORY_BADGE: Record<Category, { base: string; label: string }> = {
-  travel: { base: 'bg-blue-50 text-blue-600', label: 'Travel' },
-  food: { base: 'bg-amber-50 text-amber-600', label: 'Food' },
+  travel: { base: 'bg-info/10 text-info', label: 'Travel' },
+  food: { base: 'bg-warning/10 text-warning', label: 'Food' },
   office: { base: 'bg-purple-50 text-purple-600', label: 'Office' },
-  accommodation: { base: 'bg-teal-50 text-teal-600', label: 'Accommodation' },
+  accommodation: { base: 'bg-accent text-primary', label: 'Accommodation' },
   utilities: { base: 'bg-orange-50 text-orange-600', label: 'Utilities' },
   software: { base: 'bg-indigo-50 text-indigo-600', label: 'Software' },
   subscriptions: { base: 'bg-cyan-50 text-cyan-600', label: 'Subscriptions' },
   supplies: { base: 'bg-lime-50 text-lime-600', label: 'Supplies / Stationery' },
-  maintenance: { base: 'bg-yellow-50 text-yellow-600', label: 'Maintenance' },
+  maintenance: { base: 'bg-warning/10 text-warning', label: 'Maintenance' },
   training: { base: 'bg-pink-50 text-pink-600', label: 'Training' },
-  communication: { base: 'bg-sky-50 text-sky-600', label: 'Communication' },
-  other: { base: 'bg-zinc-100 text-zinc-600', label: 'Other' },
+  communication: { base: 'bg-info/10 text-info', label: 'Communication' },
+  other: { base: 'bg-secondary text-foreground/70', label: 'Other' },
 };
 
 const PAYMENT_BADGE: Record<string, { base: string; label: string }> = {
-  cash: { base: 'bg-emerald-50 text-emerald-600', label: 'Cash' },
-  card: { base: 'bg-blue-50 text-blue-600', label: 'Card' },
+  cash: { base: 'bg-accent text-primary', label: 'Cash' },
+  card: { base: 'bg-info/10 text-info', label: 'Card' },
   upi: { base: 'bg-purple-50 text-purple-600', label: 'UPI' },
   net_banking: { base: 'bg-indigo-50 text-indigo-600', label: 'Net Banking' },
-  cheque: { base: 'bg-amber-50 text-amber-600', label: 'Cheque' },
+  cheque: { base: 'bg-warning/10 text-warning', label: 'Cheque' },
 };
 
 const PAYMENT_ICON: Record<string, any> = {
@@ -100,7 +106,7 @@ const PAYMENT_OPTIONS = [
 
 const PAGE_SIZE = 10;
 
-const inputClass = 'w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all';
+const inputClass = fieldClass;
 
 export default function MyExpenses() {
   const { user, token } = useAuth();
@@ -208,9 +214,9 @@ export default function MyExpenses() {
     .reduce((acc, e) => acc + expenseTotal(e), 0);
 
   const statCards = [
-    { label: 'Total', value: myExpenses.length, icon: Receipt, color: 'bg-blue-50 text-blue-600' },
-    { label: 'Approved', value: formatINR(totalApproved), icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
-    { label: 'Pending', value: formatINR(totalPending), icon: Clock, color: 'bg-amber-50 text-amber-600' },
+    { label: 'Total', value: myExpenses.length, icon: Receipt, color: 'bg-info/10 text-info' },
+    { label: 'Approved', value: formatINR(totalApproved), icon: CheckCircle2, color: 'bg-accent text-primary' },
+    { label: 'Pending', value: formatINR(totalPending), icon: Clock, color: 'bg-warning/10 text-warning' },
   ];
 
   const sortColumns: { key: SortKey; label: string }[] = [
@@ -277,40 +283,32 @@ export default function MyExpenses() {
     <div className="space-y-6">
       {toast && (
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-          className="fixed top-5 right-5 z-[9999] bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
-          <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
+          className="fixed top-5 right-5 z-[9999] bg-foreground text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
+          <CheckCircle2 size={16} className="text-primary" /> {toast}
         </motion.div>
       )}
 
       {/* Top Header Buttons (Business Claims vs Salary Advances) */}
-      <div className="flex items-center gap-2 border-b border-zinc-200 pb-3">
-        <button
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <Button variant="dark" size="sm"
           onClick={() => navigate('/hrms/expenses')}
-          className="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-zinc-900 text-white shadow-sm"
+          
         >
           Business Claims
-        </button>
-        <button
+        </Button>
+        <Button variant="secondary" size="sm"
           onClick={() => navigate('/hrms/advances')}
-          className="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+          
         >
           Salary Advances
-        </button>
+        </Button>
       </div>
 
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">My Expenses</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">Track and manage your expense claims</p>
-        </div>
-        <button onClick={() => navigate('/hrms/expenses/new')} className="self-start sm:self-auto flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+      <PageHeader title="My Expenses" description="Track and manage your expense claims" actions={<>
+<Button variant="dark" size="sm" className="self-start sm:self-auto" onClick={() => navigate('/hrms/expenses/new')} >
           <Plus size={14} />New Expense
-        </button>
-      </motion.header>
+        </Button>
+</>} />
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         {statCards.map((card, i) => (
@@ -319,33 +317,28 @@ export default function MyExpenses() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.04 }}
-            className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm"
+            className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
           >
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${card.color}`}>
               <card.icon size={18} />
             </div>
             <div className="min-w-0">
-              <p className="text-lg font-extrabold text-zinc-900 leading-none truncate">{card.value}</p>
-              <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">{card.label}</p>
+              <p className="text-lg font-semibold text-foreground leading-none truncate">{card.value}</p>
+              <p className="text-xs font-medium text-muted-foreground/70 mt-1 truncate">{card.label}</p>
             </div>
           </motion.div>
         ))}
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center"
-      >
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+          <Input data-search="" className="w-full pl-9 pr-4"
             type="text"
             placeholder="Search expenses..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+            
           />
         </div>
         <div className="w-[150px]">
@@ -358,28 +351,28 @@ export default function MyExpenses() {
           <SearchableSelect value={paymentFilter} onChange={setPaymentFilter} options={PAYMENT_OPTIONS} placeholder="Payment" />
         </div>
         {hasFilters && (
-          <button onClick={() => { setSearch(''); setStatusFilter('all'); setCategoryFilter('all'); setPaymentFilter('all'); }} className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors">
+          <button onClick={() => { setSearch(''); setStatusFilter('all'); setCategoryFilter('all'); setPaymentFilter('all'); }} className="text-xs text-muted-foreground/70 hover:text-foreground/85 flex items-center gap-1 transition-colors">
             <XCircle size={12} />Clear
           </button>
         )}
-      </motion.div>
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+        className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
       >
         {loadingExpenses || paged.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-              <Inbox size={24} className="text-zinc-300" />
+            <div className="w-14 h-14 bg-muted rounded-xl flex items-center justify-center mb-3">
+              <Inbox size={24} className="text-muted-foreground/50" />
             </div>
-            <h3 className="text-sm font-bold text-zinc-900 mb-1">
+            <h3 className="text-sm font-semibold text-foreground mb-1">
               {loadingExpenses ? 'Loading expenses...' : myExpenses.length === 0 ? 'No expenses yet' : 'No results found'}
             </h3>
             {!loadingExpenses && (
-              <p className="text-xs text-zinc-400 max-w-xs">
+              <p className="text-xs text-muted-foreground/70 max-w-xs">
                 {myExpenses.length === 0 ? 'Submit your first expense using the button above.' : 'Try adjusting your search or filters'}
               </p>
             )}
@@ -387,25 +380,25 @@ export default function MyExpenses() {
         ) : (
           <>
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-zinc-50/50 border-b border-zinc-100">
-                  <tr>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Category</th>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="uppercase whitespace-nowrap">Category</TableHead>
                     {sortColumns.map((col) => (
-                      <th
+                      <TableHead
                         key={col.key}
                         onClick={() => toggleSort(col.key)}
-                        className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600 select-none"
+                        className="uppercase whitespace-nowrap cursor-pointer hover:text-foreground/70 select-none"
                       >
                         <span className="flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
-                      </th>
+                      </TableHead>
                     ))}
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Payment</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Status</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-50">
+                    <TableHead className="uppercase whitespace-nowrap">Payment</TableHead>
+                    <TableHead className="uppercase whitespace-nowrap">Status</TableHead>
+                    <TableHead className="uppercase whitespace-nowrap">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {paged.map((e, i) => {
                     const pm = primaryPayment(e)?.paymentMethod || '';
                     return (
@@ -414,76 +407,73 @@ export default function MyExpenses() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: i * 0.02 }}
-                        className="hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                        className="border-b transition-colors hover:bg-muted/70 cursor-pointer"
                         onClick={() => navigate(`/hrms/expenses/${e.id}`)}
                       >
-                        <td className="px-4 py-3">
+                        <TableCell>
                           <div className="flex flex-col gap-1 items-start">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded ${CATEGORY_BADGE[e.category]?.base || 'bg-zinc-100 text-zinc-600'} text-[10px] font-bold`}>
+                            <Badge className={`${CATEGORY_BADGE[e.category]?.base || 'bg-secondary text-foreground/70'}`}>
                               {CATEGORY_BADGE[e.category]?.label || e.category}
-                            </span>
+                            </Badge>
                             {(e.date > todayStr() || e.description?.toLowerCase().includes('advance') || primaryPayment(e)?.title?.toLowerCase().includes('advance')) && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-bold">
+                              <Badge className="bg-purple-50 text-purple-700 border-purple-200" >
                                 ⚡ Advance Expense
-                              </span>
+                              </Badge>
                             )}
                           </div>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-zinc-500 whitespace-nowrap">{e.date}</td>
-                        <td className="px-4 py-3 text-xs font-bold text-zinc-900">{formatINR(expenseAmount(e))}</td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="text-muted-foreground whitespace-nowrap">{e.date}</TableCell>
+                        <TableCell className="font-semibold text-foreground">{formatINR(expenseAmount(e))}</TableCell>
+                        <TableCell>
                           {pm && (() => {
                             const Icon = PAYMENT_ICON[pm];
                             return (
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded ${PAYMENT_BADGE[pm]?.base || 'bg-zinc-100 text-zinc-600'} text-[10px] font-bold`}>
+                              <Badge className={`${PAYMENT_BADGE[pm]?.base || 'bg-secondary text-foreground/70'}`}>
                                 {Icon && <Icon size={10} />}
                                 {PAYMENT_BADGE[pm]?.label || pm}
-                              </span>
+                              </Badge>
                             );
                           })()}
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell>
                           <div className="flex flex-col gap-1 items-start">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${STATUS_BADGE[e.status].base}`}>
+                            <Badge className={`${STATUS_BADGE[e.status].base}`}>
                               {STATUS_BADGE[e.status].label}
-                            </span>
+                            </Badge>
                             {e.status === 'rejected' && e.approvalNotes && (
-                              <span className="text-[10px] text-rose-600 font-medium max-w-[150px] truncate" title={e.approvalNotes}>
+                              <span className="text-[11px] text-destructive font-medium max-w-[150px] truncate" title={e.approvalNotes}>
                                 Reason: {e.approvalNotes}
                               </span>
                             )}
                           </div>
-                        </td>
-                        <td className="px-4 py-3" onClick={(ev) => ev.stopPropagation()}>
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => navigate(`/hrms/expenses/${e.id}`)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="View">
-                              <Eye size={14} />
-                            </button>
+                        </TableCell>
+                        <TableCell className="w-10 pl-0" onClick={(e) => e.stopPropagation()}>
+<DropdownMenu>
+<DropdownMenuTrigger asChild>
+<Button variant="ghost" size="icon-sm" data-row-menu="" aria-label="Row actions"><MoreHorizontal /></Button>
+</DropdownMenuTrigger>
+<DropdownMenuContent align="end" className="w-52">
+<DropdownMenuItem onSelect={() => navigate(`/hrms/expenses/${e.id}`)}><Eye /> View</DropdownMenuItem>
                             {e.status === 'draft' && (
-                              <button onClick={() => navigate(`/hrms/expenses/${e.id}/edit`)} className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                                <Pen size={14} />
-                              </button>
+                              <DropdownMenuItem onSelect={() => navigate(`/hrms/expenses/${e.id}/edit`)}><Pen /> Edit</DropdownMenuItem>
                             )}
                             {e.status === 'draft' && (
-                              <button onClick={() => setDeleteTarget(e)} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                                <Trash2 size={14} />
-                              </button>
+                              <DropdownMenuItem destructive onSelect={() => setDeleteTarget(e)}><Trash2 /> Delete</DropdownMenuItem>
                             )}
                             {e.status === 'rejected' && (
-                              <button onClick={() => { setResubmitTarget(e); setResubmitReceipt(''); }} className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Resubmit">
-                                <RotateCcw size={14} />
-                              </button>
+                              <DropdownMenuItem onSelect={() => { setResubmitTarget(e); setResubmitReceipt(''); }}><RotateCcw /> Resubmit</DropdownMenuItem>
                             )}
-                          </div>
-                        </td>
+</DropdownMenuContent>
+</DropdownMenu>
+</TableCell>
                       </motion.tr>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
 
-            <div className="md:hidden divide-y divide-zinc-100">
+            <div className="md:hidden divide-y divide-border">
               {paged.map((e, i) => (
                 <motion.div
                   key={e.id}
@@ -494,36 +484,36 @@ export default function MyExpenses() {
                   className="p-4 space-y-2 cursor-pointer"
                 >
                   <div className="flex items-start justify-between">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded ${CATEGORY_BADGE[e.category]?.base || 'bg-zinc-100 text-zinc-600'} text-[10px] font-bold`}>
+                    <Badge className={`${CATEGORY_BADGE[e.category]?.base || 'bg-secondary text-foreground/70'}`}>
                       {CATEGORY_BADGE[e.category]?.label || e.category}
-                    </span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${STATUS_BADGE[e.status].base}`}>
+                    </Badge>
+                    <Badge className={`shrink-0 ${STATUS_BADGE[e.status].base}`}>
                       {STATUS_BADGE[e.status].label}
-                    </span>
+                    </Badge>
                   </div>
-                  <p className="text-xs text-zinc-500">{e.date} {formatCreatedTime(e.createdAt)}</p>
-                  <p className="text-xs font-extrabold text-zinc-900">{formatINR(expenseAmount(e))}</p>
+                  <p className="text-xs text-muted-foreground">{e.date} {formatCreatedTime(e.createdAt)}</p>
+                  <p className="text-xs font-semibold text-foreground">{formatINR(expenseAmount(e))}</p>
                   {e.payments[0]?.receipt && (
-                    <img src={e.payments[0].receipt} alt="" className="h-10 w-10 rounded-lg border border-zinc-200 object-cover" />
+                    <img src={e.payments[0].receipt} alt="" className="h-10 w-10 rounded-lg border border-border object-cover" />
                   )}
                   <div className="flex items-center gap-1 pt-1" onClick={(ev) => ev.stopPropagation()}>
-                    <button onClick={() => navigate(`/hrms/expenses/${e.id}`)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="View">
+                    <Button variant="ghost" size="icon-sm" onClick={() => navigate(`/hrms/expenses/${e.id}`)}  title="View">
                       <Eye size={14} />
-                    </button>
+                    </Button>
                     {e.status === 'draft' && (
-                      <button onClick={() => navigate(`/hrms/expenses/${e.id}/edit`)} className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                      <Button variant="ghost" size="icon-sm" className="hover:text-info hover:bg-info/10" onClick={() => navigate(`/hrms/expenses/${e.id}/edit`)}  title="Edit">
                         <Pen size={14} />
-                      </button>
+                      </Button>
                     )}
                     {e.status === 'draft' && (
-                      <button onClick={() => setDeleteTarget(e)} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                      <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteTarget(e)}  title="Delete">
                         <Trash2 size={14} />
-                      </button>
+                      </Button>
                     )}
                     {e.status === 'rejected' && (
-                      <button onClick={() => { setResubmitTarget(e); setResubmitReceipt(''); }} className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Resubmit">
+                      <Button variant="ghost" size="icon-sm" className="hover:text-warning hover:bg-warning/10" onClick={() => { setResubmitTarget(e); setResubmitReceipt(''); }}  title="Resubmit">
                         <RotateCcw size={14} />
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </motion.div>
@@ -531,20 +521,20 @@ export default function MyExpenses() {
             </div>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-100">
-                <p className="text-[11px] text-zinc-400 font-medium">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-[11px] text-muted-foreground/70 font-medium">
                   Showing {startRow}–{endRow} of {filtered.length}
                 </p>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                    className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  <Button variant="ghost" size="icon-sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                    >
                     <ChevronLeft size={14} />
-                  </button>
-                  <span className="text-[11px] font-bold text-zinc-500 px-2">{page} / {totalPages}</span>
-                  <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                    className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  </Button>
+                  <span className="text-[11px] font-semibold text-muted-foreground px-2">{page} / {totalPages}</span>
+                  <Button variant="ghost" size="icon-sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                    >
                     <ChevronRight size={14} />
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -553,86 +543,82 @@ export default function MyExpenses() {
       </motion.div>
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-          onClick={() => setDeleteTarget(null)} role="dialog" aria-modal="true">
-          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-6 border-b border-zinc-100 relative">
-              <button onClick={() => setDeleteTarget(null)}
-                className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => setDeleteTarget(null))(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-md overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-6 border-b border-border relative">
+              <Button variant="ghost" size="icon-sm" className="absolute top-6 right-6" onClick={() => setDeleteTarget(null)}
+                >
                 <X size={18} />
-              </button>
-              <h3 className="text-lg font-bold text-zinc-900">Delete draft expense?</h3>
-              <p className="text-sm text-zinc-600 mt-2">
+              </Button>
+              <h3 className="text-lg font-semibold text-foreground">Delete draft expense?</h3>
+              <p className="text-sm text-foreground/70 mt-2">
                 {formatINR(expenseTotal(deleteTarget))} — {deleteTarget.description}
               </p>
-              <p className="text-xs text-red-600 font-medium mt-2">This action cannot be undone.</p>
+              <p className="text-xs text-destructive font-medium mt-2">This action cannot be undone.</p>
             </div>
-            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
-              <button onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
+            <div className="p-4 flex gap-2 justify-end bg-muted/80">
+              <Button variant="outline" size="sm" onClick={() => setDeleteTarget(null)}
+                >
                 Cancel
-              </button>
-              <button onClick={handleDelete} disabled={deleting}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors disabled:opacity-60">
+              </Button>
+              <Button variant="outline" size="sm" className="border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/15" onClick={handleDelete} disabled={deleting}
+                >
                 <Trash2 size={16} /> {deleting ? 'Deleting...' : 'Delete'}
-              </button>
+              </Button>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {resubmitTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-          onClick={() => { setResubmitTarget(null); setResubmitReceipt(''); }} role="dialog" aria-modal="true">
-          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-6 border-b border-zinc-100 relative">
-              <button type="button" onClick={() => { setResubmitTarget(null); setResubmitReceipt(''); }}
-                className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => { setResubmitTarget(null); setResubmitReceipt(''); })(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-md overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-6 border-b border-border relative">
+              <Button variant="ghost" size="icon-sm" className="absolute top-6 right-6" type="button" onClick={() => { setResubmitTarget(null); setResubmitReceipt(''); }}
+                >
                 <X size={18} />
-              </button>
-              <h3 className="text-lg font-bold text-zinc-900">Resubmit Expense</h3>
-              <p className="text-sm text-zinc-600 mt-2">
+              </Button>
+              <h3 className="text-lg font-semibold text-foreground">Resubmit Expense</h3>
+              <p className="text-sm text-foreground/70 mt-2">
                 {formatINR(expenseTotal(resubmitTarget))}
-                <span className="block text-xs text-zinc-400 mt-0.5">{resubmitTarget.description}</span>
+                <span className="block text-xs text-muted-foreground/70 mt-0.5">{resubmitTarget.description}</span>
               </p>
             </div>
             <div className="p-5 space-y-4">
               {resubmitTarget.payments[0]?.receipt && !resubmitReceipt && (
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 mb-1.5">Current Receipt</label>
-                  <img src={resubmitTarget.payments[0].receipt} alt="Current receipt" className="h-20 rounded-lg border border-zinc-200" />
+                  <label className="block text-xs font-medium text-foreground/85 mb-1.5">Current Receipt</label>
+                  <img src={resubmitTarget.payments[0].receipt} alt="Current receipt" className="h-20 rounded-lg border border-border" />
                 </div>
               )}
               {resubmitReceipt && (
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 mb-1.5">New Receipt</label>
-                  <img src={resubmitReceipt} alt="New receipt" className="h-20 rounded-lg border border-zinc-200" />
+                  <label className="block text-xs font-medium text-foreground/85 mb-1.5">New Receipt</label>
+                  <img src={resubmitReceipt} alt="New receipt" className="h-20 rounded-lg border border-border" />
                 </div>
               )}
               <div>
-                <label className="block text-xs font-medium text-zinc-700 mb-1.5">
+                <label className="block text-xs font-medium text-foreground/85 mb-1.5">
                   {resubmitTarget.payments[0]?.receipt ? 'Replace Receipt (optional)' : 'Upload Receipt (optional)'}
                 </label>
                 <input type="file" accept="image/*" onChange={handleResubmitReceiptFile}
-                  className="w-full text-xs text-zinc-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200 file:cursor-pointer" />
+                  className="text-sm file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-[13px] file:font-medium hover:file:bg-accent" />
               </div>
             </div>
-            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
-              <button type="button" onClick={() => { setResubmitTarget(null); setResubmitReceipt(''); }}
-                className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
+            <div className="p-4 flex gap-2 justify-end bg-muted/80">
+              <Button variant="outline" size="sm" type="button" onClick={() => { setResubmitTarget(null); setResubmitReceipt(''); }}
+                >
                 Cancel
-              </button>
-              <button type="button" onClick={handleResubmit} disabled={resubmitting}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 text-xs font-bold text-white hover:bg-amber-700 transition-colors disabled:opacity-60">
+              </Button>
+              <Button size="sm" className="bg-warning text-white hover:bg-warning hover:text-white bg-warning text-white hover:bg-warning" type="button" onClick={handleResubmit} disabled={resubmitting}
+                >
                 {resubmitting ? 'Resubmitting...' : 'Resubmit'}
-              </button>
+              </Button>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
     </div>
   );

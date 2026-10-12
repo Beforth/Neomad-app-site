@@ -18,6 +18,8 @@ import {
 } from '../../lib/hrmsApi';
 import { getExpenseSummary, listExpenses, expenseTotal, formatINR } from '../../lib/hrmsExpenses';
 import { listLeaveRequests, type LeaveRequestOut } from '../../lib/hrmsLeave';
+import { Badge } from '@/components/ui/badge';
+import KpiStrip from '@/components/KpiStrip';
 
 const CHART_STYLE = {
   contentStyle: { backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #f4f4f5', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' },
@@ -29,16 +31,16 @@ const DEPT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#a855f7', '#ec4899', '#14
 const UNASSIGNED_COLOR = '#d4d4d8';
 
 const LEAVE_STATUS_STYLES: Record<string, string> = {
-  pending: 'bg-amber-50 text-amber-700 border border-amber-100',
-  approved: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
-  rejected: 'bg-rose-50 text-rose-700 border border-rose-100',
-  cancelled: 'bg-zinc-100 text-zinc-500 border border-zinc-200',
+  pending: 'bg-warning/10 text-warning border border-warning/25',
+  approved: 'bg-accent text-accent-foreground border border-primary/20',
+  rejected: 'bg-destructive/10 text-destructive border border-destructive/20',
+  cancelled: 'bg-secondary text-muted-foreground border border-border',
 };
 
 const ACTIVITY_STYLES: Record<string, { icon: typeof CheckCircle2; color: string }> = {
-  check_in: { icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
-  expense: { icon: FileText, color: 'bg-blue-50 text-blue-600' },
-  leave: { icon: CalendarOff, color: 'bg-amber-50 text-amber-600' },
+  check_in: { icon: CheckCircle2, color: 'bg-accent text-primary' },
+  expense: { icon: FileText, color: 'bg-info/10 text-info' },
+  leave: { icon: CalendarOff, color: 'bg-warning/10 text-warning' },
   join: { icon: UserPlus, color: 'bg-purple-50 text-purple-600' },
 };
 
@@ -190,48 +192,23 @@ export default function HrmsDashboard() {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-zinc-500">Overview of your workforce</p>
+      <p className="text-sm text-muted-foreground">Overview of your workforce</p>
 
       {error && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center justify-between gap-3">
+        <div className="rounded-md border border-warning/25 bg-warning/10 px-4 py-3 text-sm text-warning flex items-center justify-between gap-3">
           <span>{error}</span>
           <button type="button" onClick={load} className="font-semibold hover:underline shrink-0">Retry</button>
         </div>
       )}
 
       {/* Compact Stat Cards */}
-      <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
-        {[
-          { label: 'Total Staff', value: stats.total, icon: Users, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Active', value: stats.active, icon: UserCheck, color: 'bg-emerald-50 text-emerald-600' },
-          { label: 'Inactive', value: stats.inactive, icon: UserX, color: 'bg-zinc-100 text-zinc-500' },
-          { label: 'Pending Exp.', value: pendingExpenses ?? '—', icon: Receipt, color: 'bg-rose-50 text-rose-600' },
-          {
-            label: 'Attend. Rate',
-            value: attendanceRate === null ? '—' : `${attendanceRate}%`,
-            icon: TrendingUp,
-            color: 'bg-cyan-50 text-cyan-600',
-          },
-        ].map((stat, i) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04 }}
-            className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm"
-          >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${stat.color}`}>
-              <stat.icon size={18} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-lg font-extrabold text-zinc-900 leading-none">
-                {loading ? <span className="inline-block w-8 h-4 bg-zinc-100 rounded animate-pulse" /> : stat.value}
-              </p>
-              <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">{stat.label}</p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+      <KpiStrip items={[
+  { label: 'Total Staff', value: stats.total },
+  { label: 'Active', value: stats.active },
+  { label: 'Inactive', value: stats.inactive },
+  { label: 'Pending Exp.', value: pendingExpenses ?? '—' },
+  { label: 'Attend. Rate', value: attendanceRate === null ? '—' : `${attendanceRate}%` },
+]} />
 
       {/* Charts Row 1: Attendance + Department */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -240,20 +217,20 @@ export default function HrmsDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm"
+          className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
         >
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-zinc-900">Weekly Attendance</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">Present vs absent, last 7 days</p>
+              <h3 className="font-semibold text-foreground">Weekly Attendance</h3>
+              <p className="text-xs text-muted-foreground/70 mt-0.5">Present vs absent, last 7 days</p>
             </div>
-            <div className="flex items-center gap-3 text-[10px] font-semibold text-zinc-400">
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" />Present</span>
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-zinc-200" />Absent</span>
+            <div className="flex items-center gap-3 text-[11px] font-semibold text-muted-foreground/70">
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />Present</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-border" />Absent</span>
             </div>
           </div>
           {weekly.length === 0 ? (
-            <div className="h-[200px] flex items-center justify-center text-sm text-zinc-400">
+            <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground/70">
               {loading ? 'Loading…' : 'No attendance records yet'}
             </div>
           ) : (
@@ -275,14 +252,14 @@ export default function HrmsDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm h-full flex flex-col"
+          className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)] h-full flex flex-col"
         >
           <div className="mb-4">
-            <h3 className="font-bold text-zinc-900">Department Distribution</h3>
-            <p className="text-xs text-zinc-400 mt-0.5">Active staff by department</p>
+            <h3 className="font-semibold text-foreground">Department Distribution</h3>
+            <p className="text-xs text-muted-foreground/70 mt-0.5">Active staff by department</p>
           </div>
           {departments.length === 0 ? (
-            <div className="flex-1 min-h-[140px] flex items-center justify-center text-sm text-zinc-400">
+            <div className="flex-1 min-h-[140px] flex items-center justify-center text-sm text-muted-foreground/70">
               {loading ? 'Loading…' : 'No staff yet'}
             </div>
           ) : (
@@ -310,9 +287,9 @@ export default function HrmsDashboard() {
                   <div key={dept.name} className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dept.color }} />
-                      <span className="text-sm text-zinc-600 truncate">{dept.name}</span>
+                      <span className="text-sm text-foreground/70 truncate">{dept.name}</span>
                     </div>
-                    <span className="text-sm font-bold text-zinc-900 shrink-0 ml-2">{dept.value}</span>
+                    <span className="text-sm font-semibold text-foreground shrink-0 ml-2">{dept.value}</span>
                   </div>
                 ))}
               </div>
@@ -328,19 +305,19 @@ export default function HrmsDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm h-full flex flex-col"
+          className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)] h-full flex flex-col"
         >
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-zinc-900">Monthly Expenses</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">
+              <h3 className="font-semibold text-foreground">Monthly Expenses</h3>
+              <p className="text-xs text-muted-foreground/70 mt-0.5">
                 Weekly breakdown for {MONTH_NAMES[new Date().getMonth()]}
               </p>
             </div>
             {expenseDelta !== null && (
               <div
                 className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg ${
-                  expenseDelta > 0 ? 'text-rose-600 bg-rose-50' : 'text-emerald-600 bg-emerald-50'
+                  expenseDelta > 0 ? 'text-destructive bg-destructive/10' : 'text-primary bg-accent'
                 }`}
               >
                 {expenseDelta > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
@@ -350,7 +327,7 @@ export default function HrmsDashboard() {
           </div>
           <div className="flex-1 min-h-[180px]">
             {!hasExpenseData ? (
-              <div className="h-full min-h-[180px] flex items-center justify-center text-sm text-zinc-400">
+              <div className="h-full min-h-[180px] flex items-center justify-center text-sm text-muted-foreground/70">
                 {loading ? 'Loading…' : 'No expenses this month'}
               </div>
             ) : (
@@ -372,41 +349,41 @@ export default function HrmsDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
           <div className="flex items-center justify-between p-5 pb-3">
             <div>
-              <h3 className="font-bold text-zinc-900">Leave Requests</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">Most recent requests</p>
+              <h3 className="font-semibold text-foreground">Leave Requests</h3>
+              <p className="text-xs text-muted-foreground/70 mt-0.5">Most recent requests</p>
             </div>
-            <Link to="/hrms/leave" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
+            <Link to="/hrms/leave" className="text-xs font-semibold text-primary hover:text-accent-foreground flex items-center gap-1 transition-colors">
               View All <ChevronRight size={12} />
             </Link>
           </div>
           {leaveRequests.length === 0 ? (
-            <div className="px-5 pb-5 text-sm text-zinc-400">
+            <div className="px-5 pb-5 text-sm text-muted-foreground/70">
               {loading ? 'Loading…' : 'No leave requests yet'}
             </div>
           ) : (
-            <div className="divide-y divide-zinc-50">
+            <div className="divide-y divide-border">
               {leaveRequests.map((req) => {
                 const name = req.employee_name || req.employee_email || 'Unknown';
                 return (
-                  <div key={req.id} className="flex items-center justify-between px-5 py-3 hover:bg-zinc-50/50 transition-colors">
+                  <div key={req.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-foreground text-white flex items-center justify-center text-[11px] font-semibold shrink-0">
                         {initials(name)}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-zinc-900 truncate">{name}</p>
-                        <p className="text-xs text-zinc-400 truncate">
+                        <p className="text-sm font-semibold text-foreground truncate">{name}</p>
+                        <p className="text-xs text-muted-foreground/70 truncate">
                           {req.leave_type_name || 'Leave'} &middot; {formatRange(req.start_date, req.end_date)}
                         </p>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ml-2 ${LEAVE_STATUS_STYLES[req.status] || LEAVE_STATUS_STYLES.cancelled}`}>
+                    <Badge className={`shrink-0 ml-2 ${LEAVE_STATUS_STYLES[req.status] || LEAVE_STATUS_STYLES.cancelled}`}>
                       {req.status}
-                    </span>
+                    </Badge>
                   </div>
                 );
               })}
@@ -420,18 +397,18 @@ export default function HrmsDashboard() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
-        className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm"
+        className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-bold text-zinc-900">Recent Activity</h3>
-            <p className="text-xs text-zinc-400 mt-0.5">Latest updates from your team</p>
+            <h3 className="font-semibold text-foreground">Recent Activity</h3>
+            <p className="text-xs text-muted-foreground/70 mt-0.5">Latest updates from your team</p>
           </div>
         </div>
         {activity.length === 0 ? (
-          <p className="text-sm text-zinc-400">{loading ? 'Loading…' : 'No recent activity'}</p>
+          <p className="text-sm text-muted-foreground/70">{loading ? 'Loading…' : 'No recent activity'}</p>
         ) : (
-          <div className="space-y-0 divide-y divide-zinc-50">
+          <div className="space-y-0 divide-y divide-border">
             {activity.map((item, i) => {
               const style = ACTIVITY_STYLES[item.kind] || ACTIVITY_STYLES.join;
               const Icon = style.icon;
@@ -440,8 +417,8 @@ export default function HrmsDashboard() {
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${style.color}`}>
                     <Icon size={14} />
                   </div>
-                  <p className="text-sm text-zinc-700 flex-1 min-w-0 truncate">{item.text}</p>
-                  <span className="text-xs text-zinc-400 shrink-0 ml-2">{formatActivityTime(item.at)}</span>
+                  <p className="text-sm text-foreground/85 flex-1 min-w-0 truncate">{item.text}</p>
+                  <span className="text-xs text-muted-foreground/70 shrink-0 ml-2">{formatActivityTime(item.at)}</span>
                 </div>
               );
             })}

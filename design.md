@@ -1,5 +1,133 @@
 # Design System — UI Patterns
 
+## befui (current standard)
+
+The app uses [befui](https://github.com/RandomKid24/befui): copy-paste React components on Radix + Tailwind 4 + CSS variables. Full catalog: https://raw.githubusercontent.com/RandomKid24/befui/main/public/llms-full.txt
+
+**Rule: for any new UI, use a befui component or a theme token. Do not hard-code `zinc-*`, `emerald-*`, `red-*` or hex colours.** The sections further down describe the older hand-written patterns (markup only: their colours were already converted to tokens). Pages still use hand-written buttons, inputs and tables; when you touch such a page, swap them for the befui components below.
+
+### Where things live
+
+| What | Where |
+|---|---|
+| Components (one file each) | `src/components/ui/` (`button`, `input`, `label`, `card`, `badge`, `avatar`, `alert`, `spinner`, `tooltip`, `toast`, `dialog`, `sidebar`, `bottom-nav`, `app-shell`, ...) |
+| Import | `import { Button } from '@/components/ui/button'` (`@` = `src/`, set in `vite.config.ts` and `tsconfig.json`) |
+| Class merge helper | `cn()` from `@/lib/utils` |
+| Theme colours, radius, animations | `src/index.css` |
+
+Add a missing component with `npx github:RandomKid24/befui add <name>` (several names allowed), never by retyping its code. Run `npx github:RandomKid24/befui update` if an animated component looks static. Edit the copied file freely; it is ours after install.
+
+### Theme tokens (set in `src/index.css`)
+
+Brand palette is emerald on zinc, as before befui. Dark mode is ready (`dark` class on `<html>`) but nothing switches it on yet.
+
+| Use | Class | Light value |
+|---|---|---|
+| Page background | `bg-muted` | `#f8f9fa` |
+| Cards, popovers, inputs | `bg-card`, `bg-popover`, `bg-background` | white |
+| Main text | `text-foreground` | zinc-900 |
+| Secondary text, icons | `text-muted-foreground` | zinc-500 |
+| Borders | `border` (default colour), `border-input` | zinc-200 |
+| Hover / subtle fill | `bg-secondary` | zinc-100 |
+| Main action, links, active tab | `bg-primary text-primary-foreground`, `text-primary` | emerald-600 |
+| Selected nav item, soft highlight | `bg-accent text-accent-foreground` | emerald-50 / emerald-700 |
+| Focus ring | `ring-ring` | emerald-500 |
+| Delete / error | `text-destructive`, `bg-destructive` | red-600 |
+| Success / warning / info | `text-success`, `text-warning`, `text-info` | emerald / amber / blue |
+| Tinted backgrounds | add opacity: `bg-primary/10`, `bg-destructive/10` | |
+
+Radius is `rounded-md` for buttons and inputs, `rounded-lg` for menus, `rounded-xl` for cards.
+
+### Old class to new class
+
+| Old | New |
+|---|---|
+| `bg-white border border-zinc-100 rounded-xl shadow-sm` (card) | `Card` from `@/components/ui/card`, or `bg-card border rounded-xl shadow-sm` |
+| `text-zinc-900` / `text-zinc-500` / `text-zinc-400` | `text-foreground` / `text-muted-foreground` |
+| `bg-zinc-50`, `hover:bg-zinc-100` | `bg-muted`, `hover:bg-secondary` |
+| `border-zinc-200`, `border-zinc-100` | `border` |
+| `bg-emerald-500 text-white hover:bg-emerald-600` | `<Button>` (variant `primary`) |
+| `bg-zinc-900 text-white` header action | `<Button variant="dark">` |
+| `bg-emerald-50 text-emerald-700` | `bg-accent text-accent-foreground` |
+| `bg-red-50 text-red-600` | `bg-destructive/10 text-destructive` |
+| hand-written `<input className="... focus:ring-emerald-500/20">` | `<Input>` with `<Label>` |
+| spinner `border-2 ... animate-spin` | `<Spinner>` or `<Button loading>` |
+| status pill (`bg-emerald-50 text-emerald-600`, `bg-amber-50 ...`) | `<Badge>` |
+
+### Standard patterns
+
+Every page is built from befui components. Do not write new `<button>`, `<input>`, `<textarea>`, modal overlays, tab strips, badges or empty states by hand.
+
+| Need | Use |
+|---|---|
+| Page title, description, header actions | `PageHeader` (`@/components/ui/app-shell`) |
+| Buttons (primary, outline, ghost, destructive, icon) | `Button` with `variant` and `size` |
+| Text, number, date, email fields | `Input` (supports `leftIcon`, `rightSlot`); multi-line: `Textarea` |
+| Dropdown with search | `SearchableSelect` (our wrapper over befui `Combobox`) |
+| Plain dropdown | native `<select className={selectClass}>` from `@/components/ui/input` |
+| Checkbox | `Checkbox` (`checked`, `onCheckedChange`) |
+| Pill switcher / tabs | `Segmented` |
+| Cards and sections | `Card`, `CardHeader`, `CardTitle`, `CardContent` |
+| Numbers on a dashboard | `StatCard` |
+| Status labels | `Badge` (`success`, `warning`, `danger`, `info`, `default`) |
+| Tables | `Table`, `TableHeader`, `TableRow`, `TableHead`, `TableBody`, `TableCell` |
+| Popups | `Modal` (`src/components/Modal.tsx`) or `Dialog` directly |
+| Empty lists | `EmptyState` |
+| Loading | `Spinner`, `Skeleton` |
+| Notifications that pop up | `toast.success/error/info` from `@/components/ui/toast` (`ToastManager` already bridges the old event) |
+
+**Form field:**
+
+```tsx
+<div className="space-y-1.5">
+  <Label htmlFor="email">Email</Label>
+  <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+</div>
+```
+
+**Submit:** `<Button type="submit" className="w-full" loading={loading} disabled={loading}>Save</Button>`
+
+**Error message:** `Alert`, or `rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive` with `role="alert"`.
+
+**Shell:** `Sidebar.tsx`, `BottomNav.tsx` and the top bar in `App.tsx` use befui `AppShell`, `Sidebar`, `Topbar`, `Breadcrumb` and `DropdownMenu`. Sidebar items are grouped (Overview, Operations, Insights, People, Finance, Admin).
+
+**Login:** `src/pages/Login.tsx` is a reference example of a finished befui page.
+
+**Reports:** `src/pages/Reports.tsx` is a hub (report list on the left, chosen report on the right). To add a report, add an entry to `src/pages/reports/definitions.tsx` (endpoint, KPI numbers, columns) and an endpoint in `neomed-be/app/api/v1/reports.py`. Do not build a new page per report.
+
+### Keyboard rules (every screen must work without a mouse)
+
+Global handling lives in `src/components/KeyboardLayer.tsx`. Do not add per-page key listeners for these.
+
+| Key | Does |
+|---|---|
+| `Ctrl/⌘ K` | command palette: jump to any page, switch app, sign out |
+| `g` then `d i t l r u s h a f y e v w` | go to a page (`g i` = Invoices) |
+| `/` | focus the page's search box (mark it with `data-search`) |
+| `n` | the page's main add/new action (mark the button with `data-hotkey-new`) |
+| `r` | refresh (mark the button with `data-hotkey-refresh`) |
+| `↓ ↑` / `j k`, `Home`, `End` | move between table rows; `↓` from the search box enters the table |
+| `Enter` | open the focused row (its `data-primary` element, first link, or the row's onClick) |
+| `.` or `m` | open the focused row's actions menu (mark the ⋯ button with `data-row-menu`) |
+| `[` | collapse the sidebar |
+| `?` | shortcut cheat sheet |
+| `Esc` | leave a text box / close a popup |
+
+New list pages: one `PageHeader` with a single primary action, a flat filter row (no card around it), a `Table` whose rows have `onClick`, and all row actions in one `⋯` menu (`DropdownMenu` + `data-row-menu`). Use `KpiStrip` for headline numbers instead of a grid of stat cards.
+
+### Rules for components
+
+- Controlled inputs: keep state in the parent.
+- Wrap the app in `TooltipProvider` before using `Tooltip`.
+- Do not edit `src/components/ui/*` for one page; wrap or pass `className`.
+- Check `src/components/ui/` first before building a new button, input, badge, dialog or table.
+
+---
+
+# Older patterns (historical)
+
+Everything below is the pre-befui markup, kept for reference only. Pages have been moved to the components above; do not copy these snippets.
+
 ## Page Layout
 
 ```

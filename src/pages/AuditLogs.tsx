@@ -6,6 +6,12 @@ import type { AuditLogEntry } from '../lib/api';
 import { Link } from 'react-router-dom';
 import { formatDateTimeIST } from '../lib/timeUtils';
 import SearchableSelect from '../components/SearchableSelect';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
 
 const FIELD_LABELS: Record<string, string> = {
   invoice_number: 'Invoice #',
@@ -78,36 +84,32 @@ export default function AuditLogs() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Audit Logs</h1>
-          <p className="text-xs text-zinc-500 font-medium">Field-level change history for all invoices</p>
-        </div>
-        <button
+      <PageHeader title="Audit Logs" description="Field-level change history for all invoices" actions={<>
+<Button variant="outline" size="sm"
           type="button"
           onClick={fetchLogs}
           disabled={loading}
-          className="bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 flex items-center gap-2 shadow-sm disabled:opacity-50"
+          
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
-        </button>
-      </header>
+        </Button>
+</>} />
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg flex items-center justify-between gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm px-4 py-2 rounded-lg flex items-center justify-between gap-2">
           <span className="flex items-center gap-2"><AlertCircle size={16} /> {error}</span>
         </div>
       )}
 
-      <div className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[160px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+          <Input data-search="" className="w-full pl-9 pr-4"
             type="text"
             placeholder="Search values..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900"
+            
           />
         </div>
         <SearchableSelect
@@ -119,92 +121,92 @@ export default function AuditLogs() {
         {(fieldFilter || searchDebounced) && (
           <button
             onClick={() => { setFieldFilter(''); setSearch(''); }}
-            className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1"
+            className="text-xs text-muted-foreground/70 hover:text-foreground/85 flex items-center gap-1"
           >
             <XCircle size={12} /> Clear
           </button>
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
+      <Card className="overflow-hidden" >
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-zinc-50/50 border-b border-zinc-100">
-              <tr>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Time</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Invoice</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Field</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Old Value</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">New Value</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Changed By</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-50">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="uppercase">Time</TableHead>
+                <TableHead className="uppercase">Invoice</TableHead>
+                <TableHead className="uppercase">Field</TableHead>
+                <TableHead className="uppercase">Old Value</TableHead>
+                <TableHead className="uppercase">New Value</TableHead>
+                <TableHead className="uppercase">Changed By</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {loading && entries.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-xs text-zinc-400">Loading...</td></tr>
+                <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground/70">Loading...</TableCell></TableRow>
               ) : entries.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-xs text-zinc-400">No audit logs found</td></tr>
+                <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground/70">No audit logs found</TableCell></TableRow>
               ) : (
                 entries.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-zinc-50/50">
-                    <td className="px-4 py-3 text-[11px] text-zinc-500 whitespace-nowrap">
+                  <TableRow key={entry.id} className="">
+                    <TableCell className="text-muted-foreground whitespace-nowrap">
                       {formatDateTimeIST(entry.created_at)}
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell>
                       <Link
                         to={`/invoices/${entry.invoice_id}`}
-                        className="text-[11px] font-bold text-emerald-600 hover:underline"
+                        className="text-[11px] font-semibold text-primary hover:underline"
                       >
                         #{entry.invoice_id}
                       </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-100 text-[10px] font-bold text-zinc-700 capitalize">
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="capitalize" >
                         {FIELD_LABELS[entry.field_name] || entry.field_name.replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-[11px] text-zinc-500 max-w-[200px] truncate font-mono">
-                      {entry.old_value || <span className="text-zinc-300 italic">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-[11px] text-zinc-900 max-w-[200px] truncate font-mono font-semibold">
-                      {entry.new_value || <span className="text-zinc-300 italic">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-[11px] text-zinc-600 whitespace-nowrap">
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground max-w-[200px] truncate font-mono">
+                      {entry.old_value || <span className="text-muted-foreground/50 italic">—</span>}
+                    </TableCell>
+                    <TableCell className="text-foreground max-w-[200px] truncate font-mono font-semibold">
+                      {entry.new_value || <span className="text-muted-foreground/50 italic">—</span>}
+                    </TableCell>
+                    <TableCell className="text-foreground/70 whitespace-nowrap">
                       {entry.changed_by_name || '—'}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
-      </div>
+      </Card>
 
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <p className="text-sm text-zinc-500">
-          Showing <span className="font-bold text-zinc-900">{startRow}</span>–<span className="font-bold text-zinc-900">{endRow}</span> of{' '}
-          <span className="font-bold text-zinc-900">{total}</span> entries
-          {totalPages > 1 && <span className="ml-2 text-zinc-400">(page {page} of {totalPages})</span>}
+        <p className="text-sm text-muted-foreground">
+          Showing <span className="font-semibold text-foreground">{startRow}</span>–<span className="font-semibold text-foreground">{endRow}</span> of{' '}
+          <span className="font-semibold text-foreground">{total}</span> entries
+          {totalPages > 1 && <span className="ml-2 text-muted-foreground/70">(page {page} of {totalPages})</span>}
         </p>
         <div className="flex items-center gap-2">
-          <button
+          <Button variant="outline" size="icon-sm"
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1 || loading}
-            className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50"
+            
             aria-label="Previous page"
           >
-            <ChevronLeft size={18} className="text-zinc-600" />
-          </button>
-          <button
+            <ChevronLeft size={18} className="text-foreground/70" />
+          </Button>
+          <Button variant="outline" size="icon-sm"
             type="button"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages || loading}
-            className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50"
+            
             aria-label="Next page"
           >
-            <ChevronRight size={18} className="text-zinc-600" />
-          </button>
+            <ChevronRight size={18} className="text-foreground/70" />
+          </Button>
         </div>
       </div>
     </div>

@@ -23,7 +23,7 @@ export default function InvoiceRestorePage() {
   if (id == null) {
     return (
       <InvoiceSectionFrame context="Invalid link">
-        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-red-700 bg-red-50/50`}>Invalid invoice in URL.</div>
+        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-destructive bg-destructive/10`}>Invalid invoice in URL.</div>
       </InvoiceSectionFrame>
     );
   }
@@ -31,7 +31,7 @@ export default function InvoiceRestorePage() {
   if (user?.role !== 'admin' && user?.role !== 'manager') {
     return (
       <InvoiceSectionFrame context="Access denied">
-        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-zinc-600`}>You don&apos;t have access to restore invoices.</div>
+        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-foreground/70`}>You don&apos;t have access to restore invoices.</div>
       </InvoiceSectionFrame>
     );
   }
@@ -39,7 +39,7 @@ export default function InvoiceRestorePage() {
   if (loading && !invoice) {
     return (
       <InvoiceSectionFrame context="Loading…">
-        <div className={`${invoiceInnerCardClassName()} px-4 py-12 text-center text-sm text-zinc-400 animate-pulse`}>Loading…</div>
+        <div className={`${invoiceInnerCardClassName()} px-4 py-12 text-center text-sm text-muted-foreground/70 animate-pulse`}>Loading…</div>
       </InvoiceSectionFrame>
     );
   }
@@ -47,7 +47,7 @@ export default function InvoiceRestorePage() {
   if (error || !invoice) {
     return (
       <InvoiceSectionFrame context="Error">
-        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-red-700 bg-red-50/50`}>{error || 'Not found'}</div>
+        <div className={`${invoiceInnerCardClassName()} p-6 text-sm text-destructive bg-destructive/10`}>{error || 'Not found'}</div>
       </InvoiceSectionFrame>
     );
   }
@@ -77,7 +77,7 @@ export default function InvoiceRestorePage() {
             type="button"
             disabled={busy}
             onClick={() => navigate(`/invoices/${invoice.id}?page=${currentPage}`)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-50"
           >
             Keep cancelled
           </button>
@@ -85,7 +85,7 @@ export default function InvoiceRestorePage() {
             type="button"
             disabled={busy || !canRestore}
             onClick={() => void onRestore()}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-primary/20 bg-accent text-xs font-semibold text-accent-foreground hover:bg-primary/15 disabled:opacity-50"
           >
             <RotateCcw size={16} /> Restore to pending
           </button>
@@ -94,20 +94,20 @@ export default function InvoiceRestorePage() {
     >
       <div className={invoiceInnerCardClassName()}>
         <div className="p-6 space-y-2">
-          <p className="text-sm font-bold text-zinc-900">Restore this invoice to pending?</p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-sm font-semibold text-foreground">Restore this invoice to pending?</p>
+          <p className="text-xs text-muted-foreground">
             The invoice returns to the open pool (unassigned) so delivery staff can accept it again.
             The previous cancel reason is kept for audit.
           </p>
           {invoice.cancel_reason ? (
-            <p className="text-xs text-zinc-600 bg-zinc-50 border border-zinc-100 rounded-xl p-3">
-              <span className="font-bold text-zinc-500 uppercase tracking-wide text-[10px]">Cancel reason</span>
+            <p className="text-xs text-foreground/70 bg-muted border border-border rounded-xl p-3">
+              <span className="font-medium text-muted-foreground text-xs">Cancel reason</span>
               <br />
               {invoice.cancel_reason}
             </p>
           ) : null}
-          {!canRestore ? <p className="text-sm text-amber-700 pt-1">Only cancelled invoices can be restored here.</p> : null}
-          {sliceError ? <p className="text-sm text-red-600 pt-2">{sliceError}</p> : null}
+          {!canRestore ? <p className="text-sm text-warning pt-1">Only cancelled invoices can be restored here.</p> : null}
+          {sliceError ? <p className="text-sm text-destructive pt-2">{sliceError}</p> : null}
         </div>
       </div>
     </InvoiceSectionFrame>

@@ -20,6 +20,14 @@ import { TASKS_PAGE_SUBTITLE, TASKS_PAGE_TITLE } from '../components/tasks/TaskS
 import { TASK_STATUS_COLORS, assigneeName, type AssigneeLike } from './tasks/taskShared';
 import { formatDateTimeIST } from '../lib/timeUtils';
 import SearchableSelect from '../components/SearchableSelect';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+import { Input, Textarea } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { Segmented } from '@/components/ui/segmented';
 
 export default function Tasks() {
   const { token } = useAuth();
@@ -121,59 +129,47 @@ export default function Tasks() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">{TASKS_PAGE_TITLE}</h1>
-          <p className="text-xs text-zinc-500 font-medium">{TASKS_PAGE_SUBTITLE}</p>
-        </div>
-        <div className="flex items-center gap-3 self-start sm:self-auto">
-          <div className="flex bg-zinc-100 p-1 rounded-xl">
-            <button
-              type="button"
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-emerald-600' : 'text-zinc-400 hover:text-zinc-600'}`}
-            >
-              <LayoutGrid size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-lg transition-all ${viewMode === 'table' ? 'bg-white shadow-sm text-emerald-600' : 'text-zinc-400 hover:text-zinc-600'}`}
-            >
-              <List size={16} />
-            </button>
-          </div>
-          <button
+      <PageHeader title={TASKS_PAGE_TITLE} description={TASKS_PAGE_SUBTITLE} actions={<>
+<div className="flex items-center gap-3 self-start sm:self-auto">
+          <Segmented
+            value={viewMode}
+            onValueChange={(v) => setViewMode(v as typeof viewMode)}
+            options={[
+              { value: 'grid', label: <LayoutGrid /> },
+              { value: 'table', label: <List /> },
+            ]}
+          />
+          <Button size="sm"
             type="button"
             onClick={() => {
               setCreateError(null);
               setShowCreateModal(true);
             }}
-            className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors flex items-center gap-2 shadow-sm shadow-emerald-100"
+            
           >
             <Plus size={16} /> New Task
-          </button>
+          </Button>
         </div>
-      </header>
+</>} />
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm flex items-center justify-between gap-3">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm flex items-center justify-between gap-3">
           <span>{error}</span>
-          <button type="button" onClick={() => setError(null)} className="text-red-500 hover:text-red-700 font-bold">
+          <button type="button" onClick={() => setError(null)} className="text-destructive hover:text-destructive font-semibold">
             Dismiss
           </button>
         </div>
       )}
 
-      <div className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[240px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+          <Input data-search="" className="w-full pl-9 pr-4"
             type="text"
             placeholder="Search tasks by name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+            
           />
         </div>
         <SearchableSelect
@@ -196,7 +192,7 @@ export default function Tasks() {
               setSearch('');
               setStatusFilter('all');
             }}
-            className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1"
+            className="text-xs text-muted-foreground/70 hover:text-foreground/85 flex items-center gap-1"
           >
             <XCircle size={12} />
             Clear
@@ -205,17 +201,17 @@ export default function Tasks() {
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-zinc-400 text-sm animate-pulse flex flex-col items-center gap-2">
-          <Clock className="animate-spin text-zinc-200" size={24} />
+        <div className="py-12 text-center text-muted-foreground/70 text-sm animate-pulse flex flex-col items-center gap-2">
+          <Clock className="animate-spin text-border" size={24} />
           Loading tasks...
         </div>
       ) : filtered.length === 0 ? (
         <div className="py-12 text-center">
-          <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-300">
+          <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto mb-4 text-muted-foreground/50">
             <Package size={32} />
           </div>
-          <p className="text-zinc-500 font-medium">No tasks found</p>
-          <p className="text-xs text-zinc-400 mt-1">Try creating a new task</p>
+          <p className="text-muted-foreground font-medium">No tasks found</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">Try creating a new task</p>
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -225,7 +221,7 @@ export default function Tasks() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.02 }}
-              className="bg-white p-5 rounded-2xl border border-zinc-100 shadow-sm hover:shadow-md transition-all group"
+              className="bg-card p-5 rounded-xl border border-border shadow-[0_1px_2px_rgb(0_0_0/0.03)] hover:shadow-md transition-all group"
             >
               <div className="flex justify-between items-start mb-4">
                 <button
@@ -233,38 +229,38 @@ export default function Tasks() {
                   onClick={() => navigate(`/tasks/${task.id}`)}
                   className="text-left"
                 >
-                  <h3 className="font-bold text-zinc-900 group-hover:text-emerald-600 transition-colors uppercase text-lg">{task.title}</h3>
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">{task.task_number}</p>
+                  <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors uppercase text-lg">{task.title}</h3>
+                  <p className="text-xs font-medium text-muted-foreground/70 mt-0.5">{task.task_number}</p>
                 </button>
-                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize ${TASK_STATUS_COLORS[task.status] ?? 'bg-zinc-100 text-zinc-700'}`}>
+                <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold capitalize ${TASK_STATUS_COLORS[task.status] ?? 'bg-secondary text-foreground/85'}`}>
                   {task.status}
                 </span>
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-500">Assigned To</span>
-                  <span className="font-medium text-zinc-700">
+                  <span className="text-muted-foreground">Assigned To</span>
+                  <span className="font-medium text-foreground/85">
                     {assigneeName(availableAssignees, task.assigned_to ?? undefined) === 'Unassigned' ? (
-                      <span className="text-zinc-300 italic">Unassigned</span>
+                      <span className="text-muted-foreground/50 italic">Unassigned</span>
                     ) : (
                       assigneeName(availableAssignees, task.assigned_to ?? undefined)
                     )}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs pt-3 border-t border-zinc-50">
-                  <div className="flex items-center gap-1.5 text-zinc-400">
+                <div className="flex items-center justify-between text-xs pt-3 border-t border-border">
+                  <div className="flex items-center gap-1.5 text-muted-foreground/70">
                     <Clock size={12} />
                     <span>{formatDateTimeIST(task.created_at)}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => navigate(`/tasks/${task.id}`)} className="text-emerald-500 font-bold hover:underline">
+                    <button type="button" onClick={() => navigate(`/tasks/${task.id}`)} className="text-primary font-semibold hover:underline">
                       View
                     </button>
-                    <button type="button" onClick={() => navigate(`/tasks/${task.id}/edit`)} className="text-amber-600 font-bold hover:underline">
+                    <button type="button" onClick={() => navigate(`/tasks/${task.id}/edit`)} className="text-warning font-semibold hover:underline">
                       Edit
                     </button>
-                    <button type="button" onClick={() => navigate(`/tasks/${task.id}/delete`)} className="text-red-500 font-bold hover:underline">
+                    <button type="button" onClick={() => navigate(`/tasks/${task.id}/delete`)} className="text-destructive font-semibold hover:underline">
                       Delete
                     </button>
                   </div>
@@ -274,76 +270,76 @@ export default function Tasks() {
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-zinc-50/50 border-b border-zinc-100">
-              <tr>
+        <Card className="overflow-hidden overflow-x-auto" >
+          <Table>
+            <TableHeader>
+              <TableRow>
                 {['ID', 'Task Name', 'Status', 'Assigned To', 'Created Date', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">
+                  <TableHead key={h} className="uppercase whitespace-nowrap">
                     {h}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-50">
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filtered.map((task, i) => (
                 <motion.tr
                   key={task.id}
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.01 }}
-                  className="hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                  className="border-b transition-colors hover:bg-muted/70 cursor-pointer"
                   onClick={() => navigate(`/tasks/${task.id}`)}
                 >
-                  <td className="px-4 py-3 text-xs font-bold text-zinc-400">{task.task_number}</td>
-                  <td className="px-4 py-3">
-                    <p className="text-xs font-bold text-zinc-900">{task.title}</p>
-                    {task.description ? <p className="text-[10px] text-zinc-400 line-clamp-1">{task.description}</p> : null}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold capitalize ${TASK_STATUS_COLORS[task.status] ?? 'bg-zinc-100 text-zinc-700'}`}>
+                  <TableCell className="font-semibold text-muted-foreground/70">{task.task_number}</TableCell>
+                  <TableCell>
+                    <p className="text-xs font-semibold text-foreground">{task.title}</p>
+                    {task.description ? <p className="text-[11px] text-muted-foreground/70 line-clamp-1">{task.description}</p> : null}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={`capitalize ${TASK_STATUS_COLORS[task.status] ?? 'bg-secondary text-foreground/85'}`}>
                       {task.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-zinc-600">
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-foreground/70">
                     {assigneeName(availableAssignees, task.assigned_to ?? undefined) === 'Unassigned' ? (
-                      <span className="text-zinc-300 italic">Unassigned</span>
+                      <span className="text-muted-foreground/50 italic">Unassigned</span>
                     ) : (
                       assigneeName(availableAssignees, task.assigned_to ?? undefined)
                     )}
-                  </td>
-                  <td className="px-4 py-3 text-[10px] text-zinc-400">{formatDateTimeIST(task.created_at)}</td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="text-muted-foreground/70">{formatDateTimeIST(task.created_at)}</TableCell>
+                  <TableCell>
                     <div className="flex items-center gap-1">
-                      <button
+                      <Button variant="ghost" size="icon-sm" className="hover:text-warning hover:bg-warning/10"
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/tasks/${task.id}/edit`);
                         }}
-                        className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                        
                         title="Edit"
                       >
                         <Pencil size={14} />
-                      </button>
-                      <button
+                      </Button>
+                      <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10"
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/tasks/${task.id}/delete`);
                         }}
-                        className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        
                         title="Delete"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </Button>
                     </div>
-                  </td>
+                  </TableCell>
                 </motion.tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
       <AnimatePresence>
@@ -352,7 +348,7 @@ export default function Tasks() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-foreground/50 backdrop-blur-sm"
             role="dialog"
             aria-modal="true"
             aria-labelledby="task-create-title"
@@ -361,59 +357,59 @@ export default function Tasks() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-zinc-100 flex flex-col max-h-[90vh]"
+              className="bg-card rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-border flex flex-col max-h-[90vh]"
             >
-              <div className="p-6 border-b border-zinc-50 bg-zinc-50/50 flex items-center justify-between shrink-0">
+              <div className="p-6 border-b border-border bg-muted/50 flex items-center justify-between shrink-0">
                 <div>
-                  <h2 id="task-create-title" className="text-xl font-bold text-zinc-900">
+                  <h2 id="task-create-title" className="text-xl font-semibold text-foreground">
                     Create New Task
                   </h2>
-                  <p className="text-xs text-zinc-500 font-medium mt-0.5">Add a new generic task for delivery</p>
+                  <p className="text-xs text-muted-foreground font-medium mt-0.5">Add a new generic task for delivery</p>
                 </div>
-                <button
+                <Button variant="ghost" size="icon-sm"
                   type="button"
                   onClick={() => closeCreateModal()}
                   disabled={creating}
-                  className="p-2 hover:bg-white rounded-xl transition-colors text-zinc-400 disabled:opacity-50"
+                  
                   aria-label="Cancel"
                 >
                   <XCircle size={24} />
-                </button>
+                </Button>
               </div>
 
               {createError ? (
-                <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm">{createError}</div>
+                <div className="mx-6 mt-4 bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm">{createError}</div>
               ) : null}
 
               <form onSubmit={handleCreateTask} className="p-6 space-y-5 overflow-y-auto">
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1.5">
                       <Package size={12} /> Task Name
                     </label>
-                    <input
+                    <Input className="w-full"
                       required
                       type="text"
                       placeholder="e.g. Get Coffee or Visit Client"
                       value={createData.task_name}
                       onChange={(e) => setCreateData({ ...createData, task_name: e.target.value })}
-                      className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold"
+                      
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1.5">
                       <FileText size={12} /> Task Description
                     </label>
-                    <textarea
+                    <Textarea className="w-full"
                       rows={3}
                       placeholder="Provide details about the task..."
                       value={createData.description}
                       onChange={(e) => setCreateData({ ...createData, description: e.target.value })}
-                      className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium resize-none"
+                      
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1.5">
                       <UserPlus size={12} /> Assign To (Optional)
                     </label>
                     <SearchableSelect
@@ -431,28 +427,28 @@ export default function Tasks() {
                   </div>
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button
+                  <Button variant="outline" size="lg" className="flex-1"
                     type="button"
                     onClick={() => closeCreateModal()}
                     disabled={creating}
-                    className="flex-1 py-3 border border-zinc-200 rounded-xl font-bold text-sm text-zinc-600 hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                    
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button size="lg"
                     type="submit"
                     disabled={creating}
-                    className="flex-[2] py-3 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100 disabled:opacity-50 flex items-center justify-center gap-2"
+                    
                   >
                     {creating ? (
                       <>
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <Spinner className="size-4"  />
                         Creating…
                       </>
                     ) : (
                       'Create Task'
                     )}
-                  </button>
+                  </Button>
                 </div>
               </form>
             </motion.div>

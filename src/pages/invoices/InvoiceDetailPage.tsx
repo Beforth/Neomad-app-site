@@ -13,6 +13,11 @@ import { clearInvoicesError, deleteInvoiceThunk } from '../../features/invoices/
 import { useInvoiceLoader } from './useInvoiceLoader';
 import { fakeDuration, INVOICE_STATUS_COLORS, parseInvoiceRouteId } from './invoiceShared';
 import { InvoiceSectionFrame, invoiceInnerCardClassName } from '../../components/invoices/InvoiceSectionFrame';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 export default function InvoiceDetailPage() {
   const { invoiceId: idParam } = useParams<{ invoiceId: string }>();
@@ -179,8 +184,8 @@ export default function InvoiceDetailPage() {
     return (
       <InvoiceSectionFrame context="Invalid invoice link.">
         <div className={`p-8 ${invoiceInnerCardClassName()}`}>
-          <p className="text-sm text-zinc-600">This invoice URL is not valid.</p>
-          <Link to="/invoices" className="mt-4 inline-block text-sm font-bold text-emerald-600 hover:underline">
+          <p className="text-sm text-foreground/70">This invoice URL is not valid.</p>
+          <Link to="/invoices" className="mt-4 inline-block text-sm font-semibold text-primary hover:underline">
             Back to invoices
           </Link>
         </div>
@@ -191,7 +196,7 @@ export default function InvoiceDetailPage() {
   if (loading && !invoice) {
     return (
       <InvoiceSectionFrame context="Loading…">
-        <div className={`${invoiceInnerCardClassName()} px-4 py-12 text-center text-sm text-zinc-400 font-medium animate-pulse`}>
+        <div className={`${invoiceInnerCardClassName()} px-4 py-12 text-center text-sm text-muted-foreground/70 font-medium animate-pulse`}>
           Loading invoice…
         </div>
       </InvoiceSectionFrame>
@@ -202,8 +207,8 @@ export default function InvoiceDetailPage() {
     return (
       <InvoiceSectionFrame context={error || 'Invoice not found.'}>
         <div className={`p-8 ${invoiceInnerCardClassName()}`}>
-          <p className="text-sm text-red-700">{error || 'Invoice not found.'}</p>
-          <Link to="/invoices" className="mt-4 inline-block text-sm font-bold text-emerald-600 hover:underline">
+          <p className="text-sm text-destructive">{error || 'Invoice not found.'}</p>
+          <Link to="/invoices" className="mt-4 inline-block text-sm font-semibold text-primary hover:underline">
             Back to invoices
           </Link>
         </div>
@@ -234,7 +239,7 @@ export default function InvoiceDetailPage() {
           {showConfirmPayment ? (
             <Link
               to={`/invoices/${invoice.id}/confirm-payment?page=${currentPage}`}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors shadow-sm shadow-emerald-100"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20"
             >
               <CheckCircle2 size={16} /> Confirm payment
             </Link>
@@ -243,13 +248,13 @@ export default function InvoiceDetailPage() {
             <>
               <Link
                 to={`/invoices/${invoice.id}/assign?page=${currentPage}`}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card text-xs font-semibold text-foreground hover:bg-muted"
               >
                 <UserPlus size={16} /> {invoice.status === 'assigned' ? 'Reassign' : 'Fulfill'}
               </Link>
               <Link
                 to={`/invoices/${invoice.id}/void?page=${currentPage}`}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-red-700 hover:bg-red-50"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card text-xs font-semibold text-destructive hover:bg-destructive/10"
               >
                 <XCircle size={16} /> Void
               </Link>
@@ -258,7 +263,7 @@ export default function InvoiceDetailPage() {
           {showRestore ? (
             <Link
               to={`/invoices/${invoice.id}/restore?page=${currentPage}`}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-primary/20 bg-accent text-xs font-semibold text-accent-foreground hover:bg-primary/15"
             >
               <RotateCcw size={16} /> Restore to pending
             </Link>
@@ -267,7 +272,7 @@ export default function InvoiceDetailPage() {
             <button
               type="button"
               onClick={() => { setStatusAction('completed'); setUploadFile(null); setUploadedUrl(''); setReplaceMode(false); }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-primary/20 bg-accent text-xs font-semibold text-accent-foreground hover:bg-primary/15"
             >
               <CheckCircle2 size={16} /> Mark Complete
             </button>
@@ -279,7 +284,7 @@ export default function InvoiceDetailPage() {
                 dispatch(clearInvoicesError());
                 setShowDeleteModal(true);
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700 hover:bg-red-100"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-destructive/20 bg-destructive/10 text-xs font-semibold text-destructive hover:bg-destructive/15"
             >
               <Trash2 size={16} /> Delete
             </button>
@@ -288,59 +293,59 @@ export default function InvoiceDetailPage() {
       }
     >
       {pageNotice ? (
-        <div className="mb-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl px-4 py-3 text-sm">
+        <div className="mb-3 bg-accent border border-primary/20 text-accent-foreground rounded-md px-4 py-3 text-sm">
           {pageNotice}
         </div>
       ) : null}
       {editError ? (
-        <div className="mb-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+        <div className="mb-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md px-4 py-3 text-sm">
           {editError}
         </div>
       ) : null}
       <div className={invoiceInnerCardClassName()}>
-        <div className="px-6 py-4 border-b border-zinc-100 flex items-center gap-3 flex-wrap bg-zinc-50/40">
-          <div className="w-10 h-10 bg-zinc-50 rounded-xl flex items-center justify-center border border-zinc-100 shrink-0">
-            <FileText size={20} className="text-zinc-400" />
+        <div className="px-6 py-4 border-b border-border flex items-center gap-3 flex-wrap bg-muted/40">
+          <div className="w-10 h-10 bg-muted rounded-xl flex items-center justify-center border border-border shrink-0">
+            <FileText size={20} className="text-muted-foreground/70" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Invoice record</p>
+            <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">Invoice record</p>
             {editing ? (
-              <input
+              <Input className="w-full max-w-xs"
                 type="text"
                 value={editInvoiceNumber}
                 onChange={(e) => setEditInvoiceNumber(e.target.value)}
-                className="text-sm font-bold text-zinc-900 bg-white border border-zinc-300 rounded-lg px-2 py-1 w-full max-w-xs outline-none focus:ring-2 focus:ring-zinc-900/10"
+                
               />
             ) : (
-              <p className="text-sm font-bold text-zinc-900 truncate">{invoice.invoice_number}</p>
+              <p className="text-sm font-semibold text-foreground truncate">{invoice.invoice_number}</p>
             )}
           </div>
           {isManager && !editing && (
-            <button
+            <Button variant="outline" size="xs"
               type="button"
               onClick={startEditing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white text-[11px] font-bold text-zinc-600 hover:bg-zinc-50"
+              
             >
               <Pencil size={14} /> Edit
-            </button>
+            </Button>
           )}
           {editing && (
             <div className="flex items-center gap-2">
-              <button
+              <Button size="xs"
                 type="button"
                 onClick={saveEditing}
                 disabled={editSaving}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 text-white text-[11px] font-bold hover:bg-emerald-600 disabled:opacity-50"
+                
               >
                 <Save size={14} /> {editSaving ? 'Saving…' : 'Save'}
-              </button>
-              <button
+              </Button>
+              <Button variant="outline" size="xs"
                 type="button"
                 onClick={cancelEditing}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white text-[11px] font-bold text-zinc-600 hover:bg-zinc-50"
+                
               >
                 <X size={14} /> Cancel
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -348,105 +353,105 @@ export default function InvoiceDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-5">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1.5">
                   <List size={12} /> Notes / Description
                 </label>
-                <div className="text-sm text-zinc-600 bg-zinc-50/50 p-4 rounded-2xl border border-zinc-100/50 leading-relaxed font-medium min-h-[80px]">
+                <div className="text-sm text-foreground/70 bg-muted/50 p-4 rounded-xl border border-border leading-relaxed font-medium min-h-[80px]">
                   {invoice.description || 'No additional details for this invoice.'}
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1.5">
                   <Building size={12} /> Hospital / Entity
                 </label>
                 {editing ? (
-                  <input
+                  <Input className="w-full"
                     type="text"
                     value={editHospitalName}
                     onChange={(e) => setEditHospitalName(e.target.value)}
-                    className="w-full text-sm font-semibold text-zinc-700 bg-white border border-zinc-300 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-zinc-900/10"
+                    
                   />
                 ) : (
-                  <div className="flex items-start gap-3 p-3.5 bg-zinc-50/50 rounded-2xl border border-zinc-100/50">
-                    <Building size={16} className="text-zinc-400 mt-0.5 shrink-0" />
-                    <span className="text-sm font-semibold text-zinc-700">{invoice.hospital_name}</span>
+                  <div className="flex items-start gap-3 p-3.5 bg-muted/50 rounded-xl border border-border">
+                    <Building size={16} className="text-muted-foreground/70 mt-0.5 shrink-0" />
+                    <span className="text-sm font-semibold text-foreground/85">{invoice.hospital_name}</span>
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center justify-between gap-3 p-3.5 bg-zinc-50/50 rounded-2xl border border-zinc-100/50">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <IndianRupee size={14} className="text-zinc-400" /> Gross amount
+              <div className="flex items-center justify-between gap-3 p-3.5 bg-muted/50 rounded-xl border border-border">
+                <span className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1.5">
+                  <IndianRupee size={14} className="text-muted-foreground/70" /> Gross amount
                 </span>
                 {editing ? (
-                  <input
+                  <Input className="w-32 text-right"
                     type="number"
                     step="0.01"
                     min="0"
                     value={editAmount}
                     onChange={(e) => setEditAmount(e.target.value)}
-                    className="text-sm font-bold text-zinc-900 bg-white border border-zinc-300 rounded-lg px-2 py-1 w-32 text-right outline-none focus:ring-2 focus:ring-zinc-900/10"
+                    
                   />
                 ) : (
-                  <span className="text-sm font-bold text-zinc-900">₹{invoice.amount.toLocaleString()}</span>
+                  <span className="text-sm font-semibold text-foreground">₹{invoice.amount.toLocaleString()}</span>
                 )}
               </div>
               {invoice.previous_amount != null && invoice.amount_updated_at && (
-                <div className="flex items-center justify-between gap-3 p-3.5 bg-amber-50/80 rounded-2xl border border-amber-100">
-                  <span className="text-[10px] font-bold text-amber-700 flex items-center gap-1.5">
+                <div className="flex items-center justify-between gap-3 p-3.5 bg-warning/10 rounded-xl border border-warning/25">
+                  <span className="text-[11px] font-semibold text-warning flex items-center gap-1.5">
                     <Clock size={12} /> Amount updated
                   </span>
-                  <span className="text-[10px] font-bold text-amber-800 text-right">
+                  <span className="text-[11px] font-semibold text-warning text-right">
                     ₹{invoice.previous_amount.toLocaleString()} → ₹{invoice.amount.toLocaleString()}
                     <br />
-                    <span className="text-[9px] text-amber-600 font-medium">{new Date(invoice.amount_updated_at).toLocaleString()}</span>
+                    <span className="text-[11px] text-warning font-medium">{new Date(invoice.amount_updated_at).toLocaleString()}</span>
                   </span>
                 </div>
               )}
 
               {invoice.signed_copy_url && (
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1.5">
                     <FileImage size={12} /> Invoice document
                   </label>
-                  <button
+                  <Button variant="secondary" className="w-full cursor-pointer"
                     type="button"
                     onClick={() => setPreviewImage({ url: invoice.signed_copy_url, number: invoice.invoice_number })}
-                    className="w-full rounded-2xl overflow-hidden border border-zinc-100 bg-zinc-100 group/img cursor-pointer"
+                    
                   >
                     <img
                       src={invoice.signed_copy_url}
                       alt="Invoice signed copy"
                       className="w-full h-48 object-cover transition-transform duration-300 group-hover/img:scale-105"
                     />
-                  </button>
+                  </Button>
                 </div>
               )}
 
               {fakeDuration(invoice) && (
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-100">
-                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">Travel</p>
-                    <p className="text-sm font-bold text-zinc-900">{fakeDuration(invoice)!.travel}</p>
+                  <div className="bg-muted p-3 rounded-xl border border-border">
+                    <p className="text-xs font-medium text-muted-foreground/70 mb-0.5">Travel</p>
+                    <p className="text-sm font-semibold text-foreground">{fakeDuration(invoice)!.travel}</p>
                   </div>
-                  <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-100">
-                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">Wait</p>
-                    <p className="text-sm font-bold text-zinc-900">{fakeDuration(invoice)!.waiting}</p>
+                  <div className="bg-muted p-3 rounded-xl border border-border">
+                    <p className="text-xs font-medium text-muted-foreground/70 mb-0.5">Wait</p>
+                    <p className="text-sm font-semibold text-foreground">{fakeDuration(invoice)!.waiting}</p>
                   </div>
-                  <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-100">
-                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">Total</p>
-                    <p className="text-sm font-bold text-emerald-700">{fakeDuration(invoice)!.total}</p>
+                  <div className="bg-muted p-3 rounded-xl border border-border">
+                    <p className="text-xs font-medium text-muted-foreground/70 mb-0.5">Total</p>
+                    <p className="text-sm font-semibold text-accent-foreground">{fakeDuration(invoice)!.total}</p>
                   </div>
                 </div>
               )}
 
               {invoice.status === 'delivered' && !invoice.signed_copy_url && (
-                <div className="bg-amber-50/80 p-4 rounded-2xl border border-amber-100 flex items-start gap-3">
-                  <AlertCircle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="bg-warning/10 p-4 rounded-xl border border-warning/25 flex items-start gap-3">
+                  <AlertCircle size={20} className="text-warning shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs font-bold text-amber-900">Document missing</p>
-                    <p className="text-[11px] text-amber-700 mt-0.5 font-medium">Signed copy not uploaded yet.</p>
+                    <p className="text-xs font-semibold text-warning">Document missing</p>
+                    <p className="text-[11px] text-warning mt-0.5 font-medium">Signed copy not uploaded yet.</p>
                   </div>
                 </div>
               )}
@@ -454,109 +459,109 @@ export default function InvoiceDetailPage() {
 
             <div className="space-y-5">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Live status</label>
+                <label className="text-xs font-medium text-muted-foreground/70">Live status</label>
                 <div
-                  className={`w-fit flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-xs capitalize ${INVOICE_STATUS_COLORS[invoice.status]} border border-current/10`}
+                  className={`w-fit flex items-center gap-2 px-3 py-1.5 rounded-md font-semibold text-xs capitalize ${INVOICE_STATUS_COLORS[invoice.status]} border border-current/10`}
                 >
                   <div className="w-1.5 h-1.5 rounded-full bg-current" />
                   {invoice.status}
                 </div>
               </div>
 
-              <div className="bg-white border border-zinc-100 rounded-2xl overflow-hidden shadow-sm">
-                <div className="p-4 border-b border-zinc-50 bg-zinc-50/30">
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase mb-3">Assigned to</p>
+              <Card className="overflow-hidden" >
+                <div className="p-4 border-b border-border bg-muted/30">
+                  <p className="text-[11px] font-semibold text-muted-foreground/70 uppercase mb-3">Assigned to</p>
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500 border border-zinc-200 shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-xs font-semibold text-muted-foreground border border-border shrink-0">
                       {assigneeInitialChar}
                     </div>
-                    <span className="text-sm font-medium text-zinc-800">{assigneeName}</span>
+                    <span className="text-sm font-medium text-foreground">{assigneeName}</span>
                   </div>
                 </div>
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-zinc-400 font-bold flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground/70 font-semibold flex items-center gap-1.5">
                       <Clock size={12} /> Created
                     </span>
-                    <span className="text-xs font-bold text-zinc-700">
+                    <span className="text-xs font-semibold text-foreground/85">
                       {new Date(invoice.created_at).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-zinc-400 font-bold flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground/70 font-semibold flex items-center gap-1.5">
                       <Hash size={12} /> Reference
                     </span>
-                    <span className="text-xs font-bold text-zinc-700">{invoice.invoice_number}</span>
+                    <span className="text-xs font-semibold text-foreground/85">{invoice.invoice_number}</span>
                   </div>
                 </div>
-              </div>
+              </Card>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1.5">
                   <Banknote size={12} /> Payment breakdown
                 </label>
-                <div className="bg-zinc-50/50 rounded-2xl p-4 border border-zinc-100 space-y-3">
+                <div className="bg-muted/50 rounded-xl p-4 border border-border space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-zinc-500 font-bold">Cash received</span>
-                    <span className="text-sm font-bold text-zinc-900">₹{(invoice.cash_received || 0).toLocaleString()}</span>
+                    <span className="text-xs text-muted-foreground font-semibold">Cash received</span>
+                    <span className="text-sm font-semibold text-foreground">₹{(invoice.cash_received || 0).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-zinc-500 font-bold">Cheque</span>
-                    <span className="text-sm font-bold text-zinc-900">₹{(invoice.cheque_received || 0).toLocaleString()}</span>
+                    <span className="text-xs text-muted-foreground font-semibold">Cheque</span>
+                    <span className="text-sm font-semibold text-foreground">₹{(invoice.cheque_received || 0).toLocaleString()}</span>
                   </div>
-                  <div className="pt-3 border-t border-zinc-200 flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Grand total</span>
-                    <span className="text-lg font-bold text-emerald-600">₹{invoice.amount.toLocaleString()}</span>
+                  <div className="pt-3 border-t border-border flex justify-between items-center">
+                    <span className="text-xs font-medium text-muted-foreground/70">Grand total</span>
+                    <span className="text-lg font-semibold text-primary">₹{invoice.amount.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1.5">
                   <Clock size={12} /> Logistics timeline
                 </label>
-                <div className="relative pl-8 space-y-6 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-zinc-100">
+                <div className="relative pl-8 space-y-6 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-secondary">
                   <div className="relative">
-                    <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-zinc-900 border-4 border-white ring-1 ring-zinc-200 shadow-sm" />
-                    <p className="text-xs font-bold text-zinc-900 uppercase">Order created</p>
-                    <p className="text-[11px] text-zinc-500 mt-0.5 font-medium">{new Date(invoice.created_at).toLocaleString()}</p>
+                    <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-foreground border-4 border-card ring-1 ring-ring shadow-sm" />
+                    <p className="text-xs font-semibold text-foreground uppercase">Order created</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">{new Date(invoice.created_at).toLocaleString()}</p>
                   </div>
                   {invoice.accepted_at ? (
                     <div className="relative">
-                      <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-emerald-500 border-4 border-white ring-1 ring-emerald-100 shadow-sm" />
-                      <p className="text-xs font-bold text-zinc-900 uppercase">Accepted by logistics</p>
-                      <p className="text-[11px] text-zinc-500 mt-0.5 font-medium">{new Date(invoice.accepted_at).toLocaleString()}</p>
-                      <p className="text-[10px] text-emerald-600 font-bold mt-1 bg-emerald-50 w-fit px-2 py-0.5 rounded-lg border border-emerald-100">
+                      <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-primary border-4 border-card ring-1 ring-ring/30 shadow-sm" />
+                      <p className="text-xs font-semibold text-foreground uppercase">Accepted by logistics</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">{new Date(invoice.accepted_at).toLocaleString()}</p>
+                      <p className="text-[11px] text-primary font-semibold mt-1 bg-accent w-fit px-2 py-0.5 rounded-lg border border-primary/20">
                         {assigneeName}
                       </p>
                     </div>
                   ) : (
                     <div className="relative opacity-40">
-                      <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-zinc-200 border-4 border-white ring-1 ring-zinc-100 shadow-sm" />
-                      <p className="text-xs font-bold text-zinc-400 uppercase">Pending assignment</p>
+                      <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-border border-4 border-card ring-1 ring-ring shadow-sm" />
+                      <p className="text-xs font-semibold text-muted-foreground/70 uppercase">Pending assignment</p>
                     </div>
                   )}
                   {invoice.delivered_at && (
                     <div className="relative">
-                      <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-zinc-900 border-4 border-white ring-1 ring-zinc-200 shadow-sm" />
-                      <p className="text-xs font-bold text-zinc-900 uppercase">Successfully delivered</p>
-                      <p className="text-[11px] text-zinc-500 mt-0.5 font-medium">{new Date(invoice.delivered_at).toLocaleString()}</p>
+                      <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-foreground border-4 border-card ring-1 ring-ring shadow-sm" />
+                      <p className="text-xs font-semibold text-foreground uppercase">Successfully delivered</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">{new Date(invoice.delivered_at).toLocaleString()}</p>
                     </div>
                   )}
                   {invoice.release_to_pool_at && (
                     <div className="relative">
-                      <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-amber-500 border-4 border-white ring-1 ring-amber-100 shadow-sm" />
-                      <p className="text-xs font-bold text-zinc-900 uppercase">Released back to available pool</p>
-                      <p className="text-[11px] text-zinc-500 mt-0.5 font-medium">
+                      <div className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-warning border-4 border-card ring-1 ring-warning/30 shadow-sm" />
+                      <p className="text-xs font-semibold text-foreground uppercase">Released back to available pool</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
                         {new Date(invoice.release_to_pool_at).toLocaleString()}
                       </p>
                       {invoice.release_to_pool_by_name ? (
-                        <p className="text-[10px] text-amber-700 font-bold mt-1 bg-amber-50 w-fit px-2 py-0.5 rounded-lg border border-amber-100">
+                        <p className="text-[11px] text-warning font-semibold mt-1 bg-warning/10 w-fit px-2 py-0.5 rounded-lg border border-warning/25">
                           By: {invoice.release_to_pool_by_name}
                         </p>
                       ) : null}
                       {invoice.release_to_pool_reason ? (
-                        <p className="text-[10px] text-zinc-600 mt-1">
+                        <p className="text-[11px] text-foreground/70 mt-1">
                           Reason: <span className="font-semibold">{invoice.release_to_pool_reason}</span>
                         </p>
                       ) : null}
@@ -571,58 +576,58 @@ export default function InvoiceDetailPage() {
 
       {/* ── Audit log section ── */}
       <div className="mt-4">
-        <button
+        <Button variant="outline" size="sm"
           type="button"
           onClick={() => setShowAuditLogs((v) => !v)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-600 hover:bg-zinc-50"
+          
         >
           <History size={16} /> {showAuditLogs ? 'Hide' : 'Show'} change history
-        </button>
+        </Button>
         {showAuditLogs && (
-          <div className="mt-3 bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
+          <Card className="mt-3 overflow-hidden" >
             {auditLogsLoading ? (
-              <div className="p-6 text-center text-xs text-zinc-400 animate-pulse">Loading changes…</div>
+              <div className="p-6 text-center text-xs text-muted-foreground/70 animate-pulse">Loading changes…</div>
             ) : auditLogs.length === 0 ? (
-              <div className="p-6 text-center text-xs text-zinc-400">No changes recorded yet.</div>
+              <div className="p-6 text-center text-xs text-muted-foreground/70">No changes recorded yet.</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-zinc-50/50 border-b border-zinc-100">
-                    <tr>
-                      <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Time</th>
-                      <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Field</th>
-                      <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Old Value</th>
-                      <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">New Value</th>
-                      <th className="px-4 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">By</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-50">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="uppercase">Time</TableHead>
+                      <TableHead className="uppercase">Field</TableHead>
+                      <TableHead className="uppercase">Old Value</TableHead>
+                      <TableHead className="uppercase">New Value</TableHead>
+                      <TableHead className="uppercase">By</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {auditLogs.map((entry) => (
-                      <tr key={entry.id} className="hover:bg-zinc-50/50">
-                        <td className="px-4 py-2.5 text-[11px] text-zinc-500 whitespace-nowrap">
+                      <TableRow key={entry.id} className="">
+                        <TableCell className="text-muted-foreground whitespace-nowrap">
                           {new Date(entry.created_at).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-100 text-[10px] font-bold text-zinc-700 capitalize">
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="capitalize" >
                             {(entry.field_name || '').replace(/_/g, ' ')}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-[11px] text-zinc-500 max-w-[160px] truncate font-mono">
-                          {entry.old_value ? resolveUserId(entry.old_value) : <span className="text-zinc-300 italic">—</span>}
-                        </td>
-                        <td className="px-4 py-2.5 text-[11px] text-zinc-900 max-w-[160px] truncate font-mono font-semibold">
-                          {entry.new_value ? resolveUserId(entry.new_value) : <span className="text-zinc-300 italic">—</span>}
-                        </td>
-                        <td className="px-4 py-2.5 text-[11px] text-zinc-600 whitespace-nowrap">
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground max-w-[160px] truncate font-mono">
+                          {entry.old_value ? resolveUserId(entry.old_value) : <span className="text-muted-foreground/50 italic">—</span>}
+                        </TableCell>
+                        <TableCell className="text-foreground max-w-[160px] truncate font-mono font-semibold">
+                          {entry.new_value ? resolveUserId(entry.new_value) : <span className="text-muted-foreground/50 italic">—</span>}
+                        </TableCell>
+                        <TableCell className="text-foreground/70 whitespace-nowrap">
                           {entry.changed_by_name || '—'}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
-          </div>
+          </Card>
         )}
       </div>
 
@@ -632,7 +637,7 @@ export default function InvoiceDetailPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-foreground/50 backdrop-blur-sm"
             role="dialog"
             aria-modal="true"
             aria-labelledby="invoice-delete-title"
@@ -641,36 +646,36 @@ export default function InvoiceDetailPage() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden"
+              className="bg-card rounded-xl border border-border shadow-xl w-full max-w-md overflow-hidden"
             >
-              <div className="p-6 border-b border-zinc-100 relative">
-                <button type="button" onClick={() => { setShowDeleteModal(false); dispatch(clearInvoicesError()); }} className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" aria-label="Close">
+              <div className="p-6 border-b border-border relative">
+                <Button variant="ghost" size="icon-sm" className="absolute top-6 right-6" type="button" onClick={() => { setShowDeleteModal(false); dispatch(clearInvoicesError()); }}  aria-label="Close">
                   <X size={18} />
-                </button>
-                <h2 id="invoice-delete-title" className="text-lg font-bold text-zinc-900">
+                </Button>
+                <h2 id="invoice-delete-title" className="text-lg font-semibold text-foreground">
                   Delete invoice?
                 </h2>
-                <p className="text-sm text-zinc-600 mt-2">
-                  <span className="font-semibold text-zinc-800">{invoice.invoice_number}</span>
+                <p className="text-sm text-foreground/70 mt-2">
+                  <span className="font-semibold text-foreground">{invoice.invoice_number}</span>
                   {' · '}
                   {invoice.hospital_name}
                 </p>
-                <p className="text-xs text-red-600 font-medium mt-2">This action cannot be undone.</p>
-                {deleteError ? <p className="text-sm text-red-600 mt-3">{deleteError}</p> : null}
+                <p className="text-xs text-destructive font-medium mt-2">This action cannot be undone.</p>
+                {deleteError ? <p className="text-sm text-destructive mt-3">{deleteError}</p> : null}
               </div>
-              <div className="p-4 flex flex-wrap gap-2 justify-end bg-zinc-50/80">
-                <button
+              <div className="p-4 flex flex-wrap gap-2 justify-end bg-muted/80">
+                <Button variant="outline" size="sm"
                   type="button"
                   disabled={deleteBusy}
                   onClick={() => {
                     setShowDeleteModal(false);
                     dispatch(clearInvoicesError());
                   }}
-                  className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+                  
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button variant="outline" size="sm" className="border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/15"
                   type="button"
                   disabled={deleteBusy || !token}
                   onClick={() => {
@@ -686,10 +691,10 @@ export default function InvoiceDetailPage() {
                       .catch(() => {})
                       .finally(() => setDeleteBusy(false));
                   }}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                  
                 >
                   <Trash2 size={16} /> {deleteBusy ? 'Deleting…' : 'Delete invoice'}
-                </button>
+                </Button>
               </div>
             </motion.div>
           </motion.div>
@@ -698,13 +703,13 @@ export default function InvoiceDetailPage() {
 
       {statusAction && invoice && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-sm overflow-hidden">
-            <div className="p-6 border-b border-zinc-100 relative">
-              <button type="button" onClick={() => { setStatusAction(null); setUploadFile(null); setUploadedUrl(''); setReplaceMode(false); }} className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" aria-label="Close">
+          <Card className="w-full max-w-sm overflow-hidden" >
+            <div className="p-6 border-b border-border relative">
+              <Button variant="ghost" size="icon-sm" className="absolute top-6 right-6" type="button" onClick={() => { setStatusAction(null); setUploadFile(null); setUploadedUrl(''); setReplaceMode(false); }}  aria-label="Close">
                 <X size={18} />
-              </button>
-              <h2 className="text-lg font-bold text-zinc-900">Mark as Complete</h2>
-              <p className="text-sm text-zinc-600 mt-2">
+              </Button>
+              <h2 className="text-lg font-semibold text-foreground">Mark as Complete</h2>
+              <p className="text-sm text-foreground/70 mt-2">
                 <span className="font-semibold">{invoice.invoice_number}</span> &middot; {invoice.hospital_name}
               </p>
               <div className="mt-4 space-y-3">
@@ -712,12 +717,12 @@ export default function InvoiceDetailPage() {
                     const existingDoc = invoice.signed_copy_url;
                     if (existingDoc && !replaceMode && !uploadedUrl) {
                       return (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 space-y-2">
-                          <p className="text-xs font-bold text-emerald-700">Document already uploaded</p>
+                        <div className="bg-accent border border-primary/20 rounded-md px-4 py-3 space-y-2">
+                          <p className="text-xs font-semibold text-accent-foreground">Document already uploaded</p>
                           <button
                             type="button"
                             onClick={() => setReplaceMode(true)}
-                            className="text-xs font-bold text-amber-600 hover:text-amber-700 underline"
+                            className="text-xs font-semibold text-warning hover:text-warning underline"
                           >
                             Replace with a different image
                           </button>
@@ -726,21 +731,21 @@ export default function InvoiceDetailPage() {
                     }
                     if (uploadedUrl) {
                       return (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                          <p className="text-xs font-bold text-emerald-700">New document uploaded</p>
-                          <p className="text-[10px] text-emerald-600 mt-1 break-all">{uploadedUrl}</p>
+                        <div className="bg-accent border border-primary/20 rounded-md px-4 py-3">
+                          <p className="text-xs font-semibold text-accent-foreground">New document uploaded</p>
+                          <p className="text-[11px] text-primary mt-1 break-all">{uploadedUrl}</p>
                         </div>
                       );
                     }
                     return (
                       <>
-                        <label className="text-xs font-bold text-zinc-500 block">Upload invoice document *</label>
+                        <label className="text-xs font-semibold text-muted-foreground block">Upload invoice document *</label>
                         <input
                           type="file" accept="image/*"
                           onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                          className="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-900 file:text-white hover:file:bg-zinc-800"
+                          className="text-sm file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-[13px] file:font-medium hover:file:bg-accent"
                         />
-                        <button
+                        <Button variant="dark" size="sm" className="w-full"
                           type="button"
                           disabled={statusBusy || !uploadFile || !token}
                           onClick={async () => {
@@ -756,25 +761,25 @@ export default function InvoiceDetailPage() {
                               setStatusBusy(false);
                             }
                           }}
-                          className="w-full px-4 py-2 rounded-xl bg-zinc-800 text-white text-xs font-bold hover:bg-zinc-700 disabled:opacity-50"
+                          
                         >
                           {statusBusy ? 'Uploading…' : 'Upload Document'}
-                        </button>
+                        </Button>
                       </>
                     );
                   })()}
                 </div>
             </div>
-            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
-              <button
+            <div className="p-4 flex gap-2 justify-end bg-muted/80">
+              <Button variant="outline" size="sm"
                 type="button"
                 disabled={statusBusy}
                 onClick={() => { setStatusAction(null); setUploadFile(null); setUploadedUrl(''); setReplaceMode(false); }}
-                className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50"
+                
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button variant="dark" size="sm"
                 type="button"
                 disabled={statusBusy || !token || (!uploadedUrl && !invoice.signed_copy_url)}
                 onClick={async () => {
@@ -796,45 +801,45 @@ export default function InvoiceDetailPage() {
                     setStatusBusy(false);
                   }
                 }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 disabled:opacity-50"
+                
               >
                 {statusBusy ? 'Updating…' : 'Complete'}
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
       {previewImage && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-foreground/60 backdrop-blur-sm"
           onClick={() => setPreviewImage(null)}
           role="dialog"
           aria-modal="true"
         >
-          <div
-            className="bg-white rounded-2xl border border-zinc-200 shadow-2xl w-full max-w-3xl overflow-hidden"
+          <Card className="w-full max-w-3xl overflow-hidden"
+            
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/40">
-              <span className="text-xs font-bold text-zinc-600">Signed copy — {previewImage.number}</span>
-              <button
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/40">
+              <span className="text-xs font-semibold text-foreground/70">Signed copy — {previewImage.number}</span>
+              <Button variant="ghost" size="icon-sm"
                 type="button"
                 onClick={() => setPreviewImage(null)}
-                className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+                
                 aria-label="Close preview"
               >
                 <X size={18} />
-              </button>
+              </Button>
             </div>
-            <div className="p-4 flex justify-center bg-zinc-50/30 max-h-[80vh] overflow-auto">
+            <div className="p-4 flex justify-center bg-muted/30 max-h-[80vh] overflow-auto">
               <img
                 src={previewImage.url}
                 alt={`Signed copy — ${previewImage.number}`}
                 className="max-w-full h-auto object-contain rounded-lg"
               />
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </InvoiceSectionFrame>

@@ -21,11 +21,11 @@ export function getNotificationCategory(item: any): CategoryTab {
 }
 
 const CATEGORY_BADGES: Record<CategoryTab, { label: string; bg: string; text: string; icon: any }> = {
-  all: { label: 'All', bg: 'bg-zinc-100', text: 'text-zinc-700', icon: Bell },
-  attendance: { label: 'Attendance', bg: 'bg-blue-50', text: 'text-blue-700', icon: Clock },
+  all: { label: 'All', bg: 'bg-secondary', text: 'text-foreground/85', icon: Bell },
+  attendance: { label: 'Attendance', bg: 'bg-info/10', text: 'text-info', icon: Clock },
   leave: { label: 'Leave', bg: 'bg-purple-50', text: 'text-purple-700', icon: Calendar },
-  expenses: { label: 'Expenses', bg: 'bg-emerald-50', text: 'text-emerald-700', icon: FileText },
-  payroll: { label: 'Payroll', bg: 'bg-amber-50', text: 'text-amber-700', icon: DollarSign },
+  expenses: { label: 'Expenses', bg: 'bg-accent', text: 'text-accent-foreground', icon: FileText },
+  payroll: { label: 'Payroll', bg: 'bg-warning/10', text: 'text-warning', icon: DollarSign },
 };
 
 export default function NotificationBell() {
@@ -95,15 +95,11 @@ export default function NotificationBell() {
     <div className="relative">
       <button
         onClick={() => navigate('/notifications')}
-        className="relative p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900 transition-all"
+        className="relative grid size-8 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
         title="Notifications"
       >
-        <Bell size={18} />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-4.5 px-1 bg-red-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center leading-none border-2 border-white">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
-        )}
+        <Bell size={16} />
+        {unreadCount > 0 && <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-destructive" />}
       </button>
     </div>
   );

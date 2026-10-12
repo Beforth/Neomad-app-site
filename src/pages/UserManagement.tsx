@@ -2,19 +2,26 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   UserPlus, Shield, Trash2, Edit2, CheckCircle2,
-  XCircle, Search, Key, X, Save, Eye, EyeOff, ArrowUp, ArrowDown
-} from 'lucide-react';
+  XCircle, Search, Key, X, Save, Eye, EyeOff, ArrowUp, ArrowDown, MoreHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getUsers, getRoles, createUser, updateUser, resetUserPassword, mapBackendRoleToFrontend, normalizeFetchError } from '../lib/api';
 import SearchableSelect from '../components/SearchableSelect';
 
+import Modal from '../components/Modal';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input, fieldClass } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 const ROLE_COLORS: Record<string, string> = {
-  super_admin: 'bg-rose-50 text-rose-700',
+  super_admin: 'bg-destructive/10 text-destructive',
   admin: 'bg-purple-50 text-purple-700',
-  manager: 'bg-blue-50 text-blue-700',
-  delivery: 'bg-zinc-50 text-zinc-600',
-  delivery_boy: 'bg-zinc-50 text-zinc-600',
-  staff: 'bg-emerald-50 text-emerald-700',
+  manager: 'bg-info/10 text-info',
+  delivery: 'bg-muted text-foreground/70',
+  delivery_boy: 'bg-muted text-foreground/70',
+  staff: 'bg-accent text-accent-foreground',
 };
 
 /** Map API user to FE table shape */
@@ -34,49 +41,16 @@ function toTableUser(u: { id: number; email: string; full_name: string | null; p
 }
 
 /** Stable modal/field components (defined outside so modal does not remount on every keystroke) */
-function Modal({ title, onClose, children, closeOnBackdropClick = true }: { title: string; onClose: () => void; children: React.ReactNode; closeOnBackdropClick?: boolean }) {
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      if (closeOnBackdropClick) onClose();
-      else e.preventDefault();
-    }
-  };
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-      onClick={closeOnBackdropClick ? onClose : undefined}
-      onKeyDown={handleKeyDown}
-      role="dialog"
-      aria-modal="true"
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
-      >
-        <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
-          <h3 className="font-bold text-zinc-900">{title}</h3>
-          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors">
-            <X size={20} />
-          </button>
-        </div>
-        {children}
-      </motion.div>
-    </div>
-  );
-}
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-zinc-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-foreground/85 mb-1">{label}</label>
       {children}
     </div>
   );
 }
 
-const inputClassName = "w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all";
+const inputClassName = fieldClass;
 
 export default function UserManagement() {
   const { user: currentUser, token } = useAuth();
@@ -288,164 +262,156 @@ export default function UserManagement() {
       <AnimatePresence>
         {toast && (
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="fixed top-6 right-6 z-[9999] bg-zinc-900 text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
-            <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
+            className="fixed top-6 right-6 z-[9999] bg-foreground text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
+            <CheckCircle2 size={16} className="text-primary" /> {toast}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">User Management</h1>
-          <p className="text-xs text-zinc-500 font-medium">Manage system users and permissions</p>
-        </div>
-        <button
+      <PageHeader title="User Management" description="Manage system users and permissions" actions={<>
+<Button variant="dark" size="sm"
           onClick={() => {
             setShowAddModal(true);
             setNewUser((prev) => ({ ...prev, role: prev.role || roles.find((r) => r.code !== 'user')?.code || 'staff' }));
           }}
           disabled={!token}
-          className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm disabled:opacity-50"
+          
         >
           <UserPlus size={14} /> New User
-        </button>
-      </div>
+        </Button>
+</>} />
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg space-y-1">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm px-4 py-3 rounded-lg space-y-1">
           <p className="font-medium">{error}</p>
           {error.includes('Admin access') && (
-            <p className="text-xs text-red-600/90">
+            <p className="text-xs text-destructive">
               Your account may not have the Admin role assigned. An existing admin can run the backend script{' '}
-              <code className="bg-red-100 px-1 rounded">python -m scripts.create_super_admin</code> with your email to grant admin access.
+              <code className="bg-destructive/15 px-1 rounded">python -m scripts.create_super_admin</code> with your email to grant admin access.
             </p>
           )}
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
-        <div className="p-3 border-b border-zinc-100 bg-zinc-50/30">
+      <Card className="overflow-hidden" >
+        <div className="p-3 border-b border-border bg-muted/30">
           <div className="relative max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-            <input type="text" placeholder="Search users..." value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-white border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all shadow-sm" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+            <Input data-search="" className="w-full pl-9 pr-4" type="text" placeholder="Search users..." value={search} onChange={e => setSearch(e.target.value)}
+               />
           </div>
         </div>
 
         {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-zinc-50/50 border-b border-zinc-100">
-                <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+          <Table className="border-collapse">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="uppercase">
                   <button
                     type="button"
                     onClick={() => setUserSort(s => (s === 'asc' ? 'desc' : 'asc'))}
-                    className="flex items-center gap-1 hover:text-zinc-600 transition-colors cursor-pointer"
+                    className="flex items-center gap-1 hover:text-foreground/70 transition-colors cursor-pointer"
                     title={userSort === 'asc' ? 'Sort A–Z (click for Z–A)' : 'Sort Z–A (click for A–Z)'}
                   >
                     User
                     {userSort === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
                   </button>
-                </th>
+                </TableHead>
                 {['Phone', 'Role', 'Status', 'Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{h}</th>
+                  <TableHead key={h} className="uppercase">{h}</TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-50">
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {loading ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-zinc-400">Loading users...</td></tr>
+                <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground/70">Loading users...</TableCell></TableRow>
               ) : sortedFiltered.map(u => (
-                <tr key={u.id} className="hover:bg-zinc-50/50 transition-colors group">
-                  <td className="px-4 py-3">
+                <TableRow key={u.id} className="">
+                  <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 font-bold text-xs border border-zinc-200 shadow-sm">
+                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-foreground/70 font-semibold text-xs border border-border shadow-sm">
                         {u.username[0].toUpperCase()}
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-zinc-900">{u.username}</p>
-                        <p className="text-[10px] text-zinc-400 font-medium">{u.email}</p>
+                        <p className="text-xs font-semibold text-foreground">{u.username}</p>
+                        <p className="text-[11px] text-muted-foreground/70 font-medium">{u.email}</p>
                       </div>
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-zinc-600">{u.phone || <span className="text-zinc-300">—</span>}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold capitalize ${ROLE_COLORS[u.role]}`}>
+                  </TableCell>
+                  <TableCell className="text-foreground/70">{u.phone || <span className="text-muted-foreground/50">—</span>}</TableCell>
+                  <TableCell>
+                    <Badge className={`capitalize ${ROLE_COLORS[u.role]}`}>
                       <Shield size={10} />{u.role.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
                     <button onClick={() => handleToggleStatus(u)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize transition-all border ${u.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200'
-                        : 'bg-red-50 text-red-700 border-red-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize transition-all border ${u.status === 'active' ? 'bg-accent text-accent-foreground border-primary/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20'
+                        : 'bg-destructive/10 text-destructive border-destructive/20 hover:bg-accent hover:text-accent-foreground hover:border-primary/20'
                         }`} title="Click to toggle">
                       {u.status === 'active' ? <><CheckCircle2 size={10} />Active</> : <><XCircle size={10} />Inactive</>}
                     </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setEditingUser({ ...u })}
-                        className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-md transition-all" title="Edit User">
-                        <Edit2 size={14} />
-                      </button>
-                      <button onClick={() => { setResetUser(u); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }}
-                        className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title="Reset Password">
-                        <Key size={14} />
-                      </button>
-                      <button onClick={() => setDeleteConfirm(u)}
-                        className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all" title="Delete User">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                  <TableCell className="w-10 pl-0" onClick={(e) => e.stopPropagation()}>
+<DropdownMenu>
+<DropdownMenuTrigger asChild>
+<Button variant="ghost" size="icon-sm" data-row-menu="" aria-label="Row actions"><MoreHorizontal /></Button>
+</DropdownMenuTrigger>
+<DropdownMenuContent align="end" className="w-52">
+<DropdownMenuItem onSelect={() => setEditingUser({ ...u })}><Edit2 /> Edit User</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => { setResetUser(u); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }}><Key /> Reset Password</DropdownMenuItem>
+                      <DropdownMenuItem destructive onSelect={() => setDeleteConfirm(u)}><Trash2 /> Delete User</DropdownMenuItem>
+</DropdownMenuContent>
+</DropdownMenu>
+</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
         {/* Mobile Cards */}
-        <div className="md:hidden divide-y divide-zinc-100">
+        <div className="md:hidden divide-y divide-border">
           {sortedFiltered.map(u => (
             <div key={u.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 font-bold">
+                  <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-foreground/70 font-semibold">
                     {u.username[0].toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-bold text-zinc-900 text-sm">{u.username}</p>
-                    <p className="text-xs text-zinc-500">{u.email}</p>
+                    <p className="font-semibold text-foreground text-sm">{u.username}</p>
+                    <p className="text-xs text-muted-foreground">{u.email}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => setEditingUser({ ...u })} className="p-2 text-zinc-400 hover:text-zinc-700"><Edit2 size={16} /></button>
-                  <button onClick={() => { setResetUser(u); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }} className="p-2 text-zinc-400 hover:text-blue-600"><Key size={16} /></button>
-                  <button onClick={() => setDeleteConfirm(u)} className="p-2 text-zinc-400 hover:text-red-600"><Trash2 size={16} /></button>
+                  <Button variant="ghost" size="icon-sm" onClick={() => setEditingUser({ ...u })} ><Edit2 size={16} /></Button>
+                  <Button variant="ghost" size="icon-sm" className="hover:text-info" onClick={() => { setResetUser(u); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }} ><Key size={16} /></Button>
+                  <Button variant="ghost" size="icon-sm" className="hover:text-destructive" onClick={() => setDeleteConfirm(u)} ><Trash2 size={16} /></Button>
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap">
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${ROLE_COLORS[u.role]}`}>
+                <Badge className={`capitalize ${ROLE_COLORS[u.role]}`}>
                   <Shield size={10} />{u.role.replace('_', ' ')}
-                </span>
+                </Badge>
                 <button onClick={() => handleToggleStatus(u)}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${u.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize ${u.status === 'active' ? 'bg-primary/15 text-accent-foreground' : 'bg-destructive/15 text-destructive'}`}>
                   {u.status === 'active' ? <><CheckCircle2 size={10} />Active</> : <><XCircle size={10} />Inactive</>}
                 </button>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      </Card>
 
       {/* ADD USER MODAL */}
       {showAddModal && (
         <Modal title="Add New User" onClose={() => setShowAddModal(false)} closeOnBackdropClick={false}>
           <form onSubmit={handleAddUser} className="p-5 space-y-4">
-            <Field label="Username"><input type="text" required value={newUser.username} onChange={(e) => setNewUser((prev) => ({ ...prev, username: e.target.value }))} placeholder="johndoe" className={inputClassName} /></Field>
-            <Field label="Email"><input type="email" required value={newUser.email} onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))} placeholder="john@example.com" className={inputClassName} /></Field>
-            <Field label="Phone"><input type="tel" value={newUser.phone} onChange={(e) => setNewUser((prev) => ({ ...prev, phone: e.target.value }))} placeholder="+91 98765 43210" className={inputClassName} /></Field>
-            <Field label="Password"><input type="password" required value={newUser.password} onChange={(e) => setNewUser((prev) => ({ ...prev, password: e.target.value }))} placeholder="Min. 6 characters" className={inputClassName} /></Field>
+            <Field label="Username"><Input type="text" required value={newUser.username} onChange={(e) => setNewUser((prev) => ({ ...prev, username: e.target.value }))} placeholder="johndoe"  /></Field>
+            <Field label="Email"><Input type="email" required value={newUser.email} onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))} placeholder="john@example.com"  /></Field>
+            <Field label="Phone"><Input type="tel" value={newUser.phone} onChange={(e) => setNewUser((prev) => ({ ...prev, phone: e.target.value }))} placeholder="+91 98765 43210"  /></Field>
+            <Field label="Password"><Input type="password" required value={newUser.password} onChange={(e) => setNewUser((prev) => ({ ...prev, password: e.target.value }))} placeholder="Min. 6 characters"  /></Field>
             <Field label="Role">
               <SearchableSelect
                 value={newUser.role}
@@ -463,21 +429,21 @@ export default function UserManagement() {
                 }
               />
               {rolesError && (
-                <p className="mt-1 text-xs text-red-600 flex items-center gap-2">
+                <p className="mt-1 text-xs text-destructive flex items-center gap-2">
                   {rolesError}
-                  <button type="button" onClick={fetchRoles} className="text-emerald-600 font-medium hover:underline">
+                  <button type="button" onClick={fetchRoles} className="text-primary font-medium hover:underline">
                     Retry
                   </button>
                 </p>
               )}
             </Field>
-            <button
+            <Button size="lg" className="w-full"
               type="submit"
               disabled={addLoading || !newUser.role || roles.filter((r) => r.code !== 'user').length === 0}
-              className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+              
             >
               <Save size={16} /> {addLoading ? 'Creating...' : 'Create User'}
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
@@ -486,9 +452,9 @@ export default function UserManagement() {
       {editingUser && (
         <Modal title="Edit User" onClose={() => setEditingUser(null)}>
           <form onSubmit={handleEditSave} className="p-5 space-y-4">
-            <Field label="Username"><input type="text" required value={editingUser.username} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, username: e.target.value }))} className={inputClassName} /></Field>
-            <Field label="Email"><input type="email" required value={editingUser.email} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, email: e.target.value }))} className={inputClassName} /></Field>
-            <Field label="Phone"><input type="tel" value={editingUser.phone || ''} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, phone: e.target.value }))} placeholder="+91 98765 43210" className={inputClassName} /></Field>
+            <Field label="Username"><Input type="text" required value={editingUser.username} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, username: e.target.value }))}  /></Field>
+            <Field label="Email"><Input type="email" required value={editingUser.email} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, email: e.target.value }))}  /></Field>
+            <Field label="Phone"><Input type="tel" value={editingUser.phone || ''} onChange={(e) => setEditingUser((prev: any) => ({ ...prev, phone: e.target.value }))} placeholder="+91 98765 43210"  /></Field>
             <Field label="Role">
               <SearchableSelect
                 value={editingUser.role_code ?? editingUser.role ?? ''}
@@ -504,17 +470,17 @@ export default function UserManagement() {
                 }
               />
               {rolesError && (
-                <p className="mt-1 text-xs text-red-600 flex items-center gap-2">
+                <p className="mt-1 text-xs text-destructive flex items-center gap-2">
                   {rolesError}
-                  <button type="button" onClick={fetchRoles} className="text-emerald-600 font-medium hover:underline">
+                  <button type="button" onClick={fetchRoles} className="text-primary font-medium hover:underline">
                     Retry
                   </button>
                 </p>
               )}
             </Field>
-            <button type="submit" disabled={editLoading || (roles.length === 0 && !rolesError)} className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+            <Button variant="dark" size="lg" className="w-full" type="submit" disabled={editLoading || (roles.length === 0 && !rolesError)} >
               <Save size={16} /> {editLoading ? 'Saving...' : 'Save Changes'}
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
@@ -523,26 +489,26 @@ export default function UserManagement() {
       {resetUser && (
         <Modal title={`Reset Password — ${resetUser.username}`} onClose={() => setResetUser(null)}>
           <form onSubmit={handleResetPassword} className="p-5 space-y-4">
-            <p className="text-sm text-zinc-500">Enter a new password for <strong>{resetUser.username}</strong>.</p>
+            <p className="text-sm text-muted-foreground">Enter a new password for <strong>{resetUser.username}</strong>.</p>
             <div className="relative">
-              <input type={showAdminPw ? 'text' : 'password'} placeholder="Your admin password"
-                value={adminPw} onChange={(e) => setAdminPw(e.target.value)} required className={inputClassName} />
+              <Input type={showAdminPw ? 'text' : 'password'} placeholder="Your admin password"
+                value={adminPw} onChange={(e) => setAdminPw(e.target.value)} required  />
               <button type="button" onClick={() => setShowAdminPw(p => !p)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70">
                 {showAdminPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
             <div className="relative">
-              <input type={showPw ? 'text' : 'password'} placeholder="New password (min 6 chars)"
-                value={newPw} onChange={(e) => setNewPw(e.target.value)} minLength={6} required className={inputClassName} />
+              <Input type={showPw ? 'text' : 'password'} placeholder="New password (min 6 chars)"
+                value={newPw} onChange={(e) => setNewPw(e.target.value)} minLength={6} required  />
               <button type="button" onClick={() => setShowPw(p => !p)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70">
                 {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            <button type="submit" disabled={resetLoading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+            <Button size="lg" className="w-full bg-info text-white hover:bg-info hover:text-white bg-info text-white hover:bg-info" type="submit" disabled={resetLoading} >
               <Key size={16} /> {resetLoading ? 'Resetting...' : 'Reset Password'}
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
@@ -551,18 +517,18 @@ export default function UserManagement() {
       {deleteConfirm && (
         <Modal title="Delete User" onClose={() => setDeleteConfirm(null)}>
           <div className="p-5 space-y-4">
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-muted-foreground">
               Are you sure you want to delete <strong>{deleteConfirm.username}</strong>? This action cannot be undone.
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2.5 bg-zinc-100 text-zinc-700 rounded-xl font-bold hover:bg-zinc-200 transition-colors text-sm">
+              <Button variant="secondary" className="flex-1" onClick={() => setDeleteConfirm(null)}
+                >
                 Cancel
-              </button>
-              <button onClick={() => handleDeleteUser(deleteConfirm)}
-                className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm">
+              </Button>
+              <Button variant="destructive" className="flex-1" onClick={() => handleDeleteUser(deleteConfirm)}
+                >
                 <Trash2 size={14} /> Delete
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>

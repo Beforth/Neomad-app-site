@@ -14,12 +14,17 @@ import {
   getExpense, resolveExpense, deleteExpense, resubmitExpense, updateExpense,
 } from '../../lib/hrmsExpenses';
 import { exportExpensePdf } from '../../lib/hrmsExports';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input, Textarea } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import KpiStrip from '@/components/KpiStrip';
 
 const STATUS_BADGE: Record<ExpenseStatus, { base: string; label: string }> = {
-  draft: { base: 'bg-zinc-100 text-zinc-500', label: 'Draft' },
-  pending: { base: 'bg-amber-50 text-amber-600', label: 'Pending' },
-  approved: { base: 'bg-emerald-50 text-emerald-600', label: 'Approved' },
-  rejected: { base: 'bg-rose-50 text-rose-600', label: 'Rejected' },
+  draft: { base: 'bg-secondary text-muted-foreground', label: 'Draft' },
+  pending: { base: 'bg-warning/10 text-warning', label: 'Pending' },
+  approved: { base: 'bg-accent text-primary', label: 'Approved' },
+  rejected: { base: 'bg-destructive/10 text-destructive', label: 'Rejected' },
 };
 
 const PAYMENT_ICON: Record<string, any> = {
@@ -179,7 +184,7 @@ export default function ExpenseDetail() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <p className="text-sm text-zinc-400 animate-pulse py-16 text-center">Loading expense...</p>
+        <p className="text-sm text-muted-foreground/70 animate-pulse py-16 text-center">Loading expense...</p>
       </div>
     );
   }
@@ -188,11 +193,11 @@ export default function ExpenseDetail() {
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <h3 className="text-sm font-bold text-zinc-900 mb-1">Expense not found</h3>
-          <p className="text-xs text-zinc-400 mb-4">This expense doesn't exist or has been deleted.</p>
-          <button onClick={() => navigate('/hrms/expenses')} className="px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors">
+          <h3 className="text-sm font-semibold text-foreground mb-1">Expense not found</h3>
+          <p className="text-xs text-muted-foreground/70 mb-4">This expense doesn't exist or has been deleted.</p>
+          <Button variant="dark" size="sm" onClick={() => navigate('/hrms/expenses')} >
             Back to Expenses
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -202,11 +207,11 @@ export default function ExpenseDetail() {
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <h3 className="text-sm font-bold text-zinc-900 mb-1">Expense not found</h3>
-          <p className="text-xs text-zinc-400 mb-4">You can only view your own expenses.</p>
-          <button onClick={() => navigate('/hrms/expenses')} className="px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors">
+          <h3 className="text-sm font-semibold text-foreground mb-1">Expense not found</h3>
+          <p className="text-xs text-muted-foreground/70 mb-4">You can only view your own expenses.</p>
+          <Button variant="dark" size="sm" onClick={() => navigate('/hrms/expenses')} >
             Back to My Expenses
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -224,120 +229,105 @@ export default function ExpenseDetail() {
     <div className="space-y-6">
       {toast && (
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-          className="fixed top-5 right-5 z-[9999] bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
-          <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
+          className="fixed top-5 right-5 z-[9999] bg-foreground text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
+          <CheckCircle2 size={16} className="text-primary" /> {toast}
         </motion.div>
       )}
 
       <motion.header initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3">
-        <button onClick={() => navigate('/hrms/expenses')} className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+        <Button variant="ghost" size="icon-sm" onClick={() => navigate('/hrms/expenses')} >
           <ArrowLeft size={18} />
-        </button>
+        </Button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">{expense.employeeName}</h1>
-            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${STATUS_BADGE[expense.status].base}`}>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">{expense.employeeName}</h1>
+            <Badge className={`${STATUS_BADGE[expense.status].base}`}>
               {STATUS_BADGE[expense.status].label}
-            </span>
+            </Badge>
             {(expense.date > new Date().toISOString().split('T')[0] || expense.description?.toLowerCase().includes('advance')) && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold">
+              <Badge className="bg-purple-50 text-purple-700 border-purple-200" >
                 ⚡ Advance Expense Request
-              </span>
+              </Badge>
             )}
           </div>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">
+          <p className="text-xs text-muted-foreground font-medium mt-0.5">
             {CATEGORY_LABELS[expense.category]} expense on {expense.date}
           </p>
         </div>
-        <button onClick={handleExportPdf} disabled={exporting}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-zinc-600 border border-zinc-200 text-xs font-bold hover:bg-zinc-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={exporting}
+          
           title="Download this claim with its receipts as a PDF">
           {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
           {exporting ? 'Preparing…' : 'Export PDF'}
-        </button>
+        </Button>
         {!isEmployee && expense.status === 'pending' && (
           <div className="flex items-center gap-1">
-            <button onClick={() => { setNotesModal('approve'); setNotes(''); setApproveAmount(total); }}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold hover:bg-emerald-100 transition-colors">
+            <Button variant="soft" size="sm" className="bg-accent text-accent-foreground border-primary/20 hover:bg-primary/15" onClick={() => { setNotesModal('approve'); setNotes(''); setApproveAmount(total); }}
+              >
               <CheckCircle2 size={14} /> Approve
-            </button>
-            <button onClick={() => { setNotesModal('reject'); setNotes(''); }}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition-colors">
+            </Button>
+            <Button variant="outline" size="sm" className="bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/15" onClick={() => { setNotesModal('reject'); setNotes(''); }}
+              >
               <XCircle size={14} /> Reject
-            </button>
+            </Button>
           </div>
         )}
         {isEmployee && expense.status === 'rejected' && (
-          <button onClick={() => { setResubmitTarget(expense); setResubmitReceipt(''); }}
-            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold hover:bg-amber-100 transition-colors">
+          <Button variant="soft" size="sm" className="bg-warning/10 text-warning border-warning/25 hover:bg-warning/15" onClick={() => { setResubmitTarget(expense); setResubmitReceipt(''); }}
+            >
             <RotateCcw size={14} /> Resubmit
-          </button>
+          </Button>
         )}
         {!isEmployee && (
-          <button onClick={() => setDeleteTarget(true)} className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+          <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteTarget(true)}  title="Delete">
             <Trash2 size={18} />
-          </button>
+          </Button>
         )}
       </motion.header>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: 'Requested', value: formatINR(requested), icon: IndianRupee, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Tax', value: formatINR(tax), icon: IndianRupee, color: 'bg-amber-50 text-amber-600' },
-          { label: 'Total', value: formatINR(total), icon: IndianRupee, color: 'bg-emerald-50 text-emerald-600' },
-          { label: 'Payments', value: String(expense.payments.length), icon: CreditCard, color: 'bg-purple-50 text-purple-600' },
-          ...(expense.status === 'approved' && expense.approvedAmount !== undefined ? [
-            { label: 'Approved', value: formatINR(expense.approvedAmount), icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
-            { label: 'Remaining', value: formatINR(Math.max(0, total - expense.approvedAmount)), icon: XCircle, color: expense.approvedAmount >= total ? 'bg-zinc-50 text-zinc-400' : 'bg-rose-50 text-rose-600' },
-          ] : []),
-        ].map((card, i) => (
-          <motion.div key={card.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-            className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${card.color}`}>
-              <card.icon size={18} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-lg font-extrabold text-zinc-900 leading-none truncate">{card.value}</p>
-              <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">{card.label}</p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+      <KpiStrip items={[
+  { label: 'Requested', value: formatINR(requested) },
+  { label: 'Tax', value: formatINR(tax) },
+  { label: 'Total', value: formatINR(total) },
+  { label: 'Payments', value: String(expense.payments.length) },
+  { label: 'Approved', value: formatINR(expense.approvedAmount) },
+  { label: 'Remaining', value: formatINR(Math.max(0, total - expense.approvedAmount)) },
+]} />
 
       {expense.status === 'draft' && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden">
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden">
           <div className="p-4 flex flex-wrap gap-3">
-            <button onClick={() => navigate(`/hrms/expenses/edit/${expense.id}`)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold hover:bg-blue-100 transition-colors">
+            <Button variant="soft" size="sm" className="bg-info/10 text-info border-info/25 hover:bg-info/15" onClick={() => navigate(`/hrms/expenses/edit/${expense.id}`)}
+              >
               <Pen size={14} />Edit
-            </button>
+            </Button>
             {isEmployee && (
-              <button onClick={() => setStatusDirect('pending')}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold hover:bg-emerald-100 transition-colors">
+              <Button variant="soft" size="sm" className="bg-accent text-accent-foreground border-primary/20 hover:bg-primary/15" onClick={() => setStatusDirect('pending')}
+                >
                 <CheckCircle2 size={14} />Submit for Approval
-              </button>
+              </Button>
             )}
           </div>
         </motion.div>
       )}
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Expense Info</h2>
+        className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden">
+        <div className="px-4 py-3 border-b border-border bg-muted/50">
+          <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Expense Info</h2>
         </div>
         <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1">Date</p>
-            <p className="text-sm font-medium text-zinc-900">{expense.date}</p>
+            <p className="text-xs text-muted-foreground/70 font-medium mb-1">Date</p>
+            <p className="text-sm font-medium text-foreground">{expense.date}</p>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1">Status</p>
+            <p className="text-xs text-muted-foreground/70 font-medium mb-1">Status</p>
             <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${STATUS_BADGE[expense.status].base}`}>
+              <Badge className={`${STATUS_BADGE[expense.status].base}`}>
                 {STATUS_BADGE[expense.status].label}
-              </span>
+              </Badge>
               <div className="w-[140px]">
                 <SearchableSelect
                   value={expense.status}
@@ -348,62 +338,62 @@ export default function ExpenseDetail() {
               </div>
             </div>
             {!isEmployee && expense.status === 'pending' && (
-              <p className="text-[11px] text-zinc-400 mt-1">Use Approve / Reject above to review this claim.</p>
+              <p className="text-[11px] text-muted-foreground/70 mt-1">Use Approve / Reject above to review this claim.</p>
             )}
           </div>
           <div className="sm:col-span-1">
-            <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1">Description</p>
-            <p className="text-sm font-medium text-zinc-900">{expense.description || '—'}</p>
+            <p className="text-xs text-muted-foreground/70 font-medium mb-1">Description</p>
+            <p className="text-sm font-medium text-foreground">{expense.description || '—'}</p>
           </div>
         </div>
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Payments</h2>
+        className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden">
+        <div className="px-4 py-3 border-b border-border bg-muted/50">
+          <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Payments</h2>
         </div>
         {expense.payments.length === 0 ? (
           <div className="p-4">
-            <p className="text-xs text-zinc-400">No payment details attached.</p>
+            <p className="text-xs text-muted-foreground/70">No payment details attached.</p>
           </div>
         ) : (
           <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             {expense.payments.map((pay, i) => {
               const Icon = PAYMENT_ICON[pay.paymentMethod];
               return (
-                <div key={pay.id ?? i} className="rounded-xl border border-zinc-200 p-4 space-y-2">
+                <div key={pay.id ?? i} className="rounded-xl border border-border p-4 space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      {Icon && <Icon size={15} className="text-zinc-400 shrink-0" />}
-                      <p className="text-xs font-bold text-zinc-900 truncate">{pay.title || 'Payment'}</p>
+                      {Icon && <Icon size={15} className="text-muted-foreground/70 shrink-0" />}
+                      <p className="text-xs font-semibold text-foreground truncate">{pay.title || 'Payment'}</p>
                     </div>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-50 text-zinc-600 shrink-0">
+                    <Badge className="shrink-0" >
                       {PAYMENT_METHOD_LABELS[pay.paymentMethod] || pay.paymentMethod || '—'}
-                    </span>
+                    </Badge>
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {pay.category && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-zinc-900 text-white text-[10px] font-bold">
+                      <Badge>
                         {CATEGORY_LABELS[pay.category] || pay.category}
-                      </span>
+                      </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-zinc-500 flex-wrap">
-                    <span className="font-extrabold text-zinc-900">{formatINR(Number(pay.amount) || 0)}</span>
-                    {Number(pay.taxAmount) > 0 && <span className="text-amber-600">+ tax {formatINR(Number(pay.taxAmount) || 0)}</span>}
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                    <span className="font-semibold text-foreground">{formatINR(Number(pay.amount) || 0)}</span>
+                    {Number(pay.taxAmount) > 0 && <span className="text-warning">+ tax {formatINR(Number(pay.taxAmount) || 0)}</span>}
                     {pay.time && (
-                      <span className="flex items-center gap-1 text-zinc-400">
+                      <span className="flex items-center gap-1 text-muted-foreground/70">
                         <Clock size={11} /> {pay.time}
                       </span>
                     )}
                   </div>
                   {pay.receipt ? (
                     <div className="relative inline-block">
-                      <img src={pay.receipt} alt="Receipt" className="h-20 rounded-lg border border-zinc-200" />
+                      <img src={pay.receipt} alt="Receipt" className="h-20 rounded-lg border border-border" />
                     </div>
                   ) : (
-                    <p className="text-[10px] text-zinc-300 flex items-center gap-1">
+                    <p className="text-[11px] text-muted-foreground/50 flex items-center gap-1">
                       <Receipt size={11} /> No receipt attached
                     </p>
                   )}
@@ -416,155 +406,149 @@ export default function ExpenseDetail() {
 
       {expense.approvalNotes && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}
-          className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Approval Notes</h2>
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden">
+          <div className="px-4 py-3 border-b border-border bg-muted/50">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Approval Notes</h2>
           </div>
           <div className="p-4">
-            <p className="text-sm text-zinc-700">{expense.approvalNotes}</p>
+            <p className="text-sm text-foreground/85">{expense.approvalNotes}</p>
           </div>
         </motion.div>
       )}
 
       {notesModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-          onClick={() => { setNotesModal(null); setNotes(''); }} role="dialog" aria-modal="true">
-          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
-              <h3 className="font-bold text-zinc-900">{notesModal === 'approve' ? 'Approve Expense' : 'Reject Expense'}</h3>
-              <button onClick={() => { setNotesModal(null); setNotes(''); }} className="text-zinc-400 hover:text-zinc-600 transition-colors">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => { setNotesModal(null); setNotes(''); })(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-md overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-5 border-b border-border flex items-center justify-between">
+              <h3 className="font-semibold text-foreground">{notesModal === 'approve' ? 'Approve Expense' : 'Reject Expense'}</h3>
+              <button onClick={() => { setNotesModal(null); setNotes(''); }} className="text-muted-foreground/70 hover:text-foreground/70 transition-colors">
                 <X size={20} />
               </button>
             </div>
-            <div className="px-5 py-3 space-y-2 border-b border-zinc-100 bg-zinc-50/30">
+            <div className="px-5 py-3 space-y-2 border-b border-border bg-muted/30">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Employee</span>
-                <span className="text-sm font-bold text-zinc-900">{expense.employeeName}</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Employee</span>
+                <span className="text-sm font-semibold text-foreground">{expense.employeeName}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Requested</span>
-                <span className="text-sm font-bold text-zinc-900">{formatINR(total)}</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Requested</span>
+                <span className="text-sm font-semibold text-foreground">{formatINR(total)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Description</span>
-                <span className="text-sm text-zinc-700 text-right max-w-[200px] truncate" title={expense.description}>{expense.description}</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Description</span>
+                <span className="text-sm text-foreground/85 text-right max-w-[200px] truncate" title={expense.description}>{expense.description}</span>
               </div>
             </div>
             <div className="p-5 space-y-4">
               {notesModal === 'approve' && (
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1">Approved Amount (₹)</label>
+                  <label className="block text-sm font-medium text-foreground/85 mb-1">Approved Amount (₹)</label>
                   <div className="flex items-center gap-2">
-                    <input type="number" min={0} value={approveAmount} onChange={(e) => setApproveAmount(Math.max(0, parseFloat(e.target.value) || 0))}
-                      className="flex-1 px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all" />
-                    <span className="text-xs text-zinc-400 whitespace-nowrap">/ ₹{total.toLocaleString('en-IN')}</span>
+                    <Input className="flex-1" type="number" min={0} value={approveAmount} onChange={(e) => setApproveAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                       />
+                    <span className="text-xs text-muted-foreground/70 whitespace-nowrap">/ ₹{total.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1">Notes (optional)</label>
-                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-                  className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all"
+                <label className="block text-sm font-medium text-foreground/85 mb-1">Notes (optional)</label>
+                <Textarea className="w-full" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+                  
                   placeholder={notesModal === 'approve' ? 'Reason for partial amount...' : 'Reason for rejection...'} />
               </div>
             </div>
-            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
-              <button onClick={() => { setNotesModal(null); setNotes(''); }}
-                className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
+            <div className="p-4 flex gap-2 justify-end bg-muted/80">
+              <Button variant="outline" size="sm" onClick={() => { setNotesModal(null); setNotes(''); }}
+                >
                 Cancel
-              </button>
+              </Button>
               <button onClick={() => updateStatus(notesModal === 'approve' ? 'approved' : 'rejected', notes, notesModal === 'approve' ? approveAmount : undefined)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold text-white transition-colors ${notesModal === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}>
+                className={`px-4 py-2 rounded-md text-xs font-semibold text-white transition-colors ${notesModal === 'approve' ? 'bg-primary hover:bg-primary' : 'bg-destructive hover:bg-destructive'}`}>
                 {notesModal === 'approve' ? 'Approve' : 'Reject'}
               </button>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {resubmitTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-          onClick={() => { setResubmitTarget(null); setResubmitReceipt(''); }} role="dialog" aria-modal="true">
-          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-6 border-b border-zinc-100 relative">
-              <button type="button" onClick={() => { setResubmitTarget(null); setResubmitReceipt(''); }}
-                className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => { setResubmitTarget(null); setResubmitReceipt(''); })(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-md overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-6 border-b border-border relative">
+              <Button variant="ghost" size="icon-sm" className="absolute top-6 right-6" type="button" onClick={() => { setResubmitTarget(null); setResubmitReceipt(''); }}
+                >
                 <X size={18} />
-              </button>
-              <h3 className="text-lg font-bold text-zinc-900">Resubmit Expense</h3>
-              <p className="text-sm text-zinc-600 mt-2">
+              </Button>
+              <h3 className="text-lg font-semibold text-foreground">Resubmit Expense</h3>
+              <p className="text-sm text-foreground/70 mt-2">
                 {formatINR(expenseTotal(resubmitTarget))}
-                <span className="block text-xs text-zinc-400 mt-0.5">{resubmitTarget.description}</span>
+                <span className="block text-xs text-muted-foreground/70 mt-0.5">{resubmitTarget.description}</span>
               </p>
             </div>
             <div className="p-5 space-y-4">
               {resubmitTarget.payments[0]?.receipt && !resubmitReceipt && (
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 mb-1.5">Current Receipt</label>
-                  <img src={resubmitTarget.payments[0].receipt} alt="Current receipt" className="h-20 rounded-lg border border-zinc-200" />
+                  <label className="block text-xs font-medium text-foreground/85 mb-1.5">Current Receipt</label>
+                  <img src={resubmitTarget.payments[0].receipt} alt="Current receipt" className="h-20 rounded-lg border border-border" />
                 </div>
               )}
               {resubmitReceipt && (
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 mb-1.5">New Receipt</label>
-                  <img src={resubmitReceipt} alt="New receipt" className="h-20 rounded-lg border border-zinc-200" />
+                  <label className="block text-xs font-medium text-foreground/85 mb-1.5">New Receipt</label>
+                  <img src={resubmitReceipt} alt="New receipt" className="h-20 rounded-lg border border-border" />
                 </div>
               )}
               <div>
-                <label className="block text-xs font-medium text-zinc-700 mb-1.5">
+                <label className="block text-xs font-medium text-foreground/85 mb-1.5">
                   {resubmitTarget.payments[0]?.receipt ? 'Replace Receipt (optional)' : 'Upload Receipt (optional)'}
                 </label>
                 <input type="file" accept="image/*" onChange={handleResubmitReceiptFile}
-                  className="w-full text-xs text-zinc-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200 file:cursor-pointer" />
+                  className="text-sm file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-[13px] file:font-medium hover:file:bg-accent" />
               </div>
             </div>
-            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
-              <button type="button" onClick={() => { setResubmitTarget(null); setResubmitReceipt(''); }}
-                className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
+            <div className="p-4 flex gap-2 justify-end bg-muted/80">
+              <Button variant="outline" size="sm" type="button" onClick={() => { setResubmitTarget(null); setResubmitReceipt(''); }}
+                >
                 Cancel
-              </button>
-              <button type="button" onClick={handleResubmit} disabled={resubmitting}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 text-xs font-bold text-white hover:bg-amber-700 transition-colors disabled:opacity-60">
+              </Button>
+              <Button size="sm" className="bg-warning text-white hover:bg-warning hover:text-white bg-warning text-white hover:bg-warning" type="button" onClick={handleResubmit} disabled={resubmitting}
+                >
                 {resubmitting ? 'Resubmitting...' : 'Resubmit'}
-              </button>
+              </Button>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-          onClick={() => setDeleteTarget(false)} role="dialog" aria-modal="true">
-          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-6 border-b border-zinc-100 relative">
-              <button onClick={() => setDeleteTarget(false)}
-                className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => setDeleteTarget(false))(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-md overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-6 border-b border-border relative">
+              <Button variant="ghost" size="icon-sm" className="absolute top-6 right-6" onClick={() => setDeleteTarget(false)}
+                >
                 <X size={18} />
-              </button>
-              <h3 className="text-lg font-bold text-zinc-900">Delete expense?</h3>
-              <p className="text-sm text-zinc-600 mt-2">
-                <span className="font-semibold text-zinc-800">{expense.employeeName}</span> — {formatINR(total)}
+              </Button>
+              <h3 className="text-lg font-semibold text-foreground">Delete expense?</h3>
+              <p className="text-sm text-foreground/70 mt-2">
+                <span className="font-semibold text-foreground">{expense.employeeName}</span> — {formatINR(total)}
               </p>
-              <p className="text-xs text-red-600 font-medium mt-2">This action cannot be undone.</p>
+              <p className="text-xs text-destructive font-medium mt-2">This action cannot be undone.</p>
             </div>
-            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
-              <button onClick={() => setDeleteTarget(false)}
-                className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
+            <div className="p-4 flex gap-2 justify-end bg-muted/80">
+              <Button variant="outline" size="sm" onClick={() => setDeleteTarget(false)}
+                >
                 Cancel
-              </button>
-              <button onClick={handleDelete}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors">
+              </Button>
+              <Button variant="outline" size="sm" className="border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/15" onClick={handleDelete}
+                >
                 <Trash2 size={16} /> Delete
-              </button>
+              </Button>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
     </div>
   );

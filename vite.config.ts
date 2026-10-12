@@ -92,7 +92,7 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss(), firebaseMessagingSwPlugin()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(__dirname, 'src'),
       },
     },
     server: {

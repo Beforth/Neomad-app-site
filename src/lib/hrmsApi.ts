@@ -24,6 +24,7 @@ export interface AttendanceRecordOut {
   shift_end: string | null;
   punch_in_lat?: number | null;
   punch_in_lng?: number | null;
+  location_area?: string | null;
   distance_from_office: number | null;
   punch_photo: string | null;
   marked_by: number | null;

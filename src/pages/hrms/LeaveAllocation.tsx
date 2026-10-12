@@ -5,6 +5,10 @@ import { ArrowLeft, Trash2, Inbox, Plus, Loader2 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
 import { useAuth } from '../../context/AuthContext';
 import { getUsers } from '../../lib/api';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Input, Textarea, fieldClass } from '@/components/ui/input';
 import {
   listLeaveTypes,
   listLeavePolicies,
@@ -30,7 +34,7 @@ interface AllocationItem {
   allocatedAt: string;
 }
 
-const inputClass = "w-full px-3 py-2.5 text-xs border border-zinc-200 rounded-xl bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400 transition-all";
+const inputClass = fieldClass;
 
 export default function LeaveAllocation() {
   const navigate = useNavigate();
@@ -139,23 +143,23 @@ export default function LeaveAllocation() {
         className="flex items-center justify-between gap-3"
       >
         <div className="flex items-center gap-3">
-          <button
+          <Button variant="ghost" size="icon-sm"
             onClick={() => navigate('/hrms/leave/policy')}
-            className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+            
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
-          </button>
+          </Button>
           <div>
-            <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Leave Allocation</h1>
-            <p className="text-sm text-zinc-500 mt-0.5">Allocate leave days to employees</p>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">Leave Allocation</h1>
+            <p className="text-[13px] text-muted-foreground">Allocate leave days to employees</p>
           </div>
         </div>
-        <button
+        <Button variant="dark" size="sm"
           onClick={() => navigate('/hrms/leave/policy/new')}
-          className="flex items-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm"
+          
         >
           <Plus size={14} /> Create Policy
-        </button>
+        </Button>
       </motion.div>
 
       {/* Allocation Form */}
@@ -163,15 +167,15 @@ export default function LeaveAllocation() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden"
+        className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
       >
-        <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50">
-          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">New Allocation</h2>
+        <div className="px-5 py-3.5 border-b border-border bg-muted/50">
+          <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">New Allocation</h2>
         </div>
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Select Employee *</label>
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Select Employee *</label>
               <SearchableSelect
                 value={selectedEmployee}
                 onChange={setSelectedEmployee}
@@ -180,7 +184,7 @@ export default function LeaveAllocation() {
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Select Policy *</label>
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Select Policy *</label>
               <SearchableSelect
                 value={selectedPolicy}
                 onChange={setSelectedPolicy}
@@ -189,12 +193,12 @@ export default function LeaveAllocation() {
                 disabled={policyOptions.length === 0}
               />
               {policyOptions.length === 0 && (
-                <p className="text-[10px] text-zinc-400 mt-1">No policies available. Create one first.</p>
+                <p className="text-[11px] text-muted-foreground/70 mt-1">No policies available. Create one first.</p>
               )}
             </div>
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Select Leave Type *</label>
+            <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Select Leave Type *</label>
             <SearchableSelect
               value={selectedLeaveType}
               onChange={setSelectedLeaveType}
@@ -203,43 +207,43 @@ export default function LeaveAllocation() {
               disabled={leaveTypeOptions.length === 0}
             />
             {leaveTypeOptions.length === 0 && (
-              <p className="text-[10px] text-zinc-400 mt-1">No leave types available. Create one first.</p>
+              <p className="text-[11px] text-muted-foreground/70 mt-1">No leave types available. Create one first.</p>
             )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Total Days *</label>
-              <input
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Total Days *</label>
+              <Input
                 type="number"
                 min={0}
                 value={totalDays || ''}
                 onChange={(e) => setTotalDays(Math.max(0, parseInt(e.target.value) || 0))}
-                className={inputClass}
+                
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Carry Forward Days</label>
-              <input
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Carry Forward Days</label>
+              <Input
                 type="number"
                 min={0}
                 value={carryForwardDays || ''}
                 onChange={(e) => setCarryForwardDays(Math.max(0, parseInt(e.target.value) || 0))}
-                className={inputClass}
+                
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Effective Date *</label>
-              <input
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Effective Date *</label>
+              <Input
                 type="date"
                 value={effectiveDate}
                 onChange={(e) => setEffectiveDate(e.target.value)}
-                className={inputClass}
+                
               />
             </div>
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">Notes</label>
-            <textarea
+            <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Notes</label>
+            <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Optional notes..."
@@ -248,14 +252,14 @@ export default function LeaveAllocation() {
             />
           </div>
           <div className="flex justify-end">
-            <button
+            <Button variant="dark"
               type="button"
               onClick={handleAllocate}
               disabled={saving || !selectedEmployee || !selectedLeaveType || !selectedPolicy || totalDays <= 0 || !effectiveDate}
-              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 text-white rounded-xl text-sm font-bold hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              
             >
               <Plus size={16} /> {saving ? 'Allocating...' : 'Allocate'}
-            </button>
+            </Button>
           </div>
         </div>
       </motion.div>
@@ -265,75 +269,69 @@ export default function LeaveAllocation() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.08 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+        className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
       >
-        <div className="p-4 border-b border-zinc-100">
-          <h2 className="font-bold text-zinc-900 text-sm">Allocated Leaves</h2>
-          <p className="text-xs text-zinc-400 mt-0.5">{allocations.length} allocation{allocations.length !== 1 ? 's' : ''}</p>
+        <div className="p-4 border-b border-border">
+          <h2 className="font-semibold text-foreground text-sm">Allocated Leaves</h2>
+          <p className="text-xs text-muted-foreground/70 mt-0.5">{allocations.length} allocation{allocations.length !== 1 ? 's' : ''}</p>
         </div>
 
         {allocations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-              <Inbox size={24} className="text-zinc-300" />
-            </div>
-            <h3 className="text-sm font-bold text-zinc-900 mb-1">No allocations yet</h3>
-            <p className="text-xs text-zinc-400 max-w-xs">Allocate leave days to an employee using the form above.</p>
-          </div>
+          <EmptyState icon={<Inbox />} title="No allocations yet" description="Allocate leave days to an employee using the form above." className="border-0" />
         ) : (
           <>
             {/* Desktop Table */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-zinc-50/50 border-b border-zinc-100">
-                  <tr>
+              <Table>
+                <TableHeader>
+                  <TableRow>
                     {['Employee', 'Leave Type', 'Policy', 'Total Days', 'Carry Forward', 'Effective Date', 'Allocated Date', ''].map((label) => (
-                      <th key={label || '__del'} className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">
+                      <TableHead key={label || '__del'} className="uppercase whitespace-nowrap">
                         {label}
-                      </th>
+                      </TableHead>
                     ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-50">
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {allocations.map((a, i) => (
                     <motion.tr
                       key={a.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: i * 0.02 }}
-                      className="hover:bg-zinc-50/50 transition-colors"
+                      className="border-b transition-colors hover:bg-muted/70"
                     >
-                      <td className="px-4 py-3 text-xs font-bold text-zinc-900">{a.employeeName}</td>
-                      <td className="px-4 py-3 text-xs text-zinc-500">{a.leaveType}</td>
-                      <td className="px-4 py-3 text-xs text-zinc-500">{a.policyName}</td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-zinc-100 text-[11px] font-bold text-zinc-700">
+                      <TableCell className="font-semibold text-foreground">{a.employeeName}</TableCell>
+                      <TableCell className="text-muted-foreground">{a.leaveType}</TableCell>
+                      <TableCell className="text-muted-foreground">{a.policyName}</TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-secondary text-[11px] font-semibold text-foreground/85">
                           {a.totalDays}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-50 text-[11px] font-bold text-emerald-700">
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-accent text-[11px] font-semibold text-accent-foreground">
                           {a.carryForwardDays}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-zinc-500">{a.effectiveDate}</td>
-                      <td className="px-4 py-3 text-xs text-zinc-500">{a.allocatedAt}</td>
-                      <td className="px-4 py-3">
-                        <button
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{a.effectiveDate}</TableCell>
+                      <TableCell className="text-muted-foreground">{a.allocatedAt}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10"
                           onClick={() => removeAllocation(a.id)}
-                          className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          
                         >
                           <Trash2 size={14} />
-                        </button>
-                      </td>
+                        </Button>
+                      </TableCell>
                     </motion.tr>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
 
             {/* Mobile Cards */}
-            <div className="md:hidden divide-y divide-zinc-100">
+            <div className="md:hidden divide-y divide-border">
               {allocations.map((a, i) => (
                 <motion.div
                   key={a.id}
@@ -344,20 +342,20 @@ export default function LeaveAllocation() {
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-xs font-bold text-zinc-900">{a.employeeName}</p>
-                      <p className="text-[10px] text-zinc-400 mt-0.5">{a.leaveType} · {a.policyName}</p>
+                      <p className="text-xs font-semibold text-foreground">{a.employeeName}</p>
+                      <p className="text-[11px] text-muted-foreground/70 mt-0.5">{a.leaveType} · {a.policyName}</p>
                     </div>
-                    <button
+                    <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10"
                       onClick={() => removeAllocation(a.id)}
-                      className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      
                     >
                       <Trash2 size={14} />
-                    </button>
+                    </Button>
                   </div>
-                  <div className="flex items-center gap-3 text-[10px] text-zinc-500">
-                    <span>Total: <span className="font-bold text-zinc-700">{a.totalDays}</span></span>
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <span>Total: <span className="font-semibold text-foreground/85">{a.totalDays}</span></span>
                     <span>·</span>
-                    <span>CF: <span className="font-bold text-emerald-700">{a.carryForwardDays}</span></span>
+                    <span>CF: <span className="font-semibold text-accent-foreground">{a.carryForwardDays}</span></span>
                     <span>·</span>
                     <span>Eff: {a.effectiveDate}</span>
                   </div>

@@ -6,21 +6,21 @@ const LAST_UPDATED = '17 May 2026';
 
 export default function PrivacyPolicy() {
   return (
-    <div className="min-h-dvh bg-zinc-50 text-zinc-800">
-      <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-zinc-100">
+    <div className="min-h-dvh bg-muted text-foreground">
+      <header className="sticky top-0 z-10 bg-card/90 backdrop-blur border-b border-border">
         <div className="max-w-3xl mx-auto px-5 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white font-bold shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-semibold shadow-sm">
               M
             </div>
             <div>
-              <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Neomed</p>
-              <h1 className="text-lg font-extrabold text-zinc-900">Privacy Policy</h1>
+              <p className="text-xs font-semibold text-primary uppercase tracking-wider">Neomed</p>
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">Privacy Policy</h1>
             </div>
           </div>
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-600 hover:text-emerald-600"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground/70 hover:text-primary"
           >
             <ArrowLeft size={16} />
             Back
@@ -29,9 +29,9 @@ export default function PrivacyPolicy() {
       </header>
 
       <main className="max-w-3xl mx-auto px-5 py-10 pb-16">
-        <div className="flex items-start gap-3 mb-8 p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
-          <Shield className="text-emerald-600 shrink-0 mt-0.5" size={22} />
-          <p className="text-sm text-zinc-700 leading-relaxed">
+        <div className="flex items-start gap-3 mb-8 p-4 rounded-xl bg-accent border border-primary/20">
+          <Shield className="text-primary shrink-0 mt-0.5" size={22} />
+          <p className="text-sm text-foreground/85 leading-relaxed">
             This Privacy Policy explains how <strong>Neomed</strong> (“we”, “us”, “our”) collects, uses,
             stores, and protects personal information when you use our delivery and invoice management
             platform, including the <strong>Neomed web application</strong> and the <strong>Neomed mobile
@@ -39,7 +39,7 @@ export default function PrivacyPolicy() {
           </p>
         </div>
 
-        <p className="text-xs text-zinc-500 mb-8">Last updated: {LAST_UPDATED}</p>
+        <p className="text-xs text-muted-foreground mb-8">Last updated: {LAST_UPDATED}</p>
 
         <PolicySection title="1. Who this policy applies to">
           <p>This policy applies to users of Neomed who access the service through a web browser or the
@@ -58,7 +58,7 @@ export default function PrivacyPolicy() {
         </PolicySection>
 
         <PolicySection title="2. Information we collect">
-          <h3 className="text-sm font-bold text-zinc-900 mt-4 mb-2">2.1 Account and profile information</h3>
+          <h3 className="text-sm font-semibold text-foreground mt-4 mb-2">2.1 Account and profile information</h3>
           <ul>
             <li>Email address and full name</li>
             <li>Phone number (when provided by your administrator)</li>
@@ -66,7 +66,7 @@ export default function PrivacyPolicy() {
             <li>Password (stored only in hashed form on our servers; we do not store plain-text passwords)</li>
           </ul>
 
-          <h3 className="text-sm font-bold text-zinc-900 mt-4 mb-2">2.2 Delivery and invoice operations</h3>
+          <h3 className="text-sm font-semibold text-foreground mt-4 mb-2">2.2 Delivery and invoice operations</h3>
           <p>When you use Neomed to manage or complete deliveries, we process operational data such as:</p>
           <ul>
             <li>Invoice numbers, hospital or customer names, amounts, and status</li>
@@ -79,7 +79,7 @@ export default function PrivacyPolicy() {
             <li>Cancellation reasons and delivery feedback where provided</li>
           </ul>
 
-          <h3 className="text-sm font-bold text-zinc-900 mt-4 mb-2">2.3 Notifications and realtime connectivity</h3>
+          <h3 className="text-sm font-semibold text-foreground mt-4 mb-2">2.3 Notifications and realtime connectivity</h3>
           <ul>
             <li>
               <strong>Push notifications:</strong> Firebase Cloud Messaging (FCM) device tokens for mobile
@@ -92,7 +92,7 @@ export default function PrivacyPolicy() {
             <li>In-app notification content (for example, new invoice alerts)</li>
           </ul>
 
-          <h3 className="text-sm font-bold text-zinc-900 mt-4 mb-2">2.4 Optional Gmail integration (web)</h3>
+          <h3 className="text-sm font-semibold text-foreground mt-4 mb-2">2.4 Optional Gmail integration (web)</h3>
           <p>
             Administrators or managers may optionally connect a Gmail account in Profile to import invoice
             emails. If you connect Gmail, we access Gmail data only as needed for this feature, including:
@@ -108,14 +108,14 @@ export default function PrivacyPolicy() {
             disconnect Gmail at any time from Profile.
           </p>
 
-          <h3 className="text-sm font-bold text-zinc-900 mt-4 mb-2">2.5 Technical and usage information</h3>
+          <h3 className="text-sm font-semibold text-foreground mt-4 mb-2">2.5 Technical and usage information</h3>
           <ul>
             <li>IP address, browser or device type, and request logs from our API</li>
             <li>Authentication tokens (JWT) issued when you sign in</li>
             <li>Error and diagnostic logs to maintain security and reliability</li>
           </ul>
 
-          <h3 className="text-sm font-bold text-zinc-900 mt-4 mb-2">2.6 Information stored on your device</h3>
+          <h3 className="text-sm font-semibold text-foreground mt-4 mb-2">2.6 Information stored on your device</h3>
           <ul>
             <li>
               <strong>Web:</strong> session token and user preferences in browser local storage
@@ -294,19 +294,19 @@ export default function PrivacyPolicy() {
           <ul>
             <li>
               Email:{' '}
-              <a href="mailto:privacy@encryptedbar.com" className="text-emerald-600 font-semibold hover:underline">
+              <a href="mailto:privacy@encryptedbar.com" className="text-primary font-semibold hover:underline">
                 privacy@encryptedbar.com
               </a>
             </li>
           </ul>
-          <p className="text-sm text-zinc-500 mt-4">
+          <p className="text-sm text-muted-foreground mt-4">
             If you use Neomed through an employer or client organization, you may also contact your
             organization’s data protection or IT contact for account-specific requests.
           </p>
         </PolicySection>
 
-        <footer className="mt-12 pt-8 border-t border-zinc-200 text-center text-sm text-zinc-500">
-          <Link to="/" className="text-emerald-600 font-semibold hover:underline">
+        <footer className="mt-12 pt-8 border-t border-border text-center text-sm text-muted-foreground">
+          <Link to="/" className="text-primary font-semibold hover:underline">
             Return to Neomed sign in
           </Link>
         </footer>
@@ -318,8 +318,8 @@ export default function PrivacyPolicy() {
 function PolicySection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mb-10">
-      <h2 className="text-base font-extrabold text-zinc-900 mb-3">{title}</h2>
-      <div className="space-y-3 text-sm leading-relaxed text-zinc-700 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_strong]:text-zinc-900">
+      <h2 className="text-base font-semibold text-foreground mb-3">{title}</h2>
+      <div className="space-y-3 text-sm leading-relaxed text-foreground/85 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_strong]:text-foreground">
         {children}
       </div>
     </section>

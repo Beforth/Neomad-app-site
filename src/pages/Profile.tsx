@@ -38,6 +38,12 @@ import {
   type WorkingLocation,
 } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Avatar } from '@/components/ui/avatar';
+import { Segmented } from '@/components/ui/segmented';
+import { Badge } from '@/components/ui/badge';
 import {
   ShieldCheck, LogOut, Mail, Lock, RefreshCw,
   CheckCircle2, XCircle, AlertTriangle, Clock, Search, Star, MapPin, ChevronLeft
@@ -651,111 +657,65 @@ export default function Profile() {
   const [activeSection, setActiveSection] = useState<SectionId>('account');
 
   return (
-    <div className="min-h-full bg-zinc-50">
-      {/* Profile hero — negative margins to punch through parent padding */}
-      <div className="-mx-4 md:-mx-8 lg:-mx-10 bg-gradient-to-br from-emerald-600 to-emerald-800 pt-10 pb-20">
-        <div className="max-w-4xl mx-auto px-4">
-          {(user?.role === 'delivery_boy' || user?.role === 'staff') && (
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="mb-4 p-1.5 text-white/80 hover:text-white rounded-lg transition-colors"
-              aria-label="Go back"
-            >
-              <ChevronLeft size={22} />
-            </button>
-          )}
-          <div className="flex items-center gap-5">
-            <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl md:text-3xl text-white font-bold ring-4 ring-white/30 shrink-0">
-              {user?.username[0].toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-xl md:text-2xl font-bold text-white truncate">{user?.username}</h1>
-              <p className="text-sm text-emerald-100 capitalize">{user?.role?.replace('_', ' ')}</p>
-            </div>
-            <div className="ml-auto">
-              <button
-                onClick={logout}
-                className="flex items-center gap-2 px-4 py-2 bg-white/15 hover:bg-white/25 text-white rounded-xl transition-colors text-sm font-semibold backdrop-blur-sm"
-              >
-                <LogOut size={16} />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
-            </div>
-          </div>
+    <div className="mx-auto grid max-w-3xl gap-5">
+      <div className="flex items-center gap-4">
+        {(user?.role === 'delivery_boy' || user?.role === 'staff') && (
+          <Button variant="ghost" size="icon-sm" type="button" onClick={() => navigate(-1)} aria-label="Go back">
+            <ChevronLeft />
+          </Button>
+        )}
+        <Avatar name={user?.username || 'User'} size="lg" />
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-semibold tracking-tight text-foreground">{user?.username}</h1>
+          <p className="text-[13px] capitalize text-muted-foreground">{user?.role?.replace('_', ' ')}</p>
         </div>
+        <Button variant="outline" className="ml-auto" onClick={logout}>
+          <LogOut /> Sign out
+        </Button>
       </div>
 
-      {/* Section tabs */}
-      <div className="max-w-4xl mx-auto px-4 -mt-10 mb-6">
-        <div className="bg-white rounded-xl shadow-sm border border-zinc-100 p-1 flex gap-1 overflow-x-auto">
-          {sectionTabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveSection(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
-                  activeSection === tab.id
-                    ? 'bg-emerald-500 text-white shadow-sm'
-                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
-                }`}
-              >
-                <Icon size={16} />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {sectionTabs.length > 1 && (
+        <Segmented
+          className="w-fit max-w-full flex-wrap"
+          value={activeSection}
+          onValueChange={(v) => setActiveSection(v as SectionId)}
+          options={sectionTabs.map((t) => ({ value: t.id, label: <>{t.label}</> }))}
+        />
+      )}
 
-      {/* Content area */}
-      <div className="max-w-4xl mx-auto px-4 pb-10">
+      <div>
         {activeSection === 'account' && (
-          <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden">
-            <div className="px-6 py-5 border-b border-zinc-100">
-              <h2 className="text-lg font-bold text-zinc-900">Account Details</h2>
-              <p className="text-sm text-zinc-500 mt-0.5">Your personal information and security settings</p>
+          <Card className="overflow-hidden" >
+            <div className="border-b px-6 py-4">
+              <h2 className="text-base font-semibold text-foreground">Account details</h2>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">Your personal information and security settings</p>
             </div>
-            <div className="px-6 py-5 space-y-5">
-              <div className="flex items-center justify-between py-3 border-b border-zinc-50">
-                <div>
-                  <p className="text-sm font-medium text-zinc-500">Username</p>
-                  <p className="text-base font-semibold text-zinc-900 mt-0.5">{user?.username}</p>
+            <div className="px-6 py-2">
+              <dl className="divide-y">
+                <div className="flex items-center justify-between gap-4 py-3">
+                  <dt className="text-sm text-muted-foreground">Username</dt>
+                  <dd className="text-sm font-medium text-foreground">{user?.username}</dd>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-xs shrink-0">
-                  {user?.username[0].toUpperCase()}
+                <div className="flex items-center justify-between gap-4 py-3">
+                  <dt className="text-sm text-muted-foreground">Email</dt>
+                  <dd className="break-all text-right text-sm font-medium text-foreground">{user?.email}</dd>
                 </div>
-              </div>
-              <div className="flex items-center justify-between py-3 border-b border-zinc-50">
-                <div>
-                  <p className="text-sm font-medium text-zinc-500">Email</p>
-                  <p className="text-base font-semibold text-zinc-900 mt-0.5 break-all">{user?.email}</p>
+                <div className="flex items-center justify-between gap-4 py-3">
+                  <dt className="text-sm text-muted-foreground">Role</dt>
+                  <dd><Badge variant="success" className="capitalize">{user?.role?.replace('_', ' ')}</Badge></dd>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs shrink-0">
-                  @
-                </div>
-              </div>
-              <div className="flex items-center justify-between py-3">
-                <div>
-                  <p className="text-sm font-medium text-zinc-500">Role</p>
-                  <p className="text-base font-semibold text-zinc-900 mt-0.5 capitalize">{user?.role?.replace('_', ' ')}</p>
-                </div>
-                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold capitalize">
-                  {user?.role?.replace('_', ' ')}
-                </span>
-              </div>
-
+              </dl>
+            </div>
+            <div className="space-y-5 px-6 pb-5">
               {/* Change Password */}
-              <div className="pt-4 border-t border-zinc-100">
-                <button
+              <div className="pt-4 border-t border-border">
+                <Button variant="dark"
                   onClick={() => setShowChangePassword(!showChangePassword)}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-zinc-900 text-white rounded-xl text-sm font-semibold hover:bg-zinc-800 transition-colors"
+                  
                 >
                   <Lock size={15} />
                   {showChangePassword ? 'Cancel' : 'Change Password'}
-                </button>
+                </Button>
                 <AnimatePresence>
                   {showChangePassword && (
                     <motion.form
@@ -766,182 +726,182 @@ export default function Profile() {
                       className="mt-5 space-y-3 overflow-hidden"
                     >
                       {['current', 'next', 'confirm'].map((field, i) => (
-                        <input
+                        <Input className="w-full"
                           key={field}
                           type="password"
                           placeholder={['Current password', 'New password', 'Confirm new password'][i]}
                           value={pwForm[field as keyof typeof pwForm]}
                           onChange={(e) => setPwForm({ ...pwForm, [field]: e.target.value })}
-                          className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                          
                           required
                         />
                       ))}
                       {pwMsg && (
-                        <p className={`text-sm font-medium ${pwMsg.includes('success') ? 'text-emerald-600' : 'text-red-600'}`}>{pwMsg}</p>
+                        <p className={`text-sm font-medium ${pwMsg.includes('success') ? 'text-primary' : 'text-destructive'}`}>{pwMsg}</p>
                       )}
-                      <button
+                      <Button
                         type="submit"
                         disabled={pwLoading}
-                        className="px-6 py-2.5 bg-emerald-500 text-white rounded-lg text-sm font-bold hover:bg-emerald-600 transition-colors disabled:opacity-60"
+                        
                       >
                         {pwLoading ? 'Updating...' : 'Update Password'}
-                      </button>
+                      </Button>
                     </motion.form>
                   )}
                 </AnimatePresence>
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
 
         {activeSection === 'geofence' && (
-          <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden">
-            <div className="px-6 py-5 border-b border-zinc-100">
-              <h2 className="text-lg font-bold text-zinc-900">Store Geofence</h2>
-              <p className="text-sm text-zinc-500 mt-0.5">
+          <Card className="overflow-hidden" >
+            <div className="px-6 py-5 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground">Store Geofence</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Delivery geofence used for store radius alerts (latitude, longitude, radius).
               </p>
             </div>
             <div className="px-6 py-5">
               <form onSubmit={handleSaveStoreGeo} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <input type="number" step="any" placeholder="Latitude"
+                  <Input className="w-full" type="number" step="any" placeholder="Latitude"
                     value={geoForm.latitude}
                     onChange={(e) => setGeoForm((prev) => ({ ...prev, latitude: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    
                     disabled={geoLoading || geoSaving} />
-                  <input type="number" step="any" placeholder="Longitude"
+                  <Input className="w-full" type="number" step="any" placeholder="Longitude"
                     value={geoForm.longitude}
                     onChange={(e) => setGeoForm((prev) => ({ ...prev, longitude: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    
                     disabled={geoLoading || geoSaving} />
-                  <input type="number" min="0" max="10000" placeholder="Radius (meters)"
+                  <Input className="w-full" type="number" min="0" max="10000" placeholder="Radius (meters)"
                     value={geoForm.radius_meters}
                     onChange={(e) => setGeoForm((prev) => ({ ...prev, radius_meters: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    
                     disabled={geoLoading || geoSaving} />
                 </div>
                 {geoMsg && (
-                  <div className={`text-sm font-medium ${geoMsg.type === 'success' ? 'text-emerald-600' : 'text-red-600'}`}>{geoMsg.text}</div>
+                  <div className={`text-sm font-medium ${geoMsg.type === 'success' ? 'text-primary' : 'text-destructive'}`}>{geoMsg.text}</div>
                 )}
                 <div className="flex gap-2">
-                  <button type="submit" disabled={geoLoading || geoSaving}
-                    className="flex-1 px-4 py-2.5 rounded-lg bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60">
+                  <Button variant="dark" className="flex-1" type="submit" disabled={geoLoading || geoSaving}
+                    >
                     {geoSaving ? 'Saving...' : editingGeoId ? 'Update Geofence' : 'Add Geofence'}
-                  </button>
+                  </Button>
                   {editingGeoId && (
-                    <button type="button" onClick={cancelEditGeo} disabled={geoLoading || geoSaving}
-                      className="px-4 py-2.5 rounded-lg border border-zinc-300 text-zinc-700 text-sm font-semibold hover:bg-zinc-50 disabled:opacity-60">
+                    <Button variant="outline" type="button" onClick={cancelEditGeo} disabled={geoLoading || geoSaving}
+                      >
                       Cancel
-                    </button>
+                    </Button>
                   )}
                 </div>
               </form>
               <div className="mt-6 space-y-2">
-                <h4 className="text-sm font-semibold text-zinc-900">Configured Geofences</h4>
+                <h4 className="text-sm font-semibold text-foreground">Configured Geofences</h4>
                 {geoList.length === 0 ? (
-                  <p className="text-sm text-zinc-500">No store geofence added yet.</p>
+                  <p className="text-sm text-muted-foreground">No store geofence added yet.</p>
                 ) : geoList.map((g) => (
-                  <div key={g.id} className="rounded-lg border border-zinc-200 px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="text-sm text-zinc-700">
+                  <div key={g.id} className="rounded-lg border border-border px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="text-sm text-foreground/85">
                       Lat: {g.latitude}, Lng: {g.longitude}, Radius: {g.radius_meters}m
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <button type="button" onClick={() => startEditGeo(g)} disabled={geoSaving}
-                        className="px-3 py-1.5 rounded-lg border border-zinc-300 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60">Edit</button>
-                      <button type="button" onClick={() => handleDeleteGeo(g.id)} disabled={geoSaving}
-                        className="px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60">Delete</button>
+                      <Button variant="outline" size="sm" type="button" onClick={() => startEditGeo(g)} disabled={geoSaving}
+                        >Edit</Button>
+                      <Button variant="outline" size="sm" className="border-destructive/20 text-destructive hover:bg-destructive/10" type="button" onClick={() => handleDeleteGeo(g.id)} disabled={geoSaving}
+                        >Delete</Button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
         {activeSection === 'locations' && (
-          <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden">
-            <div className="px-6 py-5 border-b border-zinc-100">
-              <h2 className="text-lg font-bold text-zinc-900">Working Locations</h2>
-              <p className="text-sm text-zinc-500 mt-0.5">
+          <Card className="overflow-hidden" >
+            <div className="px-6 py-5 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground">Working Locations</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Staff users must be within the configured radius of a working location.
               </p>
             </div>
             <div className="px-6 py-5">
               <form onSubmit={handleSaveWorkLoc} className="space-y-4">
-                <input type="text" placeholder="Location name (e.g. Nashik Office)"
+                <Input className="w-full" type="text" placeholder="Location name (e.g. Nashik Office)"
                   value={wlForm.name}
                   onChange={(e) => setWlForm((prev) => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                  
                   disabled={wlLoading || wlSaving} />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <input type="number" step="any" placeholder="Latitude"
+                  <Input className="w-full" type="number" step="any" placeholder="Latitude"
                     value={wlForm.latitude}
                     onChange={(e) => setWlForm((prev) => ({ ...prev, latitude: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    
                     disabled={wlLoading || wlSaving} />
-                  <input type="number" step="any" placeholder="Longitude"
+                  <Input className="w-full" type="number" step="any" placeholder="Longitude"
                     value={wlForm.longitude}
                     onChange={(e) => setWlForm((prev) => ({ ...prev, longitude: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    
                     disabled={wlLoading || wlSaving} />
-                  <input type="number" min="0" max="10000" placeholder="Radius (meters)"
+                  <Input className="w-full" type="number" min="0" max="10000" placeholder="Radius (meters)"
                     value={wlForm.radius_meters}
                     onChange={(e) => setWlForm((prev) => ({ ...prev, radius_meters: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                    
                     disabled={wlLoading || wlSaving} />
                 </div>
                 {wlMsg && (
-                  <div className={`text-sm font-medium ${wlMsg.type === 'success' ? 'text-emerald-600' : 'text-red-600'}`}>{wlMsg.text}</div>
+                  <div className={`text-sm font-medium ${wlMsg.type === 'success' ? 'text-primary' : 'text-destructive'}`}>{wlMsg.text}</div>
                 )}
                 <div className="flex gap-2">
-                  <button type="submit" disabled={wlLoading || wlSaving}
-                    className="flex-1 px-4 py-2.5 rounded-lg bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60">
+                  <Button variant="dark" className="flex-1" type="submit" disabled={wlLoading || wlSaving}
+                    >
                     {wlSaving ? 'Saving...' : editingWlId ? 'Update Location' : 'Add Location'}
-                  </button>
+                  </Button>
                   {editingWlId && (
-                    <button type="button" onClick={cancelEditWl} disabled={wlLoading || wlSaving}
-                      className="px-4 py-2.5 rounded-lg border border-zinc-300 text-zinc-700 text-sm font-semibold hover:bg-zinc-50 disabled:opacity-60">
+                    <Button variant="outline" type="button" onClick={cancelEditWl} disabled={wlLoading || wlSaving}
+                      >
                       Cancel
-                    </button>
+                    </Button>
                   )}
                 </div>
               </form>
               <div className="mt-6 space-y-2">
-                <h4 className="text-sm font-semibold text-zinc-900">Configured Locations</h4>
+                <h4 className="text-sm font-semibold text-foreground">Configured Locations</h4>
                 {wlList.length === 0 ? (
-                  <p className="text-sm text-zinc-500">No working locations added yet.</p>
+                  <p className="text-sm text-muted-foreground">No working locations added yet.</p>
                 ) : wlList.map((w) => (
-                  <div key={w.id} className="rounded-lg border border-zinc-200 px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="text-sm text-zinc-700">
+                  <div key={w.id} className="rounded-lg border border-border px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="text-sm text-foreground/85">
                       <span className="font-semibold">{w.name}</span> &mdash; Lat: {w.latitude}, Lng: {w.longitude}, Radius: {w.radius_meters}m
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <button type="button" onClick={() => startEditWl(w)} disabled={wlSaving}
-                        className="px-3 py-1.5 rounded-lg border border-zinc-300 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60">Edit</button>
-                      <button type="button" onClick={() => handleDeleteWl(w.id)} disabled={wlSaving}
-                        className="px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60">Delete</button>
+                      <Button variant="outline" size="sm" type="button" onClick={() => startEditWl(w)} disabled={wlSaving}
+                        >Edit</Button>
+                      <Button variant="outline" size="sm" className="border-destructive/20 text-destructive hover:bg-destructive/10" type="button" onClick={() => handleDeleteWl(w.id)} disabled={wlSaving}
+                        >Delete</Button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
         {activeSection === 'gmail' && (
-          <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden">
-            <div className="px-6 py-5 border-b border-zinc-100">
+          <Card className="overflow-hidden" >
+            <div className="px-6 py-5 border-b border-border">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-zinc-900">Invoice Inbox (IMAP)</h2>
-                  <p className="text-sm text-zinc-500 mt-0.5">Auto-import invoices from shared inbox via IMAP IDLE</p>
+                  <h2 className="text-lg font-semibold text-foreground">Invoice Inbox (IMAP)</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">Auto-import invoices from shared inbox via IMAP IDLE</p>
                 </div>
                 <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
-                  imapConfig?.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-500'
+                  imapConfig?.is_active ? 'bg-primary/15 text-accent-foreground' : 'bg-secondary text-muted-foreground'
                 }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${imapStatus?.connected ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${imapStatus?.connected ? 'bg-primary' : 'bg-muted-foreground/40'}`} />
                   {imapStatus?.connected ? 'Connected' : imapConfig?.is_active ? 'Reconnecting...' : 'Not Configured'}
                 </span>
               </div>
@@ -954,7 +914,7 @@ export default function Profile() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     className={`mb-4 rounded-lg p-3 flex items-center gap-3 text-sm font-medium ${
-                      imapMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                      imapMsg.type === 'success' ? 'bg-accent text-accent-foreground border border-primary/20' : 'bg-destructive/10 text-destructive border border-destructive/20'
                     }`}
                   >
                     {imapMsg.type === 'success' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
@@ -963,41 +923,41 @@ export default function Profile() {
                 )}
               </AnimatePresence>
               <div className="space-y-4">
-                <p className="text-sm text-zinc-500 leading-relaxed">
-                  Connect a <strong className="text-zinc-700">shared Gmail inbox</strong> via IMAP. New emails with PDF attachments are detected instantly (no polling delay) and automatically imported as invoices.
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Connect a <strong className="text-foreground/85">shared Gmail inbox</strong> via IMAP. New emails with PDF attachments are detected instantly (no polling delay) and automatically imported as invoices.
                 </p>
-                <p className="text-xs text-zinc-400">
-                  Generate a Gmail App Password at <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">myaccount.google.com/apppasswords</a> (requires 2FA enabled).
+                <p className="text-xs text-muted-foreground/70">
+                  Generate a Gmail App Password at <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">myaccount.google.com/apppasswords</a> (requires 2FA enabled).
                 </p>
 
                 {imapConfig?.is_active ? (
                   <>
                     {imapStatus && (
-                      <div className="bg-zinc-50 rounded-lg p-4 space-y-2">
+                      <div className="bg-muted rounded-lg p-4 space-y-2">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm">@</div>
+                          <div className="w-9 h-9 bg-info/15 rounded-full flex items-center justify-center text-info font-semibold text-sm">@</div>
                           <div>
-                            <p className="text-sm font-bold text-zinc-900">{imapConfig.email}</p>
-                            <p className="text-xs text-zinc-500">{imapConfig.imap_host}:{imapConfig.imap_port}</p>
+                            <p className="text-sm font-semibold text-foreground">{imapConfig.email}</p>
+                            <p className="text-xs text-muted-foreground">{imapConfig.imap_host}:{imapConfig.imap_port}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-zinc-500 border-t border-zinc-100 pt-3">
-                          <span>Emails detected: <strong className="text-zinc-700">{imapStatus.emails_detected_total}</strong></span>
-                          <span>Invoices imported: <strong className="text-zinc-700">{imapStatus.invoices_imported_total}</strong></span>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground border-t border-border pt-3">
+                          <span>Emails detected: <strong className="text-foreground/85">{imapStatus.emails_detected_total}</strong></span>
+                          <span>Invoices imported: <strong className="text-foreground/85">{imapStatus.invoices_imported_total}</strong></span>
                         </div>
                         {imapStatus.last_idle_at && (
-                          <div className="flex items-center gap-2 text-xs text-zinc-500">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Clock size={12} />
                             <span>Last idle: {new Date(imapStatus.last_idle_at).toLocaleString()}</span>
                           </div>
                         )}
                         {imapStatus.last_uid != null && imapStatus.last_uid > 0 && (
-                          <div className="flex items-center gap-2 text-xs text-zinc-400">
-                            <span>Watermark UID: <strong className="text-zinc-600">{imapStatus.last_uid}</strong></span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
+                            <span>Watermark UID: <strong className="text-foreground/70">{imapStatus.last_uid}</strong></span>
                           </div>
                         )}
                         {imapStatus.last_error && (
-                          <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+                          <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
                             <AlertTriangle size={14} />
                             <span>{imapStatus.last_error}</span>
                           </div>
@@ -1005,28 +965,28 @@ export default function Profile() {
                       </div>
                     )}
 
-                    <div className="bg-zinc-50 rounded-lg p-4 space-y-3">
-                      <p className="text-xs font-bold text-zinc-600 uppercase tracking-wider">Sync Past Emails</p>
-                      <p className="text-xs text-zinc-500">Backfill emails from a specific time. New emails since IMAP connected are already imported automatically.</p>
+                    <div className="bg-muted rounded-lg p-4 space-y-3">
+                      <p className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">Sync Past Emails</p>
+                      <p className="text-xs text-muted-foreground">Backfill emails from a specific time. New emails since IMAP connected are already imported automatically.</p>
                       <div className="flex gap-2">
-                        <input
+                        <Input className="flex-1"
                           type="datetime-local"
                           value={imapSyncDate}
                           onChange={(e) => setImapSyncDate(e.target.value)}
-                          className="flex-1 px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                          
                         />
-                        <button
+                        <Button
                           onClick={handleSyncImap}
                           disabled={imapSyncing || !imapSyncDate}
-                          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          
                         >
                           <RefreshCw size={14} className={imapSyncing ? 'animate-spin' : ''} />
                           {imapSyncing ? 'Syncing...' : 'Sync'}
-                        </button>
+                        </Button>
                       </div>
                       {imapSyncResult && (
                         <div className={`text-xs font-medium rounded-lg p-2 ${
-                          imapSyncResult.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                          imapSyncResult.type === 'success' ? 'bg-accent text-accent-foreground' : 'bg-destructive/10 text-destructive'
                         }`}>
                           {imapSyncResult.text}
                         </div>
@@ -1034,60 +994,60 @@ export default function Profile() {
                     </div>
 
                     <div className="flex gap-2">
-                      <button onClick={handleResetImapWatermark}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 rounded-lg font-bold text-sm hover:bg-amber-100 transition-colors">
+                      <Button variant="soft" className="flex-1 bg-warning/10 text-warning hover:bg-warning/15" onClick={handleResetImapWatermark}
+                        >
                         <RefreshCw size={15} />
                         Reset Watermark
-                      </button>
-                      <button onClick={handleDisconnectImap}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-lg font-bold text-sm hover:bg-red-100 transition-colors">
+                      </Button>
+                      <Button variant="ghost" className="flex-1 bg-destructive/10 text-destructive hover:bg-destructive/15" onClick={handleDisconnectImap}
+                        >
                         <XCircle size={15} />
                         Disconnect
-                      </button>
+                      </Button>
                     </div>
                   </>
                 ) : (
                   <>
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Email address</label>
-                        <input type="email" value={imapForm.email} onChange={(e) => setImapForm({ ...imapForm, email: e.target.value })}
+                        <label className="block text-xs font-medium text-muted-foreground/70 mb-1">Email address</label>
+                        <Input className="w-full" type="email" value={imapForm.email} onChange={(e) => setImapForm({ ...imapForm, email: e.target.value })}
                           placeholder="neomedsoftware@gmail.com"
-                          className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                           />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">App Password</label>
-                        <input type="password" value={imapForm.app_password} onChange={(e) => setImapForm({ ...imapForm, app_password: e.target.value })}
+                        <label className="block text-xs font-medium text-muted-foreground/70 mb-1">App Password</label>
+                        <Input className="w-full" type="password" value={imapForm.app_password} onChange={(e) => setImapForm({ ...imapForm, app_password: e.target.value })}
                           placeholder="xxxx xxxx xxxx xxxx"
-                          className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                           />
                       </div>
                       <div className="flex gap-3">
                         <div className="flex-1">
-                          <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">IMAP Host</label>
-                          <input type="text" value={imapForm.imap_host} onChange={(e) => setImapForm({ ...imapForm, imap_host: e.target.value })}
-                            className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                          <label className="block text-xs font-medium text-muted-foreground/70 mb-1">IMAP Host</label>
+                          <Input className="w-full" type="text" value={imapForm.imap_host} onChange={(e) => setImapForm({ ...imapForm, imap_host: e.target.value })}
+                             />
                         </div>
                         <div className="w-24">
-                          <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Port</label>
-                          <input type="number" value={imapForm.imap_port} onChange={(e) => setImapForm({ ...imapForm, imap_port: e.target.value })}
-                            className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                          <label className="block text-xs font-medium text-muted-foreground/70 mb-1">Port</label>
+                          <Input className="w-full" type="number" value={imapForm.imap_port} onChange={(e) => setImapForm({ ...imapForm, imap_port: e.target.value })}
+                             />
                         </div>
                       </div>
                     </div>
                     <div className="flex gap-3">
-                      <button onClick={handleTestImap} disabled={imapTesting || !imapForm.email || !imapForm.app_password}
-                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-100 text-zinc-700 rounded-lg font-bold text-sm hover:bg-zinc-200 transition-colors disabled:opacity-60">
+                      <Button variant="secondary" onClick={handleTestImap} disabled={imapTesting || !imapForm.email || !imapForm.app_password}
+                        >
                         <RefreshCw size={15} className={imapTesting ? 'animate-spin' : ''} />
                         {imapTesting ? 'Testing...' : 'Test Connection'}
-                      </button>
-                      <button onClick={handleSaveImap} disabled={imapSaving || !imapForm.email || !imapForm.app_password}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-500 text-white rounded-lg font-bold text-sm hover:bg-emerald-600 transition-colors disabled:opacity-60">
+                      </Button>
+                      <Button className="flex-1" onClick={handleSaveImap} disabled={imapSaving || !imapForm.email || !imapForm.app_password}
+                        >
                         {imapSaving ? 'Saving...' : 'Connect'}
-                      </button>
+                      </Button>
                     </div>
                     {imapTestResult && (
                       <div className={`rounded-lg p-3 text-sm font-medium ${
-                        imapTestResult.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                        imapTestResult.success ? 'bg-accent text-accent-foreground border border-primary/20' : 'bg-destructive/10 text-destructive border border-destructive/20'
                       }`}>
                         {imapTestResult.success ? <CheckCircle2 size={14} className="inline mr-2" /> : <XCircle size={14} className="inline mr-2" />}
                         {imapTestResult.message}
@@ -1097,11 +1057,11 @@ export default function Profile() {
                 )}
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
         <div className="mt-6 text-center">
-          <Link to="/privacy-policy" className="text-xs font-semibold text-zinc-400 hover:text-emerald-600 transition-colors">
+          <Link to="/privacy-policy" className="text-xs font-semibold text-muted-foreground/70 hover:text-primary transition-colors">
             Privacy Policy
           </Link>
         </div>

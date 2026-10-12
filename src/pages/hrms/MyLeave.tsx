@@ -9,6 +9,13 @@ import {
 import SearchableSelect from '../../components/SearchableSelect';
 import { useAuth } from '../../context/AuthContext';
 import { listMyLeaveRequests, getMyLeaveBalances, withdrawLeaveRequest, getMyPolicy, LeaveRequestOut, LeaveBalanceOut, MyPolicyOut } from '../../lib/hrmsLeave';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 interface LeaveRequest {
   id: number;
@@ -49,10 +56,10 @@ function formatDate(d: string) {
 
 function statusBadge(status: string) {
   const base = 'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold capitalize';
-  if (status === 'approved') return <span className={`${base} bg-emerald-50 text-emerald-600`}>Approved</span>;
-  if (status === 'rejected') return <span className={`${base} bg-rose-50 text-rose-600`}>Rejected</span>;
-  if (status === 'cancelled') return <span className={`${base} bg-zinc-100 text-zinc-600`}>Cancelled</span>;
-  return <span className={`${base} bg-amber-50 text-amber-600`}>Pending</span>;
+  if (status === 'approved') return <span className={`${base} bg-accent text-primary`}>Approved</span>;
+  if (status === 'rejected') return <span className={`${base} bg-destructive/10 text-destructive`}>Rejected</span>;
+  if (status === 'cancelled') return <span className={`${base} bg-secondary text-foreground/70`}>Cancelled</span>;
+  return <span className={`${base} bg-warning/10 text-warning`}>Pending</span>;
 }
 
 export default function MyLeave() {
@@ -124,10 +131,10 @@ export default function MyLeave() {
   useEffect(() => { setPage(1); }, [statusFilter, typeFilter, searchDebounced]);
 
   const statCards = [
-    { label: 'Total Requests', value: requests.length, icon: CalendarOff, color: 'bg-blue-50 text-blue-600' },
-    { label: 'Approved', value: requests.filter((r) => r.status === 'approved').length, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
-    { label: 'Pending', value: requests.filter((r) => r.status === 'pending').length, icon: Clock, color: 'bg-amber-50 text-amber-600' },
-    { label: 'Rejected', value: requests.filter((r) => r.status === 'rejected').length, icon: XCircle, color: 'bg-rose-50 text-rose-600' },
+    { label: 'Total Requests', value: requests.length, icon: CalendarOff, color: 'bg-info/10 text-info' },
+    { label: 'Approved', value: requests.filter((r) => r.status === 'approved').length, icon: CheckCircle2, color: 'bg-accent text-primary' },
+    { label: 'Pending', value: requests.filter((r) => r.status === 'pending').length, icon: Clock, color: 'bg-warning/10 text-warning' },
+    { label: 'Rejected', value: requests.filter((r) => r.status === 'rejected').length, icon: XCircle, color: 'bg-destructive/10 text-destructive' },
   ];
 
   const hasFilters = search || statusFilter !== 'all' || typeFilter !== 'all';
@@ -156,8 +163,8 @@ export default function MyLeave() {
   }
 
   function SortIcon({ col }: { col: SortKey }) {
-    if (sortBy !== col) return <ArrowUpDown size={12} className="text-zinc-300" />;
-    return sortOrder === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />;
+    if (sortBy !== col) return <ArrowUpDown size={12} className="text-muted-foreground/50" />;
+    return sortOrder === 'asc' ? <ChevronUp size={12} className="text-foreground" /> : <ChevronDown size={12} className="text-foreground" />;
   }
 
   async function handleWithdraw() {
@@ -178,27 +185,19 @@ export default function MyLeave() {
     <div className="space-y-6">
       {toast && (
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-          className="fixed top-5 right-5 z-[9999] bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
-          <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
+          className="fixed top-5 right-5 z-[9999] bg-foreground text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
+          <CheckCircle2 size={16} className="text-primary" /> {toast}
         </motion.div>
       )}
 
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Leave Requests</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">View and manage your leave requests</p>
-        </div>
-        <Link
+      <PageHeader title="Leave Requests" description="View and manage your leave requests" actions={<>
+<Link
           to="/hrms/leave/apply/new"
-          className="self-start sm:self-auto flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm"
+          className="self-start sm:self-auto flex items-center gap-2 bg-foreground text-white border border-foreground px-4 py-2 rounded-md text-xs font-semibold hover:bg-foreground transition-colors shadow-sm"
         >
           <Plus size={14} />Apply for Leave
         </Link>
-      </motion.header>
+</>} />
 
       <div className="space-y-6">
         {/* Assigned Policy Header */}
@@ -206,39 +205,39 @@ export default function MyLeave() {
           <motion.div
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white border border-emerald-200 rounded-2xl p-4 shadow-sm space-y-2.5"
+            className="bg-card border border-primary/20 rounded-xl p-4 shadow-[0_1px_2px_rgb(0_0_0/0.03)] space-y-2.5"
           >
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-xs">
+                <span className="w-8 h-8 rounded-xl bg-primary/15 text-accent-foreground flex items-center justify-center font-semibold text-xs">
                   POL
                 </span>
                 <div>
-                  <h3 className="text-sm font-bold text-zinc-900 flex items-center gap-1.5">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                     Assigned Policy: {myPolicy.policy_name}
                   </h3>
-                  <p className="text-[11px] text-zinc-400 font-medium">
+                  <p className="text-[11px] text-muted-foreground/70 font-medium">
                     {myPolicy.period_label ? `Period: ${myPolicy.period_label}` : 'Active Company Policy'}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
-                <span className="px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-200">
+              <div className="flex items-center gap-2 text-xs font-semibold text-accent-foreground">
+                <span className="px-3 py-1 rounded-lg bg-accent border border-primary/20">
                   Monthly Paid Limit: {myPolicy.max_paid_leaves ? `${myPolicy.max_paid_leaves} Days/mo` : 'Unlimited'}
                 </span>
-                <span className="px-3 py-1 rounded-lg bg-zinc-100 border border-zinc-200 text-zinc-700">
+                <span className="px-3 py-1 rounded-lg bg-secondary border border-border text-foreground/85">
                   Monthly Unpaid Limit: {myPolicy.max_unpaid_leaves ? `${myPolicy.max_unpaid_leaves} Days/mo` : 'Unlimited'}
                 </span>
               </div>
             </div>
 
             {myPolicy.entitlements && myPolicy.entitlements.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-2 border-t border-zinc-100">
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
                 {myPolicy.entitlements.map((e) => (
-                  <div key={e.id} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-50 border border-zinc-200 text-xs">
-                    <span className="font-bold text-zinc-900">{e.leave_type_name || `Type ${e.leave_type_id}`}</span>
-                    <span className="font-semibold text-emerald-700">{e.days} Days/yr</span>
-                    {e.carry_forward && <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">Carry Forward</span>}
+                  <div key={e.id} className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted border border-border text-xs">
+                    <span className="font-semibold text-foreground">{e.leave_type_name || `Type ${e.leave_type_id}`}</span>
+                    <span className="font-semibold text-accent-foreground">{e.days} Days/yr</span>
+                    {e.carry_forward && <Badge variant="warning" >Carry Forward</Badge>}
                   </div>
                 ))}
               </div>
@@ -251,25 +250,25 @@ export default function MyLeave() {
           <motion.div
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm space-y-3"
+            className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)] space-y-3"
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-zinc-900 flex items-center gap-2">
-                <CalendarOff size={16} className="text-emerald-600" />
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <CalendarOff size={16} className="text-primary" />
                 Your Leave Balances
               </h3>
-              <span className="text-[11px] font-medium text-zinc-400">Calculated real-time</span>
+              <span className="text-[11px] font-medium text-muted-foreground/70">Calculated real-time</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {balances.map((b) => (
-                <div key={b.leave_type_id} className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-between">
+                <div key={b.leave_type_id} className="p-3.5 rounded-xl bg-muted border border-border flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-bold text-zinc-900">{b.leave_type_name}</p>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">{b.used} used of {b.total}</p>
+                    <p className="text-xs font-semibold text-foreground">{b.leave_type_name}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{b.used} used of {b.total}</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-lg font-extrabold text-emerald-600 leading-none block">{b.remaining}</span>
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">left</span>
+                    <span className="text-lg font-semibold text-primary leading-none block">{b.remaining}</span>
+                    <span className="text-xs font-medium text-muted-foreground/70">left</span>
                   </div>
                 </div>
               ))}
@@ -285,33 +284,28 @@ export default function MyLeave() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm"
+                className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
               >
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${card.color}`}>
                   <card.icon size={18} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-lg font-extrabold text-zinc-900 leading-none truncate">{card.value}</p>
-                  <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">{card.label}</p>
+                  <p className="text-lg font-semibold text-foreground leading-none truncate">{card.value}</p>
+                  <p className="text-xs font-medium text-muted-foreground/70 mt-1 truncate">{card.label}</p>
                 </div>
               </motion.div>
             ))}
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center"
-          >
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative flex-1 min-w-[180px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-              <input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+              <Input data-search="" className="w-full pl-9 pr-4"
                 type="text"
                 placeholder="Search reason, leave type..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+                
               />
             </div>
             <div className="w-[150px]">
@@ -331,47 +325,41 @@ export default function MyLeave() {
             {hasFilters && (
               <button
                 onClick={() => { setSearch(''); setStatusFilter('all'); setTypeFilter('all'); }}
-                className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors"
+                className="text-xs text-muted-foreground/70 hover:text-foreground/85 flex items-center gap-1 transition-colors"
               >
                 <XCircle size={12} />Clear
               </button>
             )}
-          </motion.div>
+          </div>
 
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden"
+            className="bg-card rounded-xl border border-border shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
           >
             {loadError && (
-              <div className="p-4 bg-rose-50/80 border-b border-rose-200 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-xs font-semibold text-rose-900">
-                  <XCircle size={16} className="text-rose-600 shrink-0" />
+              <div className="p-4 bg-destructive/10 border-b border-destructive/20 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-destructive">
+                  <XCircle size={16} className="text-destructive shrink-0" />
                   {loadError}
                 </div>
-                <button
+                <Button variant="destructive" size="xs" className="shrink-0"
                   onClick={reloadData}
-                  className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-bold hover:bg-rose-700 transition-colors shrink-0"
+                  
                 >
                   Retry
-                </button>
+                </Button>
               </div>
             )}
             {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-                  <Inbox size={24} className="text-zinc-300" />
-                </div>
-                <h3 className="text-sm font-bold text-zinc-900 mb-1">No leave requests found</h3>
-                <p className="text-xs text-zinc-400 max-w-xs">Try adjusting your search or filters</p>
-              </div>
+              <EmptyState icon={<Inbox />} title="No leave requests found" description="Try adjusting your search or filters" className="border-0" />
             ) : (
               <>
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-zinc-50/50 border-b border-zinc-100">
-                      <tr>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
                         {[
                           { key: null, label: 'Leave Type' },
                           { key: 'startDate' as SortKey, label: 'Dates' },
@@ -382,89 +370,89 @@ export default function MyLeave() {
                           { key: null, label: 'Applied On' },
                           { key: null, label: 'Actions' },
                         ].map((col) => (
-                          <th
+                          <TableHead
                             key={col.label}
                             onClick={col.key ? () => toggleSort(col.key) : undefined}
-                            className={`px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap ${col.key ? 'cursor-pointer hover:text-zinc-600 select-none' : ''}`}
+                            className={`uppercase whitespace-nowrap ${col.key ? 'cursor-pointer hover:text-foreground/70 select-none' : ''}`}
                           >
                             <span className="flex items-center gap-1">
                               {col.label}
                               {col.key && <SortIcon col={col.key} />}
                             </span>
-                          </th>
+                          </TableHead>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-50">
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {paged.map((r, i) => (
                         <motion.tr
                           key={r.id}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: i * 0.02 }}
-                          className="hover:bg-zinc-50/50 transition-colors"
+                          className="border-b transition-colors hover:bg-muted/70"
                         >
-                          <td className="px-4 py-3 text-xs font-medium text-zinc-700">{r.leaveType}</td>
-                          <td className="px-4 py-3 text-xs text-zinc-500 whitespace-nowrap">
+                          <TableCell className="font-medium text-foreground/85">{r.leaveType}</TableCell>
+                          <TableCell className="text-muted-foreground whitespace-nowrap">
                             {formatDate(r.startDate)}{r.startDate !== r.endDate ? ` – ${formatDate(r.endDate)}` : ''}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
                             <div className="flex flex-col gap-0.5">
-                              <span className="text-xs font-bold text-zinc-800">
+                              <span className="text-xs font-semibold text-foreground">
                                 {r.days}d Total
                               </span>
-                              <span className="text-[10px] text-zinc-500 font-semibold">
+                              <span className="text-[11px] text-muted-foreground font-semibold">
                                 {r.paidDays > 0 ? `${r.paidDays} Paid` : ''}
                                 {r.paidDays > 0 && r.lwpDays > 0 ? ' + ' : ''}
                                 {r.lwpDays > 0 ? `${r.lwpDays} LWP` : ''}
                                 {r.paidDays === 0 && r.lwpDays === 0 ? `${r.days}d` : ''}
                               </span>
                             </div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
                             <div className="flex flex-wrap gap-1">
                               {r.unplannedDays > 0 ? (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <Badge variant="warning" >
                                   Unplanned ({r.unplannedDays}d)
-                                </span>
+                                </Badge>
                               ) : (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <Badge variant="success" >
                                   Planned ({r.plannedDays}d)
-                                </span>
+                                </Badge>
                               )}
                               {r.isEmergency && (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                <Badge className="bg-purple-50 text-purple-700 border-purple-200" >
                                   Emergency
-                                </span>
+                                </Badge>
                               )}
                             </div>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-zinc-500 max-w-[160px] truncate">{r.reason}</td>
-                          <td className="px-4 py-3">{statusBadge(r.status)}</td>
-                          <td className="px-4 py-3 text-[10px] text-zinc-400 whitespace-nowrap">{formatDate(r.appliedOn)}</td>
-                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground max-w-[160px] truncate">{r.reason}</TableCell>
+                          <TableCell>{statusBadge(r.status)}</TableCell>
+                          <TableCell className="text-muted-foreground/70 whitespace-nowrap">{formatDate(r.appliedOn)}</TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-1">
-                              <button onClick={() => setDetailTarget(r)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="View">
+                              <Button variant="ghost" size="icon-sm" onClick={() => setDetailTarget(r)}  title="View">
                                 <Eye size={14} />
-                              </button>
+                              </Button>
                               {r.status === 'pending' && (
-                                <button
+                                <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10"
                                   onClick={() => setWithdrawTarget(r)}
-                                  className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                  
                                   title="Withdraw"
                                 >
                                   <Trash2 size={14} />
-                                </button>
+                                </Button>
                               )}
                             </div>
-                          </td>
+                          </TableCell>
                         </motion.tr>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
 
-                <div className="md:hidden divide-y divide-zinc-100">
+                <div className="md:hidden divide-y divide-border">
                   {paged.map((r, i) => (
                     <motion.div
                       key={r.id}
@@ -475,55 +463,55 @@ export default function MyLeave() {
                     >
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="text-xs font-bold text-zinc-900">{r.leaveType}</p>
+                          <p className="text-xs font-semibold text-foreground">{r.leaveType}</p>
                         </div>
                         {statusBadge(r.status)}
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] text-zinc-400">
+                        <span className="text-[11px] text-muted-foreground/70">
                           {formatDate(r.startDate)}{r.startDate !== r.endDate ? ` – ${formatDate(r.endDate)}` : ''} · {r.days}d
                         </span>
                       </div>
-                      <p className="text-[10px] text-zinc-500 line-clamp-1">{r.reason}</p>
+                      <p className="text-[11px] text-muted-foreground line-clamp-1">{r.reason}</p>
                       <div className="flex items-center gap-1 pt-1">
-                        <button onClick={() => setDetailTarget(r)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="View">
+                        <Button variant="ghost" size="icon-sm" onClick={() => setDetailTarget(r)}  title="View">
                           <Eye size={14} />
-                        </button>
+                        </Button>
                         {r.status === 'pending' && (
-                          <button
+                          <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10"
                             onClick={() => setWithdrawTarget(r)}
-                            className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            
                             title="Withdraw"
                           >
                             <Trash2 size={14} />
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </motion.div>
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-zinc-100">
-                  <p className="text-xs text-zinc-500">
-                    Showing <span className="font-bold text-zinc-900">{startRow}</span>–
-                    <span className="font-bold text-zinc-900">{endRow}</span> of{' '}
-                    <span className="font-bold text-zinc-900">{filtered.length}</span> requests
+                <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-border">
+                  <p className="text-xs text-muted-foreground">
+                    Showing <span className="font-semibold text-foreground">{startRow}</span>–
+                    <span className="font-semibold text-foreground">{endRow}</span> of{' '}
+                    <span className="font-semibold text-foreground">{filtered.length}</span> requests
                   </p>
                   <div className="flex items-center gap-2">
-                    <button
+                    <Button variant="outline" size="icon-sm"
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page <= 1}
-                      className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      
                     >
-                      <ChevronLeft size={16} className="text-zinc-600" />
-                    </button>
-                    <button
+                      <ChevronLeft size={16} className="text-foreground/70" />
+                    </Button>
+                    <Button variant="outline" size="icon-sm"
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                       disabled={page >= totalPages}
-                      className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      
                     >
-                      <ChevronRight size={16} className="text-zinc-600" />
-                    </button>
+                      <ChevronRight size={16} className="text-foreground/70" />
+                    </Button>
                   </div>
                 </div>
               </>
@@ -531,23 +519,18 @@ export default function MyLeave() {
           </motion.div>
       </div>
 
-      {detailTarget && (        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-          onClick={() => setDetailTarget(null)} role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden"
-          >
-            <div className="p-6 border-b border-zinc-100 relative">
-              <button type="button" onClick={() => setDetailTarget(null)}
-                className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+      {detailTarget && (        <Dialog open onOpenChange={(open) => { if (!open) (() => setDetailTarget(null))(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-md overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-6 border-b border-border relative">
+              <Button variant="ghost" size="icon-sm" className="absolute top-6 right-6" type="button" onClick={() => setDetailTarget(null)}
+                >
                 <X size={18} />
-              </button>
+              </Button>
               <div className="flex items-center gap-3">
                 <div>
-                  <h3 className="text-lg font-bold text-zinc-900">{detailTarget.leaveType}</h3>
-                  <p className="text-sm text-zinc-500 mt-0.5">
+                  <h3 className="text-lg font-semibold text-foreground">{detailTarget.leaveType}</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
                     {formatDate(detailTarget.startDate)}{detailTarget.startDate !== detailTarget.endDate ? ` – ${formatDate(detailTarget.endDate)}` : ''} · {detailTarget.days} day{detailTarget.days !== 1 ? 's' : ''}
                   </p>
                 </div>
@@ -556,58 +539,53 @@ export default function MyLeave() {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Reason</p>
-                <p className="text-sm text-zinc-700">{detailTarget.reason}</p>
+                <p className="text-xs font-medium text-muted-foreground/70 mb-1">Reason</p>
+                <p className="text-sm text-foreground/85">{detailTarget.reason}</p>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Applied On</p>
-                <p className="text-sm text-zinc-700">{formatDate(detailTarget.appliedOn)}</p>
+                <p className="text-xs font-medium text-muted-foreground/70 mb-1">Applied On</p>
+                <p className="text-sm text-foreground/85">{formatDate(detailTarget.appliedOn)}</p>
               </div>
               <div className="flex justify-end pt-1">
-                <button type="button" onClick={() => setDetailTarget(null)}
-                  className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
+                <Button variant="outline" size="sm" type="button" onClick={() => setDetailTarget(null)}
+                  >
                   Close
-                </button>
+                </Button>
               </div>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
 
       {withdrawTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-          onClick={() => setWithdrawTarget(null)} role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden"
-          >
-            <div className="p-6 border-b border-zinc-100 relative">
-              <button type="button" onClick={() => setWithdrawTarget(null)}
-                className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => setWithdrawTarget(null))(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-md overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-6 border-b border-border relative">
+              <Button variant="ghost" size="icon-sm" className="absolute top-6 right-6" type="button" onClick={() => setWithdrawTarget(null)}
+                >
                 <X size={18} />
-              </button>
-              <h3 className="text-lg font-bold text-zinc-900">Withdraw leave request?</h3>
-              <p className="text-sm text-zinc-600 mt-2">
-                <span className="font-semibold text-zinc-800">{withdrawTarget.leaveType}</span>
+              </Button>
+              <h3 className="text-lg font-semibold text-foreground">Withdraw leave request?</h3>
+              <p className="text-sm text-foreground/70 mt-2">
+                <span className="font-semibold text-foreground">{withdrawTarget.leaveType}</span>
                 {' · '}
                 {formatDate(withdrawTarget.startDate)}{withdrawTarget.startDate !== withdrawTarget.endDate ? ` – ${formatDate(withdrawTarget.endDate)}` : ''}
               </p>
-              <p className="text-xs text-red-600 font-medium mt-2">This action cannot be undone.</p>
+              <p className="text-xs text-destructive font-medium mt-2">This action cannot be undone.</p>
             </div>
-            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
-              <button type="button" onClick={() => setWithdrawTarget(null)}
-                className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
+            <div className="p-4 flex gap-2 justify-end bg-muted/80">
+              <Button variant="outline" size="sm" type="button" onClick={() => setWithdrawTarget(null)}
+                >
                 Cancel
-              </button>
-              <button type="button" onClick={handleWithdraw}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-bold transition-colors">
+              </Button>
+              <Button variant="outline" size="sm" className="border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/15" type="button" onClick={handleWithdraw}
+                >
                 <Trash2 size={16} /> Withdraw
-              </button>
+              </Button>
             </div>
-          </motion.div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
     </div>
   );

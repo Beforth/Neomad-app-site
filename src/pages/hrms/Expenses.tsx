@@ -9,6 +9,13 @@ import {
 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
 import { useAuth } from '../../context/AuthContext';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input, Textarea } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import {
   Category, Expense, ExpenseStatus, AdvanceExpense,
   expenseAmount, expenseTotal, primaryPayment, formatINR, todayStr,
@@ -18,25 +25,25 @@ import {
 type SortKey = 'date' | 'created' | 'amount';
 
 const STATUS_BADGE: Record<ExpenseStatus, { base: string; label: string }> = {
-  draft: { base: 'bg-zinc-100 text-zinc-500', label: 'Draft' },
-  pending: { base: 'bg-amber-50 text-amber-600', label: 'Pending' },
-  approved: { base: 'bg-emerald-50 text-emerald-600', label: 'Approved' },
-  rejected: { base: 'bg-rose-50 text-rose-600', label: 'Rejected' },
+  draft: { base: 'bg-secondary text-muted-foreground', label: 'Draft' },
+  pending: { base: 'bg-warning/10 text-warning', label: 'Pending' },
+  approved: { base: 'bg-accent text-primary', label: 'Approved' },
+  rejected: { base: 'bg-destructive/10 text-destructive', label: 'Rejected' },
 };
 
 const CATEGORY_BADGE: Record<Category, { base: string; label: string }> = {
-  travel: { base: 'bg-blue-50 text-blue-600', label: 'Travel' },
-  food: { base: 'bg-amber-50 text-amber-600', label: 'Food' },
+  travel: { base: 'bg-info/10 text-info', label: 'Travel' },
+  food: { base: 'bg-warning/10 text-warning', label: 'Food' },
   office: { base: 'bg-purple-50 text-purple-600', label: 'Office' },
-  accommodation: { base: 'bg-teal-50 text-teal-600', label: 'Accommodation' },
+  accommodation: { base: 'bg-accent text-primary', label: 'Accommodation' },
   utilities: { base: 'bg-orange-50 text-orange-600', label: 'Utilities' },
   software: { base: 'bg-indigo-50 text-indigo-600', label: 'Software' },
   subscriptions: { base: 'bg-cyan-50 text-cyan-600', label: 'Subscriptions' },
   supplies: { base: 'bg-lime-50 text-lime-600', label: 'Supplies / Stationery' },
-  maintenance: { base: 'bg-yellow-50 text-yellow-600', label: 'Maintenance' },
+  maintenance: { base: 'bg-warning/10 text-warning', label: 'Maintenance' },
   training: { base: 'bg-pink-50 text-pink-600', label: 'Training' },
-  communication: { base: 'bg-sky-50 text-sky-600', label: 'Communication' },
-  other: { base: 'bg-zinc-100 text-zinc-600', label: 'Other' },
+  communication: { base: 'bg-info/10 text-info', label: 'Communication' },
+  other: { base: 'bg-secondary text-foreground/70', label: 'Other' },
 };
 
 const STATUS_OPTIONS = [
@@ -64,11 +71,11 @@ const CATEGORY_FILTER_OPTIONS = [
 ];
 
 const PAYMENT_BADGE: Record<string, { base: string; label: string }> = {
-  cash: { base: 'bg-emerald-50 text-emerald-600', label: 'Cash' },
-  card: { base: 'bg-blue-50 text-blue-600', label: 'Card' },
+  cash: { base: 'bg-accent text-primary', label: 'Cash' },
+  card: { base: 'bg-info/10 text-info', label: 'Card' },
   upi: { base: 'bg-purple-50 text-purple-600', label: 'UPI' },
   net_banking: { base: 'bg-indigo-50 text-indigo-600', label: 'Net Banking' },
-  cheque: { base: 'bg-amber-50 text-amber-600', label: 'Cheque' },
+  cheque: { base: 'bg-warning/10 text-warning', label: 'Cheque' },
 };
 
 const PAYMENT_ICON: Record<string, any> = {
@@ -240,9 +247,9 @@ export default function Expenses() {
   const approvedCount = expenses.filter((e) => e.status === 'approved').length;
 
   const statCards = [
-    { label: 'Total Expenses', value: expenses.length, icon: Receipt, color: 'bg-blue-50 text-blue-600' },
-    { label: 'Pending', value: pendingCount, icon: Clock, color: 'bg-amber-50 text-amber-600' },
-    { label: 'Approved', value: approvedCount, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
+    { label: 'Total Expenses', value: expenses.length, icon: Receipt, color: 'bg-info/10 text-info' },
+    { label: 'Pending', value: pendingCount, icon: Clock, color: 'bg-warning/10 text-warning' },
+    { label: 'Approved', value: approvedCount, icon: CheckCircle2, color: 'bg-accent text-primary' },
     { label: 'Total Amount', value: formatINR(totalAmount), icon: IndianRupee, color: 'bg-purple-50 text-purple-600', small: true },
   ];
 
@@ -252,8 +259,8 @@ export default function Expenses() {
   ];
 
   function SortIcon({ col }: { col: SortKey }) {
-    if (sortBy !== col) return <ArrowUpDown size={12} className="text-zinc-300" />;
-    return sortOrder === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />;
+    if (sortBy !== col) return <ArrowUpDown size={12} className="text-muted-foreground/50" />;
+    return sortOrder === 'asc' ? <ChevronUp size={12} className="text-foreground" /> : <ChevronDown size={12} className="text-foreground" />;
   }
 
   async function updateExpenseStatus(expenseId: number, newStatus: 'approved' | 'rejected', notes = '', approvedAmt?: number) {
@@ -323,40 +330,32 @@ export default function Expenses() {
     <div className="space-y-6">
       {toast && (
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-          className="fixed top-5 right-5 z-[9999] bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
-          <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
+          className="fixed top-5 right-5 z-[9999] bg-foreground text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
+          <CheckCircle2 size={16} className="text-primary" /> {toast}
         </motion.div>
       )}
 
       {/* Top Header Buttons (Business Claims vs Salary Advances) */}
-      <div className="flex items-center gap-2 border-b border-zinc-200 pb-3">
-        <button
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <Button variant="dark" size="sm"
           onClick={() => navigate('/hrms/expenses')}
-          className="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-zinc-900 text-white shadow-sm"
+          
         >
           Business Claims
-        </button>
-        <button
+        </Button>
+        <Button variant="secondary" size="sm"
           onClick={() => navigate('/hrms/advances')}
-          className="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+          
         >
           Salary Advances
-        </button>
+        </Button>
       </div>
 
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Expenses</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">Company expense reimbursement claims</p>
-        </div>
-        <button onClick={() => navigate('/hrms/expenses/new')} className="self-start sm:self-auto flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm">
+      <PageHeader title="Expenses" description="Company expense reimbursement claims" actions={<>
+<Button variant="dark" size="sm" className="self-start sm:self-auto" onClick={() => navigate('/hrms/expenses/new')} >
           <Plus size={14} />Add Expense
-        </button>
-      </motion.header>
+        </Button>
+</>} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map((card, i) => (
@@ -365,16 +364,16 @@ export default function Expenses() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.04 }}
-            className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm"
+            className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
           >
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${card.color}`}>
               <card.icon size={18} />
             </div>
             <div className="min-w-0">
-              <p className={`${card.small ? 'text-sm' : 'text-lg'} font-extrabold text-zinc-900 leading-none truncate`}>
+              <p className={`${card.small ? 'text-sm' : 'text-lg'} font-semibold text-foreground leading-none truncate`}>
                 {card.value}
               </p>
-              <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">
+              <p className="text-xs font-medium text-muted-foreground/70 mt-1 truncate">
                 {card.label}
               </p>
             </div>
@@ -382,20 +381,15 @@ export default function Expenses() {
         ))}
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center"
-      >
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+          <Input data-search="" className="w-full pl-9 pr-4"
             type="text"
             placeholder="Search expenses..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+            
           />
         </div>
         <div className="w-[150px]">
@@ -408,53 +402,43 @@ export default function Expenses() {
           <SearchableSelect value={paymentFilter} onChange={setPaymentFilter} options={PAYMENT_OPTIONS} placeholder="Payment" />
         </div>
         {hasFilters && (
-          <button onClick={() => { setSearch(''); setStatusFilter('all'); setCategoryFilter('all'); setPaymentFilter('all'); }} className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors">
+          <button onClick={() => { setSearch(''); setStatusFilter('all'); setCategoryFilter('all'); setPaymentFilter('all'); }} className="text-xs text-muted-foreground/70 hover:text-foreground/85 flex items-center gap-1 transition-colors">
             <XCircle size={12} />Clear
           </button>
         )}
-      </motion.div>
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden"
+        className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
       >
         {paged.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-              <Inbox size={24} className="text-zinc-300" />
-            </div>
-            <h3 className="text-sm font-bold text-zinc-900 mb-1">
-              {loading ? 'Loading expenses...' : expenses.length === 0 ? 'No expenses yet' : 'No results found'}
-            </h3>
-            <p className="text-xs text-zinc-400 max-w-xs">
-              {expenses.length === 0 ? 'Click "Add Expense" to log your first expense.' : 'Try adjusting your search or filters'}
-            </p>
-          </div>
+          <EmptyState icon={<Inbox />} title={loading ? 'Loading expenses...' : expenses.length === 0 ? 'No expenses yet' : 'No results found'} description={expenses.length === 0 ? 'Click "Add Expense" to log your first expense.' : 'Try adjusting your search or filters'} className="border-0" />
         ) : (
           <>
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-zinc-50/50 border-b border-zinc-100">
-                  <tr>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Employee</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Category</th>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="uppercase whitespace-nowrap">Employee</TableHead>
+                    <TableHead className="uppercase whitespace-nowrap">Category</TableHead>
                     {sortColumns.map((col) => (
-                      <th
+                      <TableHead
                         key={col.key}
                         onClick={() => toggleSort(col.key)}
-                        className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-zinc-600 select-none"
+                        className="uppercase whitespace-nowrap cursor-pointer hover:text-foreground/70 select-none"
                       >
                         <span className="flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
-                      </th>
+                      </TableHead>
                     ))}
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Payment</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Status</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-50">
+                    <TableHead className="uppercase whitespace-nowrap">Payment</TableHead>
+                    <TableHead className="uppercase whitespace-nowrap">Status</TableHead>
+                    <TableHead className="uppercase whitespace-nowrap">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {paged.map((e, i) => {
                     const pm = primaryPayment(e)?.paymentMethod || '';
                     return (
@@ -464,77 +448,77 @@ export default function Expenses() {
                         animate={{ opacity: 1 }}
                         transition={{ delay: i * 0.02 }}
                         onClick={() => navigate(`/hrms/expenses/${e.id}`)}
-                        className="hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                        className="border-b transition-colors hover:bg-muted/70 cursor-pointer"
                       >
-                        <td className="px-4 py-3">
+                        <TableCell>
                           <button onClick={(ev) => { ev.stopPropagation(); navigate(`/hrms/expenses/employee/${encodeURIComponent(e.employeeName)}`); }}
-                            className="text-xs font-bold text-zinc-900 hover:text-emerald-600 transition-colors text-left">
+                            className="text-xs font-semibold text-foreground hover:text-primary transition-colors text-left">
                             {e.employeeName}
                           </button>
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell>
                           <div className="flex flex-col gap-1 items-start">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${CATEGORY_BADGE[e.category]?.base || 'bg-zinc-100 text-zinc-600'}`}>
+                            <Badge className={`${CATEGORY_BADGE[e.category]?.base || 'bg-secondary text-foreground/70'}`}>
                               {CATEGORY_BADGE[e.category]?.label || e.category}
-                            </span>
+                            </Badge>
                             {(e.date > todayStr() || e.description?.toLowerCase().includes('advance') || primaryPayment(e)?.title?.toLowerCase().includes('advance')) && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-bold">
+                              <Badge className="bg-purple-50 text-purple-700 border-purple-200" >
                                 ⚡ Advance Expense
-                              </span>
+                              </Badge>
                             )}
                           </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <p className="text-xs text-zinc-500">{e.date}</p>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <p className="text-xs text-muted-foreground">{e.date}</p>
                           {formatCreatedTime(e.createdAt) && (
-                            <p className="text-[10px] text-zinc-400">{formatCreatedTime(e.createdAt)}</p>
+                            <p className="text-[11px] text-muted-foreground/70">{formatCreatedTime(e.createdAt)}</p>
                           )}
-                        </td>
-                        <td className="px-4 py-3 text-xs font-bold text-zinc-900">{formatINR(expenseAmount(e))}</td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${PAYMENT_BADGE[pm]?.base}`}>
+                        </TableCell>
+                        <TableCell className="font-semibold text-foreground">{formatINR(expenseAmount(e))}</TableCell>
+                        <TableCell>
+                          <Badge className={`${PAYMENT_BADGE[pm]?.base}`}>
                             {(() => {
                               const Icon = PAYMENT_ICON[pm];
                               return Icon && <Icon size={10} />;
                             })()}
                             {PAYMENT_BADGE[pm]?.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${STATUS_BADGE[e.status].base}`}>
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={`${STATUS_BADGE[e.status].base}`}>
                             {STATUS_BADGE[e.status].label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3" onClick={(ev) => ev.stopPropagation()}>
+                          </Badge>
+                        </TableCell>
+                        <TableCell onClick={(ev) => ev.stopPropagation()}>
                           <div className="flex items-center gap-1">
-                            <button onClick={() => navigate(`/hrms/expenses/${e.id}`)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="View">
+                            <Button variant="ghost" size="icon-sm" onClick={() => navigate(`/hrms/expenses/${e.id}`)}  title="View">
                               <Eye size={14} />
-                            </button>
+                            </Button>
                             {e.status === 'draft' && (
-                              <button onClick={() => navigate(`/hrms/expenses/edit/${e.id}`)} className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors" title="Edit draft">
+                              <Button variant="ghost" size="xs" className="text-info hover:text-info hover:bg-info/10" onClick={() => navigate(`/hrms/expenses/edit/${e.id}`)}  title="Edit draft">
                                 <Pen size={12} /> Edit
-                              </button>
+                              </Button>
                             )}
                             {e.status === 'pending' && (
                               <>
-                                <button onClick={() => { setConfirmModal({ expenseId: e.id, action: 'approve' }); setConfirmNotes(''); setApproveAmount(expenseTotal(e)); }} className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors" title="Approve">
+                                <Button variant="ghost" size="icon-sm" className="hover:text-primary hover:bg-accent" onClick={() => { setConfirmModal({ expenseId: e.id, action: 'approve' }); setConfirmNotes(''); setApproveAmount(expenseTotal(e)); }}  title="Approve">
                                   <CheckCircle2 size={14} />
-                                </button>
-                                <button onClick={() => { setConfirmModal({ expenseId: e.id, action: 'reject' }); setConfirmNotes(''); }} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Reject">
+                                </Button>
+                                <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" onClick={() => { setConfirmModal({ expenseId: e.id, action: 'reject' }); setConfirmNotes(''); }}  title="Reject">
                                   <XCircle size={14} />
-                                </button>
+                                </Button>
                               </>
                             )}
                           </div>
-                        </td>
+                        </TableCell>
                       </motion.tr>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
 
-            <div className="md:hidden divide-y divide-zinc-100">
+            <div className="md:hidden divide-y divide-border">
               {paged.map((e, i) => {
                 const pm = primaryPayment(e)?.paymentMethod || '';
                 return (
@@ -548,49 +532,49 @@ export default function Expenses() {
                   >
                     <div className="flex items-start justify-between">
                       <button onClick={(ev) => { ev.stopPropagation(); navigate(`/hrms/expenses/employee/${encodeURIComponent(e.employeeName)}`); }}
-                        className="text-xs font-bold text-zinc-900 hover:text-emerald-600 transition-colors text-left">
+                        className="text-xs font-semibold text-foreground hover:text-primary transition-colors text-left">
                         {e.employeeName}
                       </button>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${STATUS_BADGE[e.status].base}`}>
+                      <Badge className={`${STATUS_BADGE[e.status].base}`}>
                         {STATUS_BADGE[e.status].label}
-                      </span>
+                      </Badge>
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] text-zinc-500">
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                       <span className="flex flex-col">
                         <span>{e.date}</span>
                         {formatCreatedTime(e.createdAt) && (
-                          <span className="text-zinc-400">{formatCreatedTime(e.createdAt)}</span>
+                          <span className="text-muted-foreground/70">{formatCreatedTime(e.createdAt)}</span>
                         )}
                       </span>
                       <span>Â·</span>
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${CATEGORY_BADGE[e.category].base}`}>
+                      <Badge className={`${CATEGORY_BADGE[e.category].base}`}>
                         {CATEGORY_BADGE[e.category].label}
-                      </span>
+                      </Badge>
                       <span>Â·</span>
-                      <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold ${PAYMENT_BADGE[pm]?.base}`}>
+                      <Badge className={`${PAYMENT_BADGE[pm]?.base}`}>
                         {(() => {
                           const Icon = PAYMENT_ICON[pm];
                           return Icon && <Icon size={9} />;
                         })()}
                         {PAYMENT_BADGE[pm]?.label}
-                      </span>
+                      </Badge>
                     </div>
-                    <p className="text-xs font-extrabold text-zinc-900">{formatINR(expenseAmount(e))}</p>
+                    <p className="text-xs font-semibold text-foreground">{formatINR(expenseAmount(e))}</p>
                     {e.status === 'draft' && (
                       <div onClick={(ev) => ev.stopPropagation()}>
-                        <button onClick={() => navigate(`/hrms/expenses/edit/${e.id}`)} className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors" title="Edit draft">
+                        <Button variant="ghost" size="xs" className="text-info hover:text-info hover:bg-info/10" onClick={() => navigate(`/hrms/expenses/edit/${e.id}`)}  title="Edit draft">
                           <Pen size={12} /> Edit Draft
-                        </button>
+                        </Button>
                       </div>
                     )}
                     {e.status === 'pending' && (
                       <div className="flex items-center gap-1 pt-1" onClick={(ev) => ev.stopPropagation()}>
-                        <button onClick={() => { setConfirmModal({ expenseId: e.id, action: 'approve' }); setConfirmNotes(''); setApproveAmount(expenseTotal(e)); }} className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors" title="Approve">
+                        <Button variant="ghost" size="icon-sm" className="hover:text-primary hover:bg-accent" onClick={() => { setConfirmModal({ expenseId: e.id, action: 'approve' }); setConfirmNotes(''); setApproveAmount(expenseTotal(e)); }}  title="Approve">
                           <CheckCircle2 size={14} />
-                        </button>
-                        <button onClick={() => { setConfirmModal({ expenseId: e.id, action: 'reject' }); setConfirmNotes(''); }} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Reject">
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" onClick={() => { setConfirmModal({ expenseId: e.id, action: 'reject' }); setConfirmNotes(''); }}  title="Reject">
                           <XCircle size={14} />
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </motion.div>
@@ -599,19 +583,19 @@ export default function Expenses() {
             </div>
 
             {filtered.length > PAGE_SIZE && (
-              <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-zinc-100">
-                <p className="text-xs text-zinc-500">
-                  Showing <span className="font-bold text-zinc-900">{startRow}</span>â€“
-                  <span className="font-bold text-zinc-900">{endRow}</span> of{' '}
-                  <span className="font-bold text-zinc-900">{filtered.length}</span> expenses
+              <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  Showing <span className="font-semibold text-foreground">{startRow}</span>â€“
+                  <span className="font-semibold text-foreground">{endRow}</span> of{' '}
+                  <span className="font-semibold text-foreground">{filtered.length}</span> expenses
                 </p>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    <ChevronLeft size={16} className="text-zinc-600" />
-                  </button>
-                  <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    <ChevronRight size={16} className="text-zinc-600" />
-                  </button>
+                  <Button variant="outline" size="icon-sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} >
+                    <ChevronLeft size={16} className="text-foreground/70" />
+                  </Button>
+                  <Button variant="outline" size="icon-sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} >
+                    <ChevronRight size={16} className="text-foreground/70" />
+                  </Button>
                 </div>
               </div>
             )}
@@ -623,62 +607,57 @@ export default function Expenses() {
         const target = expenses.find(x => x.id === confirmModal.expenseId);
         if (!target) return null;
         return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-          onClick={() => { setConfirmModal(null); setConfirmNotes(''); }} role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-zinc-200 shadow-xl w-full max-w-md overflow-hidden"
-          >
-            <div className="p-6 border-b border-zinc-100 relative">
-              <button type="button" onClick={() => { setConfirmModal(null); setConfirmNotes(''); }}
-                className="absolute top-6 right-6 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+        <Dialog open onOpenChange={(open) => { if (!open) (() => { setConfirmModal(null); setConfirmNotes(''); })(); }}>
+<DialogContent hideClose aria-describedby={undefined} className="gap-0 p-0 max-w-md overflow-hidden">
+<DialogTitle className="sr-only">Dialog</DialogTitle>
+            <div className="p-6 border-b border-border relative">
+              <Button variant="ghost" size="icon-sm" className="absolute top-6 right-6" type="button" onClick={() => { setConfirmModal(null); setConfirmNotes(''); }}
+                >
                 <X size={18} />
-              </button>
-              <h3 className="text-lg font-bold text-zinc-900">
+              </Button>
+              <h3 className="text-lg font-semibold text-foreground">
                 {confirmModal.action === 'approve' ? 'Approve Expense' : 'Reject Expense'}
               </h3>
             </div>
-            <div className="p-5 space-y-3 border-b border-zinc-100 bg-zinc-50/30">
+            <div className="p-5 space-y-3 border-b border-border bg-muted/30">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Employee</span>
-                <span className="text-sm font-bold text-zinc-900">{target.employeeName}</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Employee</span>
+                <span className="text-sm font-semibold text-foreground">{target.employeeName}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Requested</span>
-                <span className="text-sm font-bold text-zinc-900">{formatINR(expenseTotal(target))}</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Requested</span>
+                <span className="text-sm font-semibold text-foreground">{formatINR(expenseTotal(target))}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Description</span>
-                <span className="text-sm text-zinc-700 text-right max-w-[200px] truncate" title={target.description}>{target.description}</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Description</span>
+                <span className="text-sm text-foreground/85 text-right max-w-[200px] truncate" title={target.description}>{target.description}</span>
               </div>
             </div>
             <div className="p-5 space-y-4">
               {confirmModal.action === 'approve' && (
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1">Approved Amount (â‚¹)</label>
+                  <label className="block text-sm font-medium text-foreground/85 mb-1">Approved Amount (â‚¹)</label>
                   <div className="flex items-center gap-2">
-                    <input type="number" min={0} value={approveAmount} onChange={(e) => setApproveAmount(Math.max(0, parseFloat(e.target.value) || 0))}
-                      className="flex-1 px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all" />
-                    <span className="text-xs text-zinc-400 whitespace-nowrap">/ â‚¹{expenseTotal(target).toLocaleString('en-IN')}</span>
+                    <Input className="flex-1" type="number" min={0} value={approveAmount} onChange={(e) => setApproveAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                       />
+                    <span className="text-xs text-muted-foreground/70 whitespace-nowrap">/ â‚¹{expenseTotal(target).toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1">
+                <label className="block text-sm font-medium text-foreground/85 mb-1">
                   {confirmModal.action === 'reject' ? 'Rejection Reason (Required) *' : 'Approval Notes (Optional)'}
                 </label>
-                <textarea value={confirmNotes} onChange={(e) => setConfirmNotes(e.target.value)} rows={2}
-                  className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all"
+                <Textarea className="w-full" value={confirmNotes} onChange={(e) => setConfirmNotes(e.target.value)} rows={2}
+                  
                   placeholder={confirmModal.action === 'approve' ? 'Reason for partial amount...' : 'State the reason for rejecting this claim...'} />
               </div>
             </div>
-            <div className="p-4 flex gap-2 justify-end bg-zinc-50/80">
-              <button type="button" onClick={() => { setConfirmModal(null); setConfirmNotes(''); }}
-                className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-xs font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
+            <div className="p-4 flex gap-2 justify-end bg-muted/80">
+              <Button variant="outline" size="sm" type="button" onClick={() => { setConfirmModal(null); setConfirmNotes(''); }}
+                >
                 Cancel
-              </button>
+              </Button>
               <button type="button"
                 onClick={() => {
                   if (confirmModal.action === 'reject' && !confirmNotes.trim()) {
@@ -692,14 +671,14 @@ export default function Expenses() {
                 }}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white transition-colors ${
                   confirmModal.action === 'approve'
-                    ? 'bg-emerald-600 hover:bg-emerald-700 border border-emerald-200'
-                    : 'bg-red-600 hover:bg-red-700 border border-red-200'
+                    ? 'bg-primary hover:bg-primary border border-primary/20'
+                    : 'bg-destructive hover:bg-destructive border border-destructive/20'
                 }`}>
                 {confirmModal.action === 'approve' ? <><CheckCircle2 size={14} /> Approve</> : <><XCircle size={14} /> Reject</>}
               </button>
             </div>
-          </motion.div>
-        </div>);
+          </DialogContent>
+</Dialog>);
       })()}
     </div>
   );

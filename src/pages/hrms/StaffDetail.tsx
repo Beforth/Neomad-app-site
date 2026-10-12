@@ -3,19 +3,21 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mail, Phone, Shield } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getUsers, mapBackendRoleToFrontend } from '../../lib/api';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 const ROLE_COLORS: Record<string, string> = {
-  super_admin: 'bg-rose-50 text-rose-700',
+  super_admin: 'bg-destructive/10 text-destructive',
   admin: 'bg-purple-50 text-purple-700',
-  manager: 'bg-blue-50 text-blue-700',
-  delivery: 'bg-zinc-50 text-zinc-600',
-  delivery_boy: 'bg-zinc-50 text-zinc-600',
-  staff: 'bg-emerald-50 text-emerald-700',
+  manager: 'bg-info/10 text-info',
+  delivery: 'bg-muted text-foreground/70',
+  delivery_boy: 'bg-muted text-foreground/70',
+  staff: 'bg-accent text-accent-foreground',
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  active: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-  inactive: 'bg-zinc-50 text-zinc-500 border-zinc-100',
+  active: 'bg-accent text-accent-foreground border-primary/20',
+  inactive: 'bg-muted text-muted-foreground border-border',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -62,12 +64,12 @@ export default function StaffDetail() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 font-medium transition-colors">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground font-medium transition-colors">
           <ArrowLeft size={16} />Back
         </button>
-        <div className="bg-white border border-zinc-100 rounded-2xl p-10 text-center shadow-sm">
-          <p className="text-sm text-zinc-400 animate-pulse">Loading staff details...</p>
-        </div>
+        <Card className="p-10 text-center" >
+          <p className="text-sm text-muted-foreground/70 animate-pulse">Loading staff details...</p>
+        </Card>
       </div>
     );
   }
@@ -75,12 +77,12 @@ export default function StaffDetail() {
   if (!staff) {
     return (
       <div className="space-y-6">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 font-medium transition-colors">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground font-medium transition-colors">
           <ArrowLeft size={16} />Back
         </button>
-        <div className="bg-white border border-zinc-100 rounded-2xl p-10 text-center shadow-sm">
-          <p className="text-sm text-zinc-400">Staff member not found.</p>
-        </div>
+        <Card className="p-10 text-center" >
+          <p className="text-sm text-muted-foreground/70">Staff member not found.</p>
+        </Card>
       </div>
     );
   }
@@ -88,55 +90,55 @@ export default function StaffDetail() {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 font-medium transition-colors">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground font-medium transition-colors">
           <ArrowLeft size={16} />Back
         </button>
       </div>
 
       {/* Profile Card */}
-      <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-sm">
+      <Card className="p-6" >
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-zinc-900 text-white flex items-center justify-center text-xl font-bold shrink-0">
+          <div className="w-16 h-16 rounded-xl bg-foreground text-white flex items-center justify-center text-xl font-semibold shrink-0">
             {staff.name.split(' ').map((n: string) => n[0]).join('')}
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-zinc-900">{staff.name}</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">{staff.name}</h1>
             <div className="flex items-center gap-2 mt-2">
-              <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold border ${STATUS_STYLES[staff.status]}`}>
+              <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${STATUS_STYLES[staff.status]}`}>
                 {STATUS_LABELS[staff.status]}
               </span>
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold capitalize ${ROLE_COLORS[staff.role] || 'bg-zinc-50 text-zinc-600'}`}>
+              <Badge className={`capitalize ${ROLE_COLORS[staff.role] || 'bg-muted text-foreground/70'}`}>
                 <Shield size={10} />{staff.role.replace('_', ' ')}
-              </span>
+              </Badge>
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Contact Info */}
-      <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-sm space-y-4">
-        <h2 className="text-sm font-bold text-zinc-900 uppercase tracking-wider">Contact Information</h2>
+      <Card className="p-6 space-y-4" >
+        <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Contact Information</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-info/10 flex items-center justify-center text-info shrink-0">
               <Mail size={16} />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Email</p>
-              <p className="text-sm font-medium text-zinc-900">{staff.email}</p>
+              <p className="text-xs font-medium text-muted-foreground/70">Email</p>
+              <p className="text-sm font-medium text-foreground">{staff.email}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center text-primary shrink-0">
               <Phone size={16} />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Phone</p>
-              <p className="text-sm font-medium text-zinc-900">{staff.phone || <span className="text-zinc-300">Not provided</span>}</p>
+              <p className="text-xs font-medium text-muted-foreground/70">Phone</p>
+              <p className="text-sm font-medium text-foreground">{staff.phone || <span className="text-muted-foreground/50">Not provided</span>}</p>
             </div>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

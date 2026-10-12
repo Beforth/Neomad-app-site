@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowLeft, CheckCircle2, Loader2, Save } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input, fieldClass } from '@/components/ui/input';
 import {
   createShiftType,
   getHrmsSettings,
@@ -10,8 +12,7 @@ import {
   updateShiftType,
 } from '../../lib/hrmsShifts';
 
-const inputClass =
-  'w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all';
+const inputClass = fieldClass;
 
 function formatTimeDiff(start: string, end: string): string {
   if (!start || !end) return '—';
@@ -41,11 +42,11 @@ function ToggleSwitch({
       disabled={disabled}
       onClick={onToggle}
       className={`relative w-11 h-6 rounded-full transition-colors ${
-        enabled ? 'bg-zinc-900' : 'bg-zinc-200'
+        enabled ? 'bg-foreground' : 'bg-border'
       } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
     >
       <span
-        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-card shadow transition-transform ${
           enabled ? 'translate-x-5' : ''
         }`}
       />
@@ -206,7 +207,7 @@ export default function ShiftTypeForm() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20 text-zinc-400 gap-2 text-sm">
+      <div className="flex items-center justify-center py-20 text-muted-foreground/70 gap-2 text-sm">
         <Loader2 size={18} className="animate-spin" /> Loading shift…
       </div>
     );
@@ -218,11 +219,11 @@ export default function ShiftTypeForm() {
         <button
           type="button"
           onClick={() => navigate('/hrms/shifts')}
-          className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-800"
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft size={16} /> Back to Shifts
         </button>
-        <p className="text-sm text-zinc-500">Shift type not found.</p>
+        <p className="text-sm text-muted-foreground">Shift type not found.</p>
       </div>
     );
   }
@@ -230,24 +231,24 @@ export default function ShiftTypeForm() {
   return (
     <div className="space-y-5 w-full">
       {toast && (
-        <div className="fixed top-6 right-6 z-50 bg-zinc-900 text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
-          <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
+        <div className="fixed top-6 right-6 z-50 bg-foreground text-white text-sm px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 font-medium">
+          <CheckCircle2 size={16} className="text-primary" /> {toast}
         </div>
       )}
 
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-3">
-        <button
+        <Button variant="ghost" size="icon-sm" className="mt-1"
           type="button"
           onClick={() => navigate('/hrms/shifts')}
-          className="mt-1 p-2 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+          
         >
           <ArrowLeft size={18} />
-        </button>
+        </Button>
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
             {isEdit ? 'Edit Shift Type' : 'New Shift Type'}
           </h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
+          <p className="text-[13px] text-muted-foreground">
             {isEdit
               ? 'Update timings, grace, late penalty, and overtime for this shift'
               : 'Define shift timings, grace, late penalty, and overtime rate'}
@@ -259,88 +260,88 @@ export default function ShiftTypeForm() {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
-          <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Basic Information</h2>
+          <div className="px-5 py-3.5 border-b border-border bg-muted/50">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Basic Information</h2>
           </div>
           <div className="p-5 space-y-4">
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">
                 Shift Name *
               </label>
-              <input
+              <Input
                 type="text"
                 required
                 disabled={!canManage}
                 value={form.name}
                 onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                 placeholder="e.g. Office, Morning, Evening"
-                className={inputClass}
+                
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">
+                <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">
                   Start Time *
                 </label>
-                <input
+                <Input
                   type="time"
                   required
                   disabled={!canManage}
                   value={form.start_time}
                   onChange={(e) => setForm((p) => ({ ...p, start_time: e.target.value }))}
-                  className={inputClass}
+                  
                 />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">
+                <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">
                   End Time *
                 </label>
-                <input
+                <Input
                   type="time"
                   required
                   disabled={!canManage}
                   value={form.end_time}
                   onChange={(e) => setForm((p) => ({ ...p, end_time: e.target.value }))}
-                  className={inputClass}
+                  
                 />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">
+                <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">
                   Break Start
                 </label>
-                <input
+                <Input
                   type="time"
                   disabled={!canManage}
                   value={form.break_start}
                   onChange={(e) => setForm((p) => ({ ...p, break_start: e.target.value }))}
-                  className={inputClass}
+                  
                 />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">
+                <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">
                   Break End
                 </label>
-                <input
+                <Input
                   type="time"
                   disabled={!canManage}
                   value={form.break_end}
                   onChange={(e) => setForm((p) => ({ ...p, break_end: e.target.value }))}
-                  className={inputClass}
+                  
                 />
               </div>
             </div>
-            <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 flex items-center justify-between">
-              <span className="text-sm text-zinc-700 font-medium">Total Working Hours</span>
-              <span className="text-sm font-bold text-zinc-900">
+            <div className="bg-muted border border-border rounded-xl p-3 flex items-center justify-between">
+              <span className="text-sm text-foreground/85 font-medium">Total Working Hours</span>
+              <span className="text-sm font-semibold text-foreground">
                 {formatTimeDiff(form.start_time, form.end_time)}
               </span>
             </div>
             <div className="flex items-center justify-between py-1">
               <div>
-                <p className="text-sm font-medium text-zinc-900">Active</p>
-                <p className="text-xs text-zinc-400">Inactive shifts cannot be newly assigned</p>
+                <p className="text-sm font-medium text-foreground">Active</p>
+                <p className="text-xs text-muted-foreground/70">Inactive shifts cannot be newly assigned</p>
               </div>
               <ToggleSwitch
                 enabled={form.is_active}
@@ -355,16 +356,16 @@ export default function ShiftTypeForm() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
-          <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Late Grace & Penalty</h2>
+          <div className="px-5 py-3.5 border-b border-border bg-muted/50">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Late Grace & Penalty</h2>
           </div>
           <div className="p-5 space-y-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-zinc-900">Late Grace Period</p>
-                <p className="text-xs text-zinc-400">
+                <p className="text-sm font-medium text-foreground">Late Grace Period</p>
+                <p className="text-xs text-muted-foreground/70">
                   Allowed minutes after shift start without marking late (e.g. 15 → on time until 10:15)
                 </p>
               </div>
@@ -379,10 +380,10 @@ export default function ShiftTypeForm() {
             {form.late_grace_enabled && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">
                     Late Grace (minutes)
                   </label>
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     max={240}
@@ -394,14 +395,14 @@ export default function ShiftTypeForm() {
                         late_grace_minutes: Math.max(0, parseInt(e.target.value, 10) || 0),
                       }))
                     }
-                    className={inputClass}
+                    
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">
                     Late Penalty (₹)
                   </label>
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     step={1}
@@ -413,17 +414,17 @@ export default function ShiftTypeForm() {
                         late_penalty_amount: Math.max(0, parseFloat(e.target.value) || 0),
                       }))
                     }
-                    className={inputClass}
+                    
                     placeholder="100"
                   />
                 </div>
               </div>
             )}
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">
+              <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">
                 Half Day After (minutes from start)
               </label>
-              <input
+              <Input
                 type="number"
                 min={0}
                 max={480}
@@ -435,9 +436,9 @@ export default function ShiftTypeForm() {
                     half_day_after_minutes: Math.max(0, parseInt(e.target.value, 10) || 0),
                   }))
                 }
-                className={inputClass}
+                
               />
-              <p className="text-[11px] text-zinc-400 mt-1">
+              <p className="text-[11px] text-muted-foreground/70 mt-1">
                 Check-in after this many minutes is half day. No money deduction yet.
               </p>
             </div>
@@ -448,16 +449,16 @@ export default function ShiftTypeForm() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08 }}
-          className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
-          <div className="px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/50">
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Overtime</h2>
+          <div className="px-5 py-3.5 border-b border-border bg-muted/50">
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Overtime</h2>
           </div>
           <div className="p-5 space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-zinc-900">Enable Overtime</p>
-                <p className="text-xs text-zinc-400">
+                <p className="text-sm font-medium text-foreground">Enable Overtime</p>
+                <p className="text-xs text-muted-foreground/70">
                   Flat overtime amount when checkout is past end + grace
                 </p>
               </div>
@@ -474,10 +475,10 @@ export default function ShiftTypeForm() {
             {form.overtime_enabled && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">
                     Overtime After (minutes past end)
                   </label>
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     max={240}
@@ -489,14 +490,14 @@ export default function ShiftTypeForm() {
                         overtime_after_minutes: Math.max(0, parseInt(e.target.value, 10) || 0),
                       }))
                     }
-                    className={inputClass}
+                    
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-1.5">
+                  <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">
                     Overtime Rate (₹)
                   </label>
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     step={1}
@@ -508,16 +509,16 @@ export default function ShiftTypeForm() {
                         overtime_rate: Math.max(0, parseFloat(e.target.value) || 0),
                       }))
                     }
-                    className={inputClass}
+                    
                     placeholder="50"
                   />
-                  <p className="text-[11px] text-zinc-400 mt-1">Flat amount per day when OT applies (not per hour).</p>
+                  <p className="text-[11px] text-muted-foreground/70 mt-1">Flat amount per day when OT applies (not per hour).</p>
                 </div>
               </div>
             )}
             {!globalOtEnabled && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                <p className="text-xs text-amber-700">
+              <div className="bg-warning/10 border border-warning/25 rounded-xl p-3">
+                <p className="text-xs text-warning">
                   Overtime is disabled globally. Enable it under Shifts → Settings first.
                 </p>
               </div>
@@ -527,21 +528,21 @@ export default function ShiftTypeForm() {
 
         {canManage && (
           <div className="flex justify-end gap-3">
-            <button
+            <Button variant="secondary"
               type="button"
               onClick={() => navigate('/hrms/shifts')}
-              className="px-5 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-sm font-medium transition-colors"
+              
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button variant="dark"
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+              
             >
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               {isEdit ? 'Save Changes' : 'Create Shift'}
-            </button>
+            </Button>
           </div>
         )}
       </form>

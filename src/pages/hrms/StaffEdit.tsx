@@ -43,7 +43,7 @@ export default function StaffEdit() {
   };
 
   if (loading) {
-    return <div className="max-w-3xl mx-auto py-16 text-center text-sm text-zinc-400">Loading employee…</div>;
+    return <div className="max-w-3xl mx-auto py-16 text-center text-sm text-muted-foreground/70">Loading employee…</div>;
   }
 
   return (

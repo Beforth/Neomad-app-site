@@ -13,6 +13,8 @@ import { useAuth } from '../../context/AuthContext';
 import { getMyAttendanceRecords, getMyAttendanceSummary, type AttendanceRecordOut, type AttendanceMySummaryOut } from '../../lib/hrmsApi';
 import { getMyExpenses, getExpenseSummary, type Expense, type ExpenseSummaryOut } from '../../lib/hrmsExpenses';
 import { getMyLeaveBalances, type LeaveBalanceOut } from '../../lib/hrmsLeave';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 const CHART_STYLE = {
   contentStyle: { backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #f4f4f5', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' },
@@ -20,18 +22,18 @@ const CHART_STYLE = {
 };
 
 const TODAY_STATUS: Record<string, { label: string; color: string }> = {
-  present:  { label: 'Present',  color: 'bg-emerald-50 text-emerald-700 border border-emerald-100' },
-  absent:   { label: 'Absent',   color: 'bg-rose-50 text-rose-700 border border-rose-100' },
-  late:     { label: 'Late',     color: 'bg-amber-50 text-amber-700 border border-amber-100' },
-  half_day: { label: 'Half Day', color: 'bg-blue-50 text-blue-700 border border-blue-100' },
+  present:  { label: 'Present',  color: 'bg-accent text-accent-foreground border border-primary/20' },
+  absent:   { label: 'Absent',   color: 'bg-destructive/10 text-destructive border border-destructive/20' },
+  late:     { label: 'Late',     color: 'bg-warning/10 text-warning border border-warning/25' },
+  half_day: { label: 'Half Day', color: 'bg-info/10 text-info border border-info/25' },
   overtime: { label: 'Overtime', color: 'bg-violet-50 text-violet-700 border border-violet-100' },
 };
 
 const EXPENSE_STATUS_STYLES: Record<string, string> = {
-  pending:  'bg-amber-50 text-amber-700 border border-amber-100',
-  approved: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
-  rejected: 'bg-rose-50 text-rose-700 border border-rose-100',
-  draft:    'bg-zinc-50 text-zinc-600 border border-zinc-100',
+  pending:  'bg-warning/10 text-warning border border-warning/25',
+  approved: 'bg-accent text-accent-foreground border border-primary/20',
+  rejected: 'bg-destructive/10 text-destructive border border-destructive/20',
+  draft:    'bg-muted text-foreground/70 border border-border',
 };
 
 const EXPENSE_STATUS_COLORS: Record<string, string> = {
@@ -120,7 +122,7 @@ export default function EmployeeDashboard() {
   const todayRecord = attendance.find(r => r.date === todayStr);
   const todayStatus = todayRecord && TODAY_STATUS[todayRecord.status]
     ? TODAY_STATUS[todayRecord.status]
-    : { label: 'Not Marked', color: 'bg-zinc-100 text-zinc-500 border border-zinc-100' };
+    : { label: 'Not Marked', color: 'bg-secondary text-muted-foreground border border-border' };
 
   const monthPrefix = getMonthPrefix(new Date());
   const monthRecords = attendance.filter(r => r.date.startsWith(monthPrefix));
@@ -177,7 +179,7 @@ export default function EmployeeDashboard() {
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 3)
       .map(r => ({
-        icon: LogIn, color: 'bg-emerald-50 text-emerald-600',
+        icon: LogIn, color: 'bg-accent text-primary',
         text: `You checked in at ${r.check_in}`, time: shortDate(r.date),
       })),
     ...expenses
@@ -185,7 +187,7 @@ export default function EmployeeDashboard() {
       .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
       .slice(0, 3)
       .map(e => ({
-        icon: FileText, color: 'bg-blue-50 text-blue-600',
+        icon: FileText, color: 'bg-info/10 text-info',
         text: `You submitted an expense claim (${e.category || 'Expense'})`, time: shortDate(e.date || ''),
       })),
   ].sort((a, b) => b.time.localeCompare(a.time)).slice(0, 6);
@@ -196,22 +198,22 @@ export default function EmployeeDashboard() {
   const totalLeaveUsed = leaveBalances.reduce((s, b) => s + b.used, 0);
 
   const stats = [
-    { label: 'Today', value: todayStatus.label, icon: CalendarCheck, color: 'bg-emerald-50 text-emerald-600', badge: todayStatus.color, link: '/hrms/attendance' },
+    { label: 'Today', value: todayStatus.label, icon: CalendarCheck, color: 'bg-accent text-primary', badge: todayStatus.color, link: '/hrms/attendance' },
     { label: 'Attend. Rate', value: `${attendanceRate}%`, icon: TrendingUp, color: 'bg-cyan-50 text-cyan-600', link: '/hrms/attendance' },
-    { label: 'Hours / Month', value: `${monthHours}h`, icon: Clock, color: 'bg-blue-50 text-blue-600', link: '/hrms/attendance' },
-    { label: 'Pending Expenses', value: pendingExpenses, icon: Receipt, color: 'bg-amber-50 text-amber-600', link: '/hrms/expenses' },
+    { label: 'Hours / Month', value: `${monthHours}h`, icon: Clock, color: 'bg-info/10 text-info', link: '/hrms/attendance' },
+    { label: 'Pending Expenses', value: pendingExpenses, icon: Receipt, color: 'bg-warning/10 text-warning', link: '/hrms/expenses' },
   ];
 
   if (loading) {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">My Dashboard</h1>
-          <p className="text-sm text-zinc-500 mt-1">Overview of your work</p>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">My Dashboard</h1>
+          <p className="text-[13px] text-muted-foreground">Overview of your work</p>
         </div>
-        <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm p-12 text-center text-sm text-zinc-400">
+        <Card className="p-12 text-center text-sm text-muted-foreground/70" >
           Loading dashboard...
-        </div>
+        </Card>
       </div>
     );
   }
@@ -220,8 +222,8 @@ export default function EmployeeDashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">My Dashboard</h1>
-        <p className="text-sm text-zinc-500 mt-1">Overview of your work</p>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">My Dashboard</h1>
+        <p className="text-[13px] text-muted-foreground">Overview of your work</p>
       </div>
 
       {/* Compact Stat Cards */}
@@ -232,20 +234,20 @@ export default function EmployeeDashboard() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.04 }}
-            className="bg-white border border-zinc-100 rounded-xl p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+            className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 shadow-[0_1px_2px_rgb(0_0_0/0.03)] hover:shadow-md transition-shadow cursor-pointer"
           >
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${stat.color}`}>
               <stat.icon size={18} />
             </div>
             <div className="min-w-0">
               {stat.badge ? (
-                <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full ${stat.badge}`}>
+                <Badge className={`${stat.badge}`}>
                   {stat.value}
-                </span>
+                </Badge>
               ) : (
-                <p className="text-lg font-extrabold text-zinc-900 leading-none truncate">{stat.value}</p>
+                <p className="text-lg font-semibold text-foreground leading-none truncate">{stat.value}</p>
               )}
-              <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mt-1 truncate">{stat.label}</p>
+              <p className="text-xs font-medium text-muted-foreground/70 mt-1 truncate">{stat.label}</p>
             </div>
           </motion.div>
           </Link>
@@ -257,22 +259,22 @@ export default function EmployeeDashboard() {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm"
+          className="bg-card border border-border rounded-xl p-4 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
         >
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="font-bold text-zinc-900 text-sm">Leave Balance</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">{totalLeaveRemaining} days remaining &middot; {totalLeaveUsed} used</p>
+              <h3 className="font-semibold text-foreground text-sm">Leave Balance</h3>
+              <p className="text-xs text-muted-foreground/70 mt-0.5">{totalLeaveRemaining} days remaining &middot; {totalLeaveUsed} used</p>
             </div>
-            <Link to="/hrms/leave" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
+            <Link to="/hrms/leave" className="text-xs font-semibold text-primary hover:text-accent-foreground flex items-center gap-1 transition-colors">
               View All <ChevronRight size={12} />
             </Link>
           </div>
           <div className="flex flex-wrap gap-2">
             {leaveBalances.map(b => (
-              <span key={b.leave_type_id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 border border-zinc-100 rounded-lg text-[11px] font-semibold text-zinc-600">
+              <span key={b.leave_type_id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-muted border border-border rounded-lg text-[11px] font-semibold text-foreground/70">
                 {b.leave_type_name}
-                <span className="font-bold text-zinc-900">{b.remaining}/{b.total}</span>
+                <span className="font-semibold text-foreground">{b.remaining}/{b.total}</span>
               </span>
             ))}
           </div>
@@ -286,14 +288,14 @@ export default function EmployeeDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm"
+          className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
         >
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-zinc-900">My Weekly Attendance</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">Present vs absent this week</p>
+              <h3 className="font-semibold text-foreground">My Weekly Attendance</h3>
+              <p className="text-xs text-muted-foreground/70 mt-0.5">Present vs absent this week</p>
             </div>
-            <Link to="/hrms/attendance" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
+            <Link to="/hrms/attendance" className="text-xs font-semibold text-primary hover:text-accent-foreground flex items-center gap-1 transition-colors">
               View All <ChevronRight size={12} />
             </Link>
           </div>
@@ -314,11 +316,11 @@ export default function EmployeeDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm h-full flex flex-col"
+          className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)] h-full flex flex-col"
         >
           <div className="mb-4">
-            <h3 className="font-bold text-zinc-900">My Expense Breakdown</h3>
-            <p className="text-xs text-zinc-400 mt-0.5">Your claims by status</p>
+            <h3 className="font-semibold text-foreground">My Expense Breakdown</h3>
+            <p className="text-xs text-muted-foreground/70 mt-0.5">Your claims by status</p>
           </div>
           <div className="flex items-center gap-6 flex-1">
             <ResponsiveContainer width={140} height={140}>
@@ -344,12 +346,12 @@ export default function EmployeeDashboard() {
                 <div key={x.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: x.color }} />
-                    <span className="text-sm text-zinc-600">{x.name}</span>
+                    <span className="text-sm text-foreground/70">{x.name}</span>
                   </div>
-                  <span className="text-sm font-bold text-zinc-900">{x.value}</span>
+                  <span className="text-sm font-semibold text-foreground">{x.value}</span>
                 </div>
               )) : (
-                <p className="text-sm text-zinc-400">No expense claims yet.</p>
+                <p className="text-sm text-muted-foreground/70">No expense claims yet.</p>
               )}
             </div>
           </div>
@@ -363,12 +365,12 @@ export default function EmployeeDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm h-full flex flex-col"
+          className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)] h-full flex flex-col"
         >
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-zinc-900">My Monthly Expenses</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">Weekly breakdown for {monthLabel}</p>
+              <h3 className="font-semibold text-foreground">My Monthly Expenses</h3>
+              <p className="text-xs text-muted-foreground/70 mt-0.5">Weekly breakdown for {monthLabel}</p>
             </div>
           </div>
           <div className="flex-1 min-h-0">
@@ -389,35 +391,35 @@ export default function EmployeeDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden"
+          className="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
         >
           <div className="flex items-center justify-between p-5 pb-3">
             <div>
-              <h3 className="font-bold text-zinc-900">Recent Expenses</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">Your latest claims</p>
+              <h3 className="font-semibold text-foreground">Recent Expenses</h3>
+              <p className="text-xs text-muted-foreground/70 mt-0.5">Your latest claims</p>
             </div>
-            <Link to="/hrms/expenses" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
+            <Link to="/hrms/expenses" className="text-xs font-semibold text-primary hover:text-accent-foreground flex items-center gap-1 transition-colors">
               View All <ChevronRight size={12} />
             </Link>
           </div>
-          <div className="divide-y divide-zinc-50">
+          <div className="divide-y divide-border">
             {recentExpenses.length ? recentExpenses.map((exp) => (
-              <div key={exp.id} className="flex items-center justify-between px-5 py-3 hover:bg-zinc-50/50 transition-colors">
+              <div key={exp.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/50 transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-foreground text-white flex items-center justify-center text-[11px] font-semibold shrink-0">
                     {(exp.category || 'E')[0].toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-zinc-900 truncate">{exp.category || 'Expense'}</p>
-                    <p className="text-xs text-zinc-400">{shortDate(exp.date || '')} &middot; {inr(exp.total ?? exp.amount ?? 0)}</p>
+                    <p className="text-sm font-semibold text-foreground truncate">{exp.category || 'Expense'}</p>
+                    <p className="text-xs text-muted-foreground/70">{shortDate(exp.date || '')} &middot; {inr(exp.total ?? exp.amount ?? 0)}</p>
                   </div>
                 </div>
-                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ml-2 ${EXPENSE_STATUS_STYLES[exp.status] || ''}`}>
+                <Badge className={`shrink-0 ml-2 ${EXPENSE_STATUS_STYLES[exp.status] || ''}`}>
                   {exp.status}
-                </span>
+                </Badge>
               </div>
             )) : (
-              <p className="px-5 py-6 text-sm text-zinc-400">No expenses yet. Submit your first claim.</p>
+              <p className="px-5 py-6 text-sm text-muted-foreground/70">No expenses yet. Submit your first claim.</p>
             )}
           </div>
         </motion.div>
@@ -428,27 +430,27 @@ export default function EmployeeDashboard() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
-        className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm"
+        className="bg-card border border-border rounded-xl p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03)]"
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-bold text-zinc-900">My Activity</h3>
-            <p className="text-xs text-zinc-400 mt-0.5">Your recent check-ins and submissions</p>
+            <h3 className="font-semibold text-foreground">My Activity</h3>
+            <p className="text-xs text-muted-foreground/70 mt-0.5">Your recent check-ins and submissions</p>
           </div>
         </div>
-        <div className="space-y-0 divide-y divide-zinc-50">
+        <div className="space-y-0 divide-y divide-border">
           {activity.length ? activity.map((item, i) => (
             <div key={i} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${item.color}`}>
                 <item.icon size={14} />
               </div>
-              <p className="text-sm text-zinc-700 flex-1 min-w-0 truncate">{item.text}</p>
-              <span className="text-xs text-zinc-400 shrink-0 ml-2">{item.time}</span>
+              <p className="text-sm text-foreground/85 flex-1 min-w-0 truncate">{item.text}</p>
+              <span className="text-xs text-muted-foreground/70 shrink-0 ml-2">{item.time}</span>
             </div>
           )) : (
             <div className="flex items-center gap-3 py-6 justify-center">
-              <Inbox size={16} className="text-zinc-300" />
-              <p className="text-sm text-zinc-400">No recent activity</p>
+              <Inbox size={16} className="text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground/70">No recent activity</p>
             </div>
           )}
         </div>

@@ -2,20 +2,175 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root, .light {
+  --background: #ffffff;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+  --primary: #059669;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f8f9fa;
+  --muted-foreground: #71717a;
+  --accent: #ecfdf5;
+  --accent-foreground: #047857;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #10b981;
+  --destructive: #dc2626;
+  --success: #059669;
+  --warning: #d97706;
+  --info: #2563eb;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: #0a0c10;
+  --foreground: #e6e9ef;
+  --card: #0f1218;
+  --card-foreground: #e6e9ef;
+  --popover: #0f1218;
+  --popover-foreground: #e6e9ef;
+  --primary: #10b981;
+  --primary-foreground: #ffffff;
+  --secondary: #171b23;
+  --secondary-foreground: #e6e9ef;
+  --muted: #11141b;
+  --muted-foreground: #8b94a5;
+  --accent: #0b2a22;
+  --accent-foreground: #6ee7b7;
+  --border: #1f2430;
+  --input: #272d3a;
+  --ring: #10b981;
+  --destructive: #f43f5e;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --info: #60a5fa;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 6px);
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --animate-in: fade-in 0.15s ease-out;
+  --animate-pop: pop 0.15s ease-out;
+  --animate-slide-right: slide-right 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-slide-left: slide-left 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-toast: toast 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-marquee: marquee 30s linear infinite;
+  --animate-beam: beam 4s linear infinite;
+  --animate-flip: flip 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-spin-in: spin-in 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-shake: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  --animate-slide-up: slide-up 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-loader-bars: loader-bars 1s ease-in-out infinite;
+  --animate-loader-dots: loader-dots 1.2s ease-in-out infinite;
+  --animate-loader-bar: loader-bar 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  --animate-loader-ring: loader-ring 1.4s ease-out infinite;
+}
+
+@property --beam-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes pop { from { opacity: 0; transform: scale(0.97) translateY(2px) } to { opacity: 1; transform: none } }
+@keyframes slide-right { from { transform: translateX(100%) } to { transform: none } }
+@keyframes slide-left { from { transform: translateX(-100%) } to { transform: none } }
+@keyframes shimmer { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+@keyframes toast { from { opacity: 0; transform: translateY(8px) scale(0.98) } to { opacity: 1; transform: none } }
+
+@keyframes marquee { from { transform: translateX(0) } to { transform: translateX(-100%) } }
+@keyframes beam { to { --beam-angle: 360deg } }
+@keyframes flip { from { opacity: 0; transform: translateY(40%) } to { opacity: 1; transform: none } }
+@keyframes spin-in { from { opacity: 0; transform: rotate(-90deg) scale(0.6) } to { opacity: 1; transform: none } }
+@keyframes slide-up { from { transform: translateY(100%) } to { transform: none } }
+@keyframes loader-bars { 0%, 100% { transform: scaleY(0.35) } 50% { transform: scaleY(1) } }
+@keyframes loader-dots { 0%, 80%, 100% { transform: scale(0.5); opacity: 0.4 } 40% { transform: scale(1); opacity: 1 } }
+@keyframes loader-bar { 0% { transform: translateX(-100%) } 100% { transform: translateX(250%) } }
+@keyframes loader-ring { 0% { transform: scale(0.4); opacity: 0.9 } 100% { transform: scale(1); opacity: 0 } }
+@keyframes shake { 10%, 90% { transform: translateX(-1px) } 20%, 80% { transform: translateX(2px) } 30%, 50%, 70% { transform: translateX(-4px) } 40%, 60% { transform: translateX(4px) } }
+
+/* Slider: filled track and a thumb that grows on hover and press. */
+.ui-slider::-webkit-slider-runnable-track { height: 6px; border-radius: 9999px; background: linear-gradient(90deg, var(--primary) var(--fill), var(--secondary) var(--fill)); }
+.ui-slider::-moz-range-track { height: 6px; border-radius: 9999px; background: var(--secondary); }
+.ui-slider::-moz-range-progress { height: 6px; border-radius: 9999px; background: var(--primary); }
+.ui-slider::-webkit-slider-thumb { appearance: none; margin-top: -5px; width: 16px; height: 16px; border-radius: 9999px; background: var(--background); border: 2px solid var(--primary); box-shadow: 0 1px 3px rgb(0 0 0 / 0.2); transition: transform 0.15s, box-shadow 0.15s; }
+.ui-slider::-moz-range-thumb { width: 12px; height: 12px; border-radius: 9999px; background: var(--background); border: 2px solid var(--primary); transition: transform 0.15s; }
+.ui-slider:hover::-webkit-slider-thumb { transform: scale(1.15); }
+.ui-slider:active::-webkit-slider-thumb { transform: scale(1.3); }
+.ui-slider:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 25%, transparent); }
+
+/* Icon draw-on (opt-in via the `draw` prop): strokes redraw one after another when the icon or a .group parent is hovered. */
+.icon-draw * { stroke-dasharray: 1 1; stroke-dashoffset: 0; }
+.icon-draw:hover *, .group:hover .icon-draw * {
+  animation: icon-draw var(--icon-ms, 900ms) cubic-bezier(0.45, 0, 0.2, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 140ms);
+}
+@keyframes icon-draw { from { stroke-dashoffset: 1 } to { stroke-dashoffset: 0 } }
+
+/* Theme switch: the new theme is revealed by a growing circle (see useTheme in site/layout.tsx). */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-old(root) { z-index: 0; }
+::view-transition-new(root) { z-index: 1; animation: theme-reveal 0.75s cubic-bezier(0.65, 0, 0.35, 1) both; }
+@keyframes theme-reveal {
+  from { clip-path: circle(0px at var(--vt-x, 100%) var(--vt-y, 0)) }
+  to { clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 100%) var(--vt-y, 0)) }
 }
 
 @layer base {
+  * { border-color: var(--border); }
+  :focus-visible { outline: 2px solid color-mix(in srgb, var(--ring) 70%, transparent); outline-offset: 2px; }
+  html { -webkit-font-smoothing: antialiased; scrollbar-gutter: stable; overflow-anchor: auto; }
   body {
-    @apply bg-zinc-50 text-zinc-900 antialiased;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01';
   }
-  
+  ::selection { background: color-mix(in srgb, var(--primary) 25%, transparent); }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+  *::-webkit-scrollbar-thumb:hover { background: var(--input); }
+  button:not(:disabled), [role='button']:not([aria-disabled='true']) { cursor: pointer; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+@layer base {
   /* Mobile-optimized scrolling */
-  * {
-    -webkit-overflow-scrolling: touch;
-  }
-  
+  * { -webkit-overflow-scrolling: touch; }
+
   /* Remove default mobile styles */
   input, textarea, button, select {
     -webkit-appearance: none;
@@ -31,11 +186,8 @@
     -moz-appearance: auto;
     appearance: auto;
   }
-  
-  /* Smooth scrolling for mobile */
-  html {
-    scroll-behavior: smooth;
-  }
+
+  html { scroll-behavior: smooth; }
 }
 
 @media print {
@@ -79,4 +231,11 @@
   .payslip-print-root .payslip-body {
     padding: 0 !important;
   }
+}
+
+/* Leaflet gives its panes and controls z-index 400-1000. Contain them in their own stacking context
+   so dropdowns, menus and dialogs always draw above any map. */
+.leaflet-container {
+  isolation: isolate;
+  z-index: 0;
 }

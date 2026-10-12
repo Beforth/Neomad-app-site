@@ -7,6 +7,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FileText, Loader2, Trash2, Upload } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   DOC_TYPES, listStaffDocuments, uploadStaffDocument, deleteStaffDocument,
   type DocType, type StaffDocument,
@@ -63,37 +65,37 @@ function DocSlot({
 
   return (
     <div>
-      {side && <p className="text-xs font-medium text-zinc-500 mb-1.5">{side}</p>}
+      {side && <p className="text-xs font-medium text-muted-foreground mb-1.5">{side}</p>}
       {doc ? (
-        <div className="relative border border-zinc-200 rounded-xl overflow-hidden bg-white group">
+        <Card className="relative overflow-hidden group" >
           {isImage ? (
             <img src={`${base}${doc.url}`} alt={label}
               className="w-full h-36 object-cover" />
           ) : (
-            <div className="w-full h-36 flex flex-col items-center justify-center gap-2 bg-zinc-50 text-zinc-400">
+            <div className="w-full h-36 flex flex-col items-center justify-center gap-2 bg-muted text-muted-foreground/70">
               <FileText size={28} />
               <span className="text-xs font-medium">PDF</span>
             </div>
           )}
-          <div className="px-3 py-2 flex items-center justify-between gap-2 border-t border-zinc-100">
+          <div className="px-3 py-2 flex items-center justify-between gap-2 border-t border-border">
             <div className="min-w-0">
-              <p className="text-xs font-medium text-zinc-700 truncate">{doc.original_name || label}</p>
-              <p className="text-[10px] text-zinc-400">{humanSize(doc.size_bytes)}</p>
+              <p className="text-xs font-medium text-foreground/85 truncate">{doc.original_name || label}</p>
+              <p className="text-[11px] text-muted-foreground/70">{humanSize(doc.size_bytes)}</p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <button type="button" onClick={() => inputRef.current?.click()} disabled={busy}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+              <Button variant="ghost" size="icon-sm" className="hover:text-primary hover:bg-accent" type="button" onClick={() => inputRef.current?.click()} disabled={busy}
+                
                 title="Replace">
                 <Upload size={14} />
-              </button>
-              <button type="button" onClick={remove} disabled={busy}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+              </Button>
+              <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" type="button" onClick={remove} disabled={busy}
+                
                 title="Delete">
                 <Trash2 size={14} />
-              </button>
+              </Button>
             </div>
           </div>
-        </div>
+        </Card>
       ) : (
         <button
           type="button"
@@ -108,24 +110,24 @@ function DocSlot({
           }}
           disabled={busy}
           className={`w-full h-36 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-colors ${
-            dragging ? 'border-emerald-400 bg-emerald-50' : 'border-zinc-200 bg-zinc-50/50 hover:border-zinc-300'
+            dragging ? 'border-primary/30 bg-accent' : 'border-border bg-muted/50 hover:border-input'
           }`}
         >
-          {busy ? <Loader2 size={20} className="animate-spin text-zinc-400" />
-                : <Upload size={20} className="text-zinc-400" />}
-          <span className="text-xs font-medium text-zinc-500">
+          {busy ? <Loader2 size={20} className="animate-spin text-muted-foreground/70" />
+                : <Upload size={20} className="text-muted-foreground/70" />}
+          <span className="text-xs font-medium text-muted-foreground">
             {busy ? 'Uploading…' : 'Drag to Upload'}
           </span>
-          {!busy && <span className="text-[11px] text-emerald-600 font-semibold underline">Browse Files</span>}
+          {!busy && <span className="text-[11px] text-primary font-semibold underline">Browse Files</span>}
         </button>
       )}
-      <input ref={inputRef} type="file" accept=".png,.jpg,.jpeg,.pdf" className="hidden"
+      <input ref={inputRef} type="file" accept=".png,.jpg,.jpeg,.pdf" className="text-sm file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-[13px] file:font-medium hover:file:bg-accent"
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (f) send(f);
           e.target.value = '';
         }} />
-      {error && <p className="text-[11px] text-rose-600 mt-1">{error}</p>}
+      {error && <p className="text-[11px] text-destructive mt-1">{error}</p>}
     </div>
   );
 }
@@ -148,7 +150,7 @@ export default function StaffDocuments({ staffId }: { staffId: number | null }) 
 
   if (!staffId) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <div className="rounded-md border border-warning/25 bg-warning/10 px-4 py-3 text-sm text-warning">
         Save the employee first — documents attach to an existing record.
       </div>
     );
@@ -164,16 +166,16 @@ export default function StaffDocuments({ staffId }: { staffId: number | null }) 
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-zinc-500 flex items-center gap-1.5">
+      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
         <FileText size={13} />
         Supported: PNG, JPG, JPEG and PDF &nbsp;|&nbsp; Max size: 10 MB (images) and 1 MB (PDFs)
       </p>
-      {loading && <p className="text-sm text-zinc-400">Loading documents…</p>}
+      {loading && <p className="text-sm text-muted-foreground/70">Loading documents…</p>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {groups.map((g) => (
-          <div key={g.title} className="border border-zinc-200 rounded-xl p-4 bg-white">
-            <h4 className="text-sm font-semibold text-zinc-900 mb-3">{g.title}</h4>
+          <Card className="p-4" key={g.title} >
+            <h4 className="text-sm font-semibold text-foreground mb-3">{g.title}</h4>
             <div className={`grid gap-3 ${g.types.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {g.types.map((t) => {
                 const meta = DOC_TYPES.find((d) => d.value === t)!;
@@ -183,7 +185,7 @@ export default function StaffDocuments({ staffId }: { staffId: number | null }) 
                 );
               })}
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     </div>

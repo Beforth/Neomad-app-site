@@ -5,25 +5,33 @@ import {
   UserPlus, Shield, Trash2, Edit2, CheckCircle2,
   XCircle, Search, Key, X, Save, Eye, EyeOff, ChevronLeft, ChevronRight,
   Users, UserCheck, UserX, Plus, ArrowUpDown, ChevronUp,
-  ChevronDown, Inbox, Fingerprint, RotateCcw, Download, Loader2
-} from 'lucide-react';
+  ChevronDown, Inbox, Fingerprint, RotateCcw, Download, Loader2, MoreHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getUsers, getRoles, createUser, updateUser, resetUserPassword, deleteBiometricPin, createBiometricPin, updateBiometricPin, listUserBiometricPins, mapBackendRoleToFrontend, normalizeFetchError, type BiometricPin } from '../../lib/api';
 import SearchableSelect from '../../components/SearchableSelect';
 import { exportEmployeesXlsx } from '../../lib/hrmsExports';
 
+import Modal from '../../components/Modal';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input, fieldClass } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/app-shell';
+import { EmptyState } from '@/components/ui/empty-state';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import KpiStrip from '@/components/KpiStrip';
 const ROLE_COLORS: Record<string, string> = {
-  super_admin: 'bg-rose-50 text-rose-700',
+  super_admin: 'bg-destructive/10 text-destructive',
   admin: 'bg-purple-50 text-purple-700',
-  manager: 'bg-blue-50 text-blue-700',
-  delivery: 'bg-zinc-50 text-zinc-600',
-  delivery_boy: 'bg-zinc-50 text-zinc-600',
-  staff: 'bg-emerald-50 text-emerald-700',
+  manager: 'bg-info/10 text-info',
+  delivery: 'bg-muted text-foreground/70',
+  delivery_boy: 'bg-muted text-foreground/70',
+  staff: 'bg-accent text-accent-foreground',
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  active: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-  inactive: 'bg-zinc-50 text-zinc-500 border-zinc-100',
+  active: 'bg-accent text-accent-foreground border-primary/20',
+  inactive: 'bg-muted text-muted-foreground border-border',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -47,49 +55,16 @@ function toTableUser(u: { id: number; email: string; full_name: string | null; p
   };
 }
 
-function Modal({ title, onClose, children, closeOnBackdropClick = true, wide = false }: { title: string; onClose: () => void; children: React.ReactNode; closeOnBackdropClick?: boolean; wide?: boolean }) {
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      if (closeOnBackdropClick) onClose();
-      else e.preventDefault();
-    }
-  };
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm"
-      onClick={closeOnBackdropClick ? onClose : undefined}
-      onKeyDown={handleKeyDown}
-      role="dialog"
-      aria-modal="true"
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        onClick={(e) => e.stopPropagation()}
-        className={`bg-white rounded-2xl shadow-xl w-full overflow-hidden ${wide ? 'max-w-2xl' : 'max-w-md'}`}
-      >
-        <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
-          <h3 className="font-bold text-zinc-900">{title}</h3>
-          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors">
-            <X size={20} />
-          </button>
-        </div>
-        {children}
-      </motion.div>
-    </div>
-  );
-}
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-zinc-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-foreground/85 mb-1">{label}</label>
       {children}
     </div>
   );
 }
 
-const inputClassName = "w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all";
+const inputClassName = fieldClass;
 
 const ROLE_FILTER_OPTIONS = [
   { value: 'all', label: 'All Roles' },
@@ -122,8 +97,8 @@ export default function Staff() {
   }
 
   function SortIcon({ col }: { col: SortKey }) {
-    if (sortBy !== col) return <ArrowUpDown size={12} className="text-zinc-300" />;
-    return sortOrder === 'asc' ? <ChevronUp size={12} className="text-zinc-900" /> : <ChevronDown size={12} className="text-zinc-900" />;
+    if (sortBy !== col) return <ArrowUpDown size={12} className="text-muted-foreground/50" />;
+    return sortOrder === 'asc' ? <ChevronUp size={12} className="text-foreground" /> : <ChevronDown size={12} className="text-foreground" />;
   }
 
   const [editingUser, setEditingUser] = useState<any | null>(null);
@@ -386,82 +361,49 @@ export default function Staff() {
       <AnimatePresence>
         {toast && (
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="fixed top-5 right-5 z-[9999] bg-zinc-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
-            <CheckCircle2 size={16} className="text-emerald-400" /> {toast}
+            className="fixed top-5 right-5 z-[9999] bg-foreground text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
+            <CheckCircle2 size={16} className="text-primary" /> {toast}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Staff</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">Manage your team members</p>
-        </div>
-        {canManage && (
+      <PageHeader title="Staff" description="Manage your team members" actions={<>
+{canManage && (
           <div className="self-start sm:self-auto flex items-center gap-2">
-            <button
+            <Button variant="outline" size="sm"
               onClick={handleExport}
               disabled={exporting}
-              className="flex items-center gap-2 bg-white text-zinc-600 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-50 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              
             >
               {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
               {exporting ? 'Exporting…' : 'Export Excel'}
-            </button>
-            <button
+            </Button>
+            <Button variant="dark" size="sm"
               onClick={() => navigate('/hrms/staff/new')}
-              className="flex items-center gap-2 bg-zinc-900 text-white border border-zinc-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm"
+              
             >
               <Plus size={16} />Add Staff
-            </button>
+            </Button>
           </div>
         )}
-      </motion.header>
+</>} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-        {[
-          { label: 'Total Staff', value: total, icon: Users, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Active', value: active, icon: UserCheck, color: 'bg-emerald-50 text-emerald-600' },
-          { label: 'Inactive', value: inactive, icon: UserX, color: 'bg-zinc-100 text-zinc-500' },
-        ].map((stat, i) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-            className="bg-white rounded-2xl p-5 border border-zinc-100 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">{stat.label}</p>
-                <p className="text-2xl font-bold text-zinc-900 mt-1">{stat.value}</p>
-              </div>
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${stat.color}`}>
-                <stat.icon size={20} />
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+      <KpiStrip items={[
+  { label: 'Total Staff', value: total },
+  { label: 'Active', value: active },
+  { label: 'Inactive', value: inactive },
+]} />
 
       {/* Filter Bar */}
-      <motion.div
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="bg-white border border-zinc-100 rounded-xl shadow-sm p-3 flex flex-wrap gap-3 items-center"
-      >
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" size={14} />
+          <Input data-search="" className="w-full pl-9 pr-4"
             type="text"
             placeholder="Search by name or email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all"
+            
           />
         </div>
         <div className="w-[160px]">
@@ -476,24 +418,24 @@ export default function Staff() {
         {hasFilters && (
           <button
             onClick={() => { setSearch(''); setRoleFilter('all'); }}
-            className="text-xs text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors"
+            className="text-xs text-muted-foreground/70 hover:text-foreground/85 flex items-center gap-1 transition-colors"
           >
             <XCircle size={12} />Clear
           </button>
         )}
-      </motion.div>
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden"
+        className="bg-card rounded-xl border border-border shadow-[0_1px_2px_rgb(0_0_0/0.03)] overflow-hidden"
       >
 
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-zinc-50/50 border-b border-zinc-100">
-              <tr>
+          <Table>
+            <TableHeader>
+              <TableRow>
                 {[
                   { key: 'name' as SortKey, label: 'Name' },
                   { key: null, label: 'Phone' },
@@ -501,22 +443,22 @@ export default function Staff() {
                   { key: 'status' as SortKey, label: 'Status' },
                   ...(canManage ? [{ key: null, label: 'Actions' }] : []),
                 ].map((col) => (
-                  <th
+                  <TableHead
                     key={col.label}
                     onClick={col.key ? () => toggleSort(col.key) : undefined}
-                    className={`px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap text-left ${col.key ? 'cursor-pointer hover:text-zinc-600 select-none' : ''}`}
+                    className={`uppercase whitespace-nowrap text-left ${col.key ? 'cursor-pointer hover:text-foreground/70 select-none' : ''}`}
                   >
                     <span className="flex items-center gap-1">
                       {col.label}
                       {col.key && <SortIcon col={col.key} />}
                     </span>
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-50">
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {loading ? (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-sm text-zinc-500">Loading staff...</td></tr>
+                <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">Loading staff...</TableCell></TableRow>
               ) : paged.map((s, i) => {
                 const isSelf = s.id === currentUser?.id;
                 return (
@@ -525,79 +467,66 @@ export default function Staff() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: i * 0.02 }}
-                      className="hover:bg-zinc-50/50 transition-colors"
+                      className="border-b transition-colors hover:bg-muted/70"
                     >
-                    <td className="px-4 py-3">
+                    <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 font-bold text-xs border border-zinc-200 shadow-sm">
+                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-foreground/70 font-semibold text-xs border border-border shadow-sm">
                           {s.username[0].toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-zinc-900">{s.username}</p>
-                          <p className="text-xs text-zinc-500">{s.email}</p>
+                          <p className="text-xs font-semibold text-foreground">{s.username}</p>
+                          <p className="text-xs text-muted-foreground">{s.email}</p>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-zinc-600">{s.phone || <span className="text-zinc-300">—</span>}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold capitalize ${ROLE_COLORS[s.role] || 'bg-zinc-50 text-zinc-600'}`}>
+                    </TableCell>
+                    <TableCell className="text-foreground/70">{s.phone || <span className="text-muted-foreground/50">—</span>}</TableCell>
+                    <TableCell>
+                      <Badge className={`capitalize ${ROLE_COLORS[s.role] || 'bg-muted text-foreground/70'}`}>
                         <Shield size={10} />{s.role.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <button onClick={() => handleToggleStatus(s)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize transition-all border ${s.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200' : 'bg-red-50 text-red-700 border-red-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'}`}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold capitalize transition-all border ${s.status === 'active' ? 'bg-accent text-accent-foreground border-primary/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20' : 'bg-destructive/10 text-destructive border-destructive/20 hover:bg-accent hover:text-accent-foreground hover:border-primary/20'}`}
                         title="Click to toggle">
                         {s.status === 'active' ? <><CheckCircle2 size={10} />Active</> : <><XCircle size={10} />Inactive</>}
                       </button>
-                    </td>
+                    </TableCell>
                     {canManage && (
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => navigate(`/hrms/staff/${s.id}/edit`)}
-                            className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="Edit Staff">
-                            <Edit2 size={14} />
-                          </button>
-                          <button onClick={() => setEditingUser({ ...s })}
-                            className="p-1.5 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Biometric ID(s)">
-                            <Fingerprint size={14} />
-                          </button>
+                      <TableCell className="w-10 pl-0" onClick={(e) => e.stopPropagation()}>
+<DropdownMenu>
+<DropdownMenuTrigger asChild>
+<Button variant="ghost" size="icon-sm" data-row-menu="" aria-label="Row actions"><MoreHorizontal /></Button>
+</DropdownMenuTrigger>
+<DropdownMenuContent align="end" className="w-52">
+<DropdownMenuItem onSelect={() => navigate(`/hrms/staff/${s.id}/edit`)}><Edit2 /> Edit Staff</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setEditingUser({ ...s })}><Fingerprint /> Biometric ID(s)</DropdownMenuItem>
                           {!isSelf && (
-                            <button onClick={() => { setResetUser(s); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }}
-                              className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Reset Password">
-                              <Key size={14} />
-                            </button>
+                            <DropdownMenuItem onSelect={() => { setResetUser(s); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }}><Key /> Reset Password</DropdownMenuItem>
                           )}
                           {!isSelf && (
-                            <button onClick={() => setDeleteConfirm(s)}
-                              className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Staff">
-                              <Trash2 size={14} />
-                            </button>
+                            <DropdownMenuItem destructive onSelect={() => setDeleteConfirm(s)}><Trash2 /> Delete Staff</DropdownMenuItem>
                           )}
-                        </div>
-                      </td>
+</DropdownMenuContent>
+</DropdownMenu>
+</TableCell>
                     )}
                   </motion.tr>
                 );
               })}
               {sorted.length === 0 && !loading && (
-                <tr>
-                  <td colSpan={5}>
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                      <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-                        <Inbox size={24} className="text-zinc-300" />
-                      </div>
-                      <h3 className="text-sm font-bold text-zinc-900 mb-1">No staff members found</h3>
-                      <p className="text-xs text-zinc-400 max-w-xs">Try adjusting your search or filters</p>
-                    </div>
-                  </td>
-                </tr>
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    <EmptyState icon={<Inbox />} title="No staff members found" description="Try adjusting your search or filters" className="border-0" />
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
-        <div className="md:hidden divide-y divide-zinc-100">
+        <div className="md:hidden divide-y divide-border">
           {paged.map((s, i) => (
             <motion.div
                 key={s.id}
@@ -608,67 +537,61 @@ export default function Staff() {
               >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 font-bold">
+                  <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-foreground/70 font-semibold">
                     {s.username[0].toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-zinc-900">{s.username}</p>
-                    <p className="text-xs text-zinc-500">{s.email}</p>
+                    <p className="text-sm font-medium text-foreground">{s.username}</p>
+                    <p className="text-xs text-muted-foreground">{s.email}</p>
                   </div>
                 </div>
                 {canManage && (
                   <div className="flex items-center gap-1">
-                    <button onClick={() => navigate(`/hrms/staff/${s.id}/edit`)} className="p-2 text-zinc-400 hover:text-zinc-700"><Edit2 size={16} /></button>
-                    <button onClick={() => setEditingUser({ ...s })} className="p-2 text-zinc-400 hover:text-emerald-600" title="Biometric ID(s)"><Fingerprint size={16} /></button>
-                    <button onClick={() => { setResetUser(s); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }} className="p-2 text-zinc-400 hover:text-blue-600"><Key size={16} /></button>
-                    <button onClick={() => setDeleteConfirm(s)} className="p-2 text-zinc-400 hover:text-red-600"><Trash2 size={16} /></button>
+                    <Button variant="ghost" size="icon-sm" onClick={() => navigate(`/hrms/staff/${s.id}/edit`)} ><Edit2 size={16} /></Button>
+                    <Button variant="ghost" size="icon-sm" className="hover:text-primary" onClick={() => setEditingUser({ ...s })}  title="Biometric ID(s)"><Fingerprint size={16} /></Button>
+                    <Button variant="ghost" size="icon-sm" className="hover:text-info" onClick={() => { setResetUser(s); setNewPw(''); setAdminPw(''); setShowPw(false); setShowAdminPw(false); }} ><Key size={16} /></Button>
+                    <Button variant="ghost" size="icon-sm" className="hover:text-destructive" onClick={() => setDeleteConfirm(s)} ><Trash2 size={16} /></Button>
                   </div>
                 )}
               </div>
               <div className="flex gap-2 flex-wrap">
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${ROLE_COLORS[s.role] || 'bg-zinc-50 text-zinc-600'}`}>
+                <Badge className={`capitalize ${ROLE_COLORS[s.role] || 'bg-muted text-foreground/70'}`}>
                   <Shield size={10} />{s.role.replace('_', ' ')}
-                </span>
+                </Badge>
                 <button onClick={() => handleToggleStatus(s)}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${s.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize ${s.status === 'active' ? 'bg-primary/15 text-accent-foreground' : 'bg-destructive/15 text-destructive'}`}>
                   {s.status === 'active' ? <><CheckCircle2 size={10} />Active</> : <><XCircle size={10} />Inactive</>}
                 </button>
               </div>
             </motion.div>
           ))}
           {sorted.length === 0 && !loading && (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center mb-3">
-                <Inbox size={24} className="text-zinc-300" />
-              </div>
-              <h3 className="text-sm font-bold text-zinc-900 mb-1">No staff members found</h3>
-              <p className="text-xs text-zinc-400 max-w-xs">Try adjusting your search or filters</p>
-            </div>
+            <EmptyState icon={<Inbox />} title="No staff members found" description="Try adjusting your search or filters" className="border-0" />
           )}
         </div>
 
         {sorted.length > 0 && (
-          <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-zinc-100">
-            <p className="text-xs text-zinc-500">
-              Showing <span className="font-bold text-zinc-900">{startRow}</span>–
-              <span className="font-bold text-zinc-900">{endRow}</span> of{' '}
-              <span className="font-bold text-zinc-900">{sorted.length}</span> staff
+          <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-border">
+            <p className="text-xs text-muted-foreground">
+              Showing <span className="font-semibold text-foreground">{startRow}</span>–
+              <span className="font-semibold text-foreground">{endRow}</span> of{' '}
+              <span className="font-semibold text-foreground">{sorted.length}</span> staff
             </p>
             <div className="flex items-center gap-2">
-              <button
+              <Button variant="outline" size="icon-sm"
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                
               >
-                <ChevronLeft size={16} className="text-zinc-600" />
-              </button>
-              <button
+                <ChevronLeft size={16} className="text-foreground/70" />
+              </Button>
+              <Button variant="outline" size="icon-sm"
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                
               >
-                <ChevronRight size={16} className="text-zinc-600" />
-              </button>
+                <ChevronRight size={16} className="text-foreground/70" />
+              </Button>
             </div>
           </div>
         )}
@@ -679,73 +602,73 @@ export default function Staff() {
         <Modal title={`Biometric ID(s) — ${editingUser.username ?? ''}`} onClose={() => setEditingUser(null)} wide closeOnBackdropClick={false}>
           <div className="p-5 space-y-4">
 
-            <div className="border-t border-zinc-100 pt-4">
+            <div className="border-t border-border pt-4">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-xs font-bold text-zinc-700 uppercase tracking-wide flex items-center gap-1.5">
-                  <Fingerprint size={14} className="text-emerald-600" /> Biometric ID(s)
+                <h4 className="text-xs font-semibold text-foreground/85 uppercase tracking-wide flex items-center gap-1.5">
+                  <Fingerprint size={14} className="text-primary" /> Biometric ID(s)
                 </h4>
               </div>
 
-              {bioLoading && <p className="text-xs text-zinc-400">Loading biometric mappings...</p>}
+              {bioLoading && <p className="text-xs text-muted-foreground/70">Loading biometric mappings...</p>}
               {bioError && (
-                <p className="text-xs text-red-600 flex items-center gap-2">
+                <p className="text-xs text-destructive flex items-center gap-2">
                   {bioError}
-                  <button type="button" onClick={() => setBioReloadKey((k) => k + 1)} className="text-emerald-600 font-medium hover:underline">Retry</button>
+                  <button type="button" onClick={() => setBioReloadKey((k) => k + 1)} className="text-primary font-medium hover:underline">Retry</button>
                 </p>
               )}
 
               {!bioLoading && !bioError && bioPins.length === 0 && (
-                <p className="text-xs text-zinc-400 mb-3">No biometric ID assigned yet. Add the device serial number (printed on the machine) and the staff member's PIN/ID on that device.</p>
+                <p className="text-xs text-muted-foreground/70 mb-3">No biometric ID assigned yet. Add the device serial number (printed on the machine) and the staff member's PIN/ID on that device.</p>
               )}
 
               <div className="space-y-2">
                 {bioPins.map((p) => (
-                  <div key={p.id} className="flex items-center gap-2 p-2.5 bg-zinc-50 border border-zinc-100 rounded-xl">
+                  <div key={p.id} className="flex items-center gap-2 p-2.5 bg-muted border border-border rounded-xl">
                     {bioUpdateId === p.id ? (
                       <>
-                        <input type="text" value={bioUpdateField?.pin ?? ''}
+                        <Input className="w-auto" type="text" value={bioUpdateField?.pin ?? ''}
                           onChange={(e) => setBioUpdateField((prev) => prev ? { ...prev, pin: e.target.value } : prev)}
-                          placeholder="Biometric ID" className="px-2 py-1.5 bg-white border border-zinc-200 rounded-lg text-xs text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                          placeholder="Biometric ID" 
                           style={{ width: '110px' }}
                         />
-                        <input type="text" value={bioUpdateField?.deviceName ?? ''}
+                        <Input className="w-auto" type="text" value={bioUpdateField?.deviceName ?? ''}
                           onChange={(e) => setBioUpdateField((prev) => prev ? { ...prev, deviceName: e.target.value } : prev)}
-                          placeholder="Device name (optional)" className="px-2 py-1.5 bg-white border border-zinc-200 rounded-lg text-xs text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                          placeholder="Device name (optional)" 
                           style={{ flex: 1, minWidth: 0 }}
                         />
-                        <button type="button" onClick={() => handleSaveBioPin(p)} disabled={bioBusyId === p.id}
-                          className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Save">
+                        <Button variant="ghost" size="icon-sm" className="text-primary hover:bg-accent" type="button" onClick={() => handleSaveBioPin(p)} disabled={bioBusyId === p.id}
+                           title="Save">
                           <Save size={14} />
-                        </button>
-                        <button type="button" onClick={() => { setBioUpdateId(null); setBioUpdateField(null); }}
-                          className="p-1.5 text-zinc-400 hover:bg-zinc-100 rounded-lg transition-colors" title="Cancel">
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" type="button" onClick={() => { setBioUpdateId(null); setBioUpdateField(null); }}
+                           title="Cancel">
                           <X size={14} />
-                        </button>
+                        </Button>
                       </>
                     ) : (
                       <>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-zinc-800">
+                          <p className="text-xs font-semibold text-foreground">
                             {p.device_name || p.device_sn}
-                            <span className="text-zinc-400 font-medium"> · {p.device_sn}</span>
+                            <span className="text-muted-foreground/70 font-medium"> · {p.device_sn}</span>
                           </p>
-                          <p className="text-[11px] text-zinc-500">ID: <span className="font-bold text-zinc-700">{p.pin_on_device}</span></p>
+                          <p className="text-[11px] text-muted-foreground">ID: <span className="font-semibold text-foreground/85">{p.pin_on_device}</span></p>
                         </div>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${p.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                        <Badge className={`${p.is_active ? 'bg-accent text-accent-foreground' : 'bg-secondary text-muted-foreground'}`}>
                           {p.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                        <button type="button" onClick={() => handleToggleBioPin(p)} disabled={bioBusyId === p.id}
-                          className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title={p.is_active ? 'Deactivate' : 'Activate'}>
+                        </Badge>
+                        <Button variant="ghost" size="icon-sm" className="hover:text-warning hover:bg-warning/10" type="button" onClick={() => handleToggleBioPin(p)} disabled={bioBusyId === p.id}
+                           title={p.is_active ? 'Deactivate' : 'Activate'}>
                           <RotateCcw size={13} />
-                        </button>
-                        <button type="button" onClick={() => { setBioUpdateId(p.id); setBioUpdateField({ pin: p.pin_on_device, deviceName: p.device_name, isActive: p.is_active }); }}
-                          className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors" title="Edit">
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" type="button" onClick={() => { setBioUpdateId(p.id); setBioUpdateField({ pin: p.pin_on_device, deviceName: p.device_name, isActive: p.is_active }); }}
+                           title="Edit">
                           <Edit2 size={13} />
-                        </button>
-                        <button type="button" onClick={() => handleDeleteBioPin(p)} disabled={bioBusyId === p.id}
-                          className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Remove">
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10" type="button" onClick={() => handleDeleteBioPin(p)} disabled={bioBusyId === p.id}
+                           title="Remove">
                           <Trash2 size={13} />
-                        </button>
+                        </Button>
                       </>
                     )}
                   </div>
@@ -753,18 +676,18 @@ export default function Staff() {
               </div>
 
               <div className="mt-3 flex gap-2">
-                <input type="text" value={bioNew.deviceSn}
+                <Input type="text" value={bioNew.deviceSn}
                   onChange={(e) => setBioNew((prev) => ({ ...prev, deviceSn: e.target.value }))}
-                  placeholder="Device serial (e.g. SN12345)" className={inputClassName} style={{ flex: 1, minWidth: 0 }} />
-                <input type="text" value={bioNew.pin}
+                  placeholder="Device serial (e.g. SN12345)"  style={{ flex: 1, minWidth: 0 }} />
+                <Input type="text" value={bioNew.pin}
                   onChange={(e) => setBioNew((prev) => ({ ...prev, pin: e.target.value }))}
-                  placeholder="Biometric ID" className={inputClassName} style={{ flex: 1, minWidth: 0 }} />
-                <button type="button" onClick={handleAddBioPin} disabled={bioSaving || bioLoading}
-                  className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors flex items-center gap-1.5 disabled:opacity-60 whitespace-nowrap">
+                  placeholder="Biometric ID"  style={{ flex: 1, minWidth: 0 }} />
+                <Button size="sm" className="whitespace-nowrap" type="button" onClick={handleAddBioPin} disabled={bioSaving || bioLoading}
+                  >
                   <Plus size={14} /> {bioSaving ? 'Adding...' : 'Add'}
-                </button>
+                </Button>
               </div>
-              <p className="text-[11px] text-zinc-400 mt-2">Matches punches sent by the device to this staff member. The device serial is on the machine's label.</p>
+              <p className="text-[11px] text-muted-foreground/70 mt-2">Matches punches sent by the device to this staff member. The device serial is on the machine's label.</p>
             </div>
           </div>
         </Modal>
@@ -774,26 +697,26 @@ export default function Staff() {
       {resetUser && (
         <Modal title={`Reset Password — ${resetUser.username}`} onClose={() => setResetUser(null)}>
           <form onSubmit={handleResetPassword} className="p-5 space-y-4">
-            <p className="text-sm text-zinc-500">Enter a new password for <strong>{resetUser.username}</strong>.</p>
+            <p className="text-sm text-muted-foreground">Enter a new password for <strong>{resetUser.username}</strong>.</p>
             <div className="relative">
-              <input type={showAdminPw ? 'text' : 'password'} placeholder="Your admin password"
-                value={adminPw} onChange={(e) => setAdminPw(e.target.value)} required className={inputClassName} />
+              <Input type={showAdminPw ? 'text' : 'password'} placeholder="Your admin password"
+                value={adminPw} onChange={(e) => setAdminPw(e.target.value)} required  />
               <button type="button" onClick={() => setShowAdminPw(p => !p)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70">
                 {showAdminPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
             <div className="relative">
-              <input type={showPw ? 'text' : 'password'} placeholder="New password (min 6 chars)"
-                value={newPw} onChange={(e) => setNewPw(e.target.value)} minLength={6} required className={inputClassName} />
+              <Input type={showPw ? 'text' : 'password'} placeholder="New password (min 6 chars)"
+                value={newPw} onChange={(e) => setNewPw(e.target.value)} minLength={6} required  />
               <button type="button" onClick={() => setShowPw(p => !p)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70">
                 {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            <button type="submit" disabled={resetLoading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+            <Button size="lg" className="w-full bg-info text-white hover:bg-info hover:text-white bg-info text-white hover:bg-info" type="submit" disabled={resetLoading} >
               <Key size={16} /> {resetLoading ? 'Resetting...' : 'Reset Password'}
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
@@ -802,18 +725,18 @@ export default function Staff() {
       {deleteConfirm && (
         <Modal title="Remove Staff" onClose={() => setDeleteConfirm(null)}>
           <div className="p-5 space-y-4">
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-muted-foreground">
               Are you sure you want to deactivate <strong>{deleteConfirm.username}</strong>? This will remove their access.
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2.5 bg-zinc-100 text-zinc-700 rounded-xl font-bold hover:bg-zinc-200 transition-colors text-sm">
+              <Button variant="secondary" className="flex-1" onClick={() => setDeleteConfirm(null)}
+                >
                 Cancel
-              </button>
-              <button onClick={() => handleDeleteUser(deleteConfirm)}
-                className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm">
+              </Button>
+              <Button variant="destructive" className="flex-1" onClick={() => handleDeleteUser(deleteConfirm)}
+                >
                 <Trash2 size={14} /> Deactivate
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>
