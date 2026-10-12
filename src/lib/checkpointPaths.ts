@@ -3,6 +3,10 @@ import type { DeliveryCheckpointRow } from './api';
 /** Human-readable labels for checkpoint types stored by the backend. */
 export const CHECKPOINT_TYPE_LABELS: Record<string, string> = {
   invoice_accepted: 'Invoice accepted',
+  invoice_delivered: 'Delivered',
+  break_start: 'Break started',
+  break_end: 'Break ended',
+  auto_offline: 'Went offline (auto)',
   invoice_return: 'Invoice return',
   invoice_returned_store: 'Returned to store',
   task_accepted: 'Task accepted',
@@ -16,6 +20,10 @@ export const CHECKPOINT_TYPE_LABELS: Record<string, string> = {
 
 export const CHECKPOINT_SEGMENT_COLORS: Record<string, string> = {
   invoice_accepted: '#3b82f6',
+  invoice_delivered: '#10b981',
+  break_start: '#f59e0b',
+  break_end: '#3b82f6',
+  auto_offline: '#ef4444',
   task_accepted: '#3b82f6',
   invoice_return: '#10b981',
   task_delivered: '#10b981',

@@ -1,16 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Battery, MapPin, Power, RefreshCw, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrackingSocket } from '../hooks/useSocket';
-import { Truck, Clock, RefreshCw, X, MapPin, Package, Users, ChevronRight, Battery, Power } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import MapPreview from '../components/MapPreview';
+import MapPreview, { type MapTrip } from '../components/MapPreview';
 import { formatDateTimeIST } from '../lib/timeUtils';
-import SearchableSelect from '../components/SearchableSelect';
-import CheckpointPathPanel from '../components/CheckpointPathPanel';
 import {
-  getCheckpointPath,
-  getDeliveryDayPath,
   getDeliveryCheckpoints,
+  getDeliveryDayPath,
   getInvoices,
   getOnDutyDeliveries,
   normalizeFetchError,
@@ -18,159 +14,45 @@ import {
   type DeliveryCheckpointRow,
   type OnDutyDeliveryRow,
 } from '../lib/api';
-import {
-  checkpointsToMapMarkers,
-  segmentColorForCheckpoint,
-} from '../lib/checkpointPaths';
-import {
-  DEFAULT_MAP_CENTER,
-  displayRidersToMapPreviewMarkers,
-  mergeOnDutySnapshotsWithLive,
-  type LiveFleetDisplayRider,
-} from '../lib/liveFleetMap';
+import { checkpointsToMapMarkers } from '../lib/checkpointPaths';
+import { DEFAULT_MAP_CENTER, displayRidersToMapPreviewMarkers, mergeOnDutySnapshotsWithLive, type LiveFleetDisplayRider } from '../lib/liveFleetMap';
+import { splitIntoTrips, type DayPoint } from '../lib/trips';
 import type { LocationUpdateMessage } from '../hooks/useSocket';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import KpiStrip from '@/components/KpiStrip';
+import { Segmented } from '@/components/ui/segmented';
 
-function riderTone(status: LiveFleetDisplayRider['status']) {
-  if (status === 'moving') {
-    return {
-      avatar: 'bg-primary shadow-md shadow-primary/20',
-      dot: 'bg-info animate-pulse',
-    };
-  }
-  if (status === 'disconnected') {
-    return {
-      avatar: 'bg-destructive shadow-md shadow-destructive/20',
-      dot: 'bg-destructive',
-    };
-  }
-  return {
-    avatar: 'bg-warning shadow-md shadow-amber-200',
-    dot: 'bg-warning',
-  };
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+const ago = (iso: string | null): string => {
+  if (!iso) return 'never';
+  const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+  if (s < 60) return 'just now';
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h}h ${m % 60}m ago` : `${Math.floor(h / 24)}d ago`;
+};
+
+const STATUS_ORDER: Record<LiveFleetDisplayRider['status'], number> = { disconnected: 0, moving: 1, waiting: 2 };
+
+const dot: Record<LiveFleetDisplayRider['status'], string> = {
+  moving: 'bg-success',
+  waiting: 'bg-warning',
+  disconnected: 'bg-destructive',
+};
+
+function statusText(r: LiveFleetDisplayRider): string {
+  if (r.status === 'moving') return r.speedMps != null ? `Moving · ${(r.speedMps * 3.6).toFixed(0)} km/h` : 'Moving';
+  if (r.status === 'disconnected') return `No signal · ${ago(r.lastLocationAt)}`;
+  return `Standing · ${ago(r.lastLocationAt)}`;
 }
 
-function RiderCard({
-  rider,
-  selected,
-  onClick,
-}: {
-  rider: LiveFleetDisplayRider;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  const tone = riderTone(rider.status);
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full text-left p-3 rounded-xl border transition-all duration-300 ${
-        selected ? 'bg-accent border-primary/30 ring-2 ring-ring/10' : 'bg-muted border-border hover:bg-secondary'
-      }`}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div
-            className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold text-white transition-all ${
-              selected ? 'scale-105' : ''
-            } ${tone.avatar}`}
-          >
-            {rider.initials}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground truncate leading-tight">{rider.name}</p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${tone.dot}`}
-              />
-              <p className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-tight">{rider.status}</p>
-            </div>
-          </div>
-        </div>
-        <ChevronRight size={14} className={`text-muted-foreground/50 transition-transform duration-300 ${selected ? 'rotate-90 text-primary' : ''}`} />
-      </div>
-
-      <AnimatePresence>
-        {selected && (
-          <motion.div
-            initial={{ height: 0, opacity: 0, marginTop: 0 }}
-            animate={{ height: 'auto', opacity: 1, marginTop: 16 }}
-            exit={{ height: 0, opacity: 0, marginTop: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="space-y-3 pt-1 border-t border-primary/20">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[11px] font-semibold text-muted-foreground leading-tight">{rider.statusLabel}</p>
-                <p className="text-[11px] font-semibold text-muted-foreground/70 uppercase shrink-0">#{rider.id}</p>
-              </div>
-
-              {rider.lat != null && rider.lng != null && (
-                <div className="flex items-start gap-1.5 bg-muted px-2 py-1.5 rounded-lg border border-border text-[11px] text-foreground/70">
-                  <MapPin size={12} className="text-primary shrink-0 mt-0.5" />
-                  <span className="font-mono leading-relaxed">
-                    {rider.lat.toFixed(5)}, {rider.lng.toFixed(5)}
-                  </span>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-2 text-[11px] text-foreground/70">
-                {rider.batteryPercent != null && (
-                  <div className="flex items-center justify-between bg-violet-50/50 p-2 rounded-xl border border-violet-100">
-                    <span className="font-semibold text-violet-600 uppercase flex items-center gap-1">
-                      <Battery size={12} className="shrink-0" />
-                      Battery
-                    </span>
-                    <span className="font-mono font-semibold text-foreground">{rider.batteryPercent}%</span>
-                  </div>
-                )}
-                {rider.suspectedPowerOff && (
-                  <div className="flex flex-col gap-1 bg-warning/10 p-2 rounded-xl border border-warning/25">
-                    <div className="flex items-center gap-1.5 text-warning font-semibold uppercase">
-                      <Power size={12} className="shrink-0" />
-                      Suspected intentional power-off
-                    </div>
-                    <p className="text-[11px] text-warning leading-snug">
-                      Last device ping{' '}
-                      {formatDateTimeIST(rider.suspectedPowerOff.last_device_ping_at)} · battery was{' '}
-                      {rider.suspectedPowerOff.battery_percent_at_last_ping}% (logged{' '}
-                      {formatDateTimeIST(rider.suspectedPowerOff.server_logged_at)})
-                    </p>
-                  </div>
-                )}
-                {rider.speedMps != null && rider.speedMps >= 0 && (
-                  <div className="flex items-center justify-between bg-info/10 p-2 rounded-xl border border-info/25">
-                    <span className="font-semibold text-info uppercase">Speed</span>
-                    <span className="font-mono font-semibold">{(rider.speedMps * 3.6).toFixed(1)} km/h</span>
-                  </div>
-                )}
-                {rider.lastLocationAt && (
-                  <div className="flex items-center justify-between bg-card/80 p-2 rounded-xl border border-border">
-                    <span className="font-semibold text-muted-foreground/70 uppercase">Last fix</span>
-                    <span className="font-mono text-foreground/85">
-                      {formatDateTimeIST(rider.lastLocationAt)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {rider.order && (
-                <div className="flex items-center justify-between bg-primary/15 px-2 py-1.5 rounded-lg border border-primary/20">
-                  <div className="flex items-center gap-1.5">
-                    <Package size={12} className="text-primary" />
-                    <span className="text-[11px] font-semibold text-accent-foreground uppercase">{rider.order}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </button>
-  );
-}
+const km = (m: number) => `${(m / 1000).toFixed(m < 10_000 ? 1 : 0)} km`;
+const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 export default function Tracking() {
   const { token, user } = useAuth();
@@ -182,26 +64,26 @@ export default function Tracking() {
   const [lastRefresh, setLastRefresh] = useState(() => new Date());
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingList, setLoadingList] = useState(false);
+
   const [selected, setSelected] = useState<number | null>(null);
-  const [pathDate, setPathDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [selectedPath, setSelectedPath] = useState<[number, number][]>([]);
-  const [pathSource, setPathSource] = useState<string>('none');
+  const [pathDate, setPathDate] = useState<string>(todayIso);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | LiveFleetDisplayRider['status']>('all');
+
+  const [dayPoints, setDayPoints] = useState<DayPoint[]>([]);
+  const [pathSource, setPathSource] = useState('none');
   const [loadingPath, setLoadingPath] = useState(false);
-  const [todayDeliveries, setTodayDeliveries] = useState<ApiInvoice[]>([]);
   const [dayCheckpoints, setDayCheckpoints] = useState<DeliveryCheckpointRow[]>([]);
-  const [selectedCheckpointId, setSelectedCheckpointId] = useState<number | null>(null);
-  const [pathViewMode, setPathViewMode] = useState<'day' | 'segment'>('day');
-  const [segmentRoute, setSegmentRoute] = useState<[number, number][]>([]);
-  const [segmentSmoothed, setSegmentSmoothed] = useState<boolean | undefined>();
-  const [loadingSegment, setLoadingSegment] = useState(false);
+  const [stops, setStops] = useState<ApiInvoice[]>([]);
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [hover, setHover] = useState<string | null>(null);
 
   const loadSnapshots = useCallback(async () => {
     if (!token || !canTrack) return;
     setLoadingList(true);
     setLoadError(null);
     try {
-      const rows = await getOnDutyDeliveries(token);
-      setSnapshots(rows);
+      setSnapshots(await getOnDutyDeliveries(token));
       setLastRefresh(new Date());
     } catch (e) {
       setLoadError(normalizeFetchError(e, 'Tracking'));
@@ -210,16 +92,11 @@ export default function Tracking() {
     }
   }, [token, canTrack]);
 
-  useEffect(() => {
-    loadSnapshots();
-  }, [loadSnapshots]);
+  useEffect(() => { loadSnapshots(); }, [loadSnapshots]);
 
   useEffect(() => {
     if (!canTrack || !token) return;
-    const pollMs = connected ? 45_000 : 5_000;
-    const id = window.setInterval(() => {
-      loadSnapshots();
-    }, pollMs);
+    const id = window.setInterval(loadSnapshots, connected ? 45_000 : 5_000);
     return () => window.clearInterval(id);
   }, [canTrack, token, loadSnapshots, connected]);
 
@@ -231,10 +108,12 @@ export default function Tracking() {
     });
   }, [canTrack, subscribe]);
 
+  // Day path, checkpoints and delivered stops for the chosen rider and date.
   useEffect(() => {
+    setHidden(new Set());
+    setHover(null);
     if (!token || !canTrack || selected == null) {
-      setSelectedPath([]);
-      setPathSource('none');
+      setDayPoints([]); setDayCheckpoints([]); setStops([]); setPathSource('none');
       return;
     }
     let cancelled = false;
@@ -242,336 +121,275 @@ export default function Tracking() {
     getDeliveryDayPath(token, selected, pathDate)
       .then((res) => {
         if (cancelled) return;
-        const route: [number, number][] = (res.points || [])
-          .filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number')
-          .map((p) => [p.lat, p.lng]);
-        setSelectedPath(route);
+        setDayPoints((res.points || []).filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number').map((p) => ({ lat: p.lat, lng: p.lng, at: p.at })));
         setPathSource(res.source || 'none');
       })
-      .catch(() => {
-        if (cancelled) return;
-        setSelectedPath([]);
-        setPathSource('none');
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingPath(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .catch(() => { if (!cancelled) { setDayPoints([]); setPathSource('none'); } })
+      .finally(() => { if (!cancelled) setLoadingPath(false); });
+    getDeliveryCheckpoints(token, { user_id: selected, date_from: pathDate, date_to: pathDate })
+      .then((rows) => { if (!cancelled) setDayCheckpoints(rows || []); })
+      .catch(() => { if (!cancelled) setDayCheckpoints([]); });
+    getInvoices(token, { assigned_to: selected, status: 'delivered,completed', date_from: pathDate, date_to: pathDate, page: 1, page_size: 100, sort_by: 'delivered_at', sort_order: 'asc' })
+      .then((res) => { if (!cancelled) setStops(res.items || []); })
+      .catch(() => { if (!cancelled) setStops([]); });
+    return () => { cancelled = true; };
   }, [token, canTrack, selected, pathDate]);
 
+  // Esc goes back from a rider to the list.
   useEffect(() => {
-    if (!token || !canTrack || selected == null) {
-      setTodayDeliveries([]);
-      return;
-    }
-    let cancelled = false;
-    const today = new Date().toISOString().slice(0, 10);
-    getInvoices(token, {
-      assigned_to: selected,
-      status: 'delivered',
-      date_from: today,
-      date_to: today,
-      page: 1,
-      page_size: 100,
-      sort_by: 'delivered_at',
-      sort_order: 'asc',
-    })
-      .then((res) => {
-        if (cancelled) return;
-        setTodayDeliveries(res.items || []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setTodayDeliveries([]);
-      });
-    return () => {
-      cancelled = true;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || selected == null) return;
+      const t = e.target as HTMLElement;
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || document.querySelector('[role="dialog"][data-state="open"]')) return;
+      setSelected(null);
     };
-  }, [token, canTrack, selected]);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected]);
 
-  useEffect(() => {
-    if (!token || !canTrack || selected == null) {
-      setDayCheckpoints([]);
-      setSelectedCheckpointId(null);
-      setSegmentRoute([]);
-      return;
-    }
-    setSelectedCheckpointId(null);
-    setPathViewMode('day');
-    let cancelled = false;
-    getDeliveryCheckpoints(token, {
-      user_id: selected,
-      date_from: pathDate,
-      date_to: pathDate,
-    })
-      .then((rows) => {
-        if (cancelled) return;
-        setDayCheckpoints(rows || []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setDayCheckpoints([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token, canTrack, selected, pathDate]);
+  const allRiders = useMemo(() => mergeOnDutySnapshotsWithLive(snapshots, liveLocations), [snapshots, liveLocations]);
+  const counts = useMemo(() => ({
+    all: allRiders.length,
+    moving: allRiders.filter((r) => r.status === 'moving').length,
+    waiting: allRiders.filter((r) => r.status === 'waiting').length,
+    disconnected: allRiders.filter((r) => r.status === 'disconnected').length,
+  }), [allRiders]);
 
-  useEffect(() => {
-    if (!token || !canTrack || selectedCheckpointId == null || pathViewMode !== 'segment') {
-      setSegmentRoute([]);
-      setSegmentSmoothed(undefined);
-      return;
-    }
-    const row = dayCheckpoints.find((c) => c.id === selectedCheckpointId);
-    if (!row?.path_id) {
-      setSegmentRoute([]);
-      return;
-    }
-    let cancelled = false;
-    setLoadingSegment(true);
-    getCheckpointPath(token, selectedCheckpointId)
-      .then((seg) => {
-        if (cancelled) return;
-        const route: [number, number][] = (seg.points || [])
-          .filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number')
-          .map((p) => [p.lat, p.lng]);
-        setSegmentRoute(route);
-        setSegmentSmoothed(seg.is_smoothed);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setSegmentRoute([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingSegment(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token, canTrack, selectedCheckpointId, pathViewMode, dayCheckpoints]);
+  const listRiders = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return allRiders
+      .filter((r) => (statusFilter === 'all' || r.status === statusFilter) && (!q || r.name.toLowerCase().includes(q)))
+      .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.name.localeCompare(b.name));
+  }, [allRiders, search, statusFilter]);
 
-  const handleSelectCheckpoint = (id: number | null) => {
-    setSelectedCheckpointId(id);
-    if (id == null) {
-      setPathViewMode('day');
-      return;
-    }
-    const row = dayCheckpoints.find((c) => c.id === id);
-    if (row?.path_id) {
-      setPathViewMode('segment');
-    }
-  };
+  const rider = selected != null ? allRiders.find((r) => r.id === selected) ?? null : null;
 
-  const selectedCheckpoint = dayCheckpoints.find((c) => c.id === selectedCheckpointId) ?? null;
+  const trips = useMemo(() => splitIntoTrips(dayPoints, dayCheckpoints), [dayPoints, dayCheckpoints]);
+  const visibleTrips = trips.filter((t) => !hidden.has(t.id));
+  const totalM = trips.reduce((s, t) => s + t.distanceM, 0);
 
-  const allRiders = mergeOnDutySnapshotsWithLive(snapshots, liveLocations);
-  const riders = selected ? allRiders.filter((r) => r.id === selected) : allRiders;
+  const mapTrips: MapTrip[] = visibleTrips.map((t) => ({
+    id: t.id,
+    number: t.number,
+    color: t.color,
+    positions: t.positions,
+    highlighted: hover === t.id,
+    dimmed: hover != null && hover !== t.id,
+    label: `Trip ${t.number}: ${t.title} (${clock(t.startAt)} to ${clock(t.endAt)}, ${km(t.distanceM)})`,
+  }));
 
-  const mapRiders = displayRidersToMapPreviewMarkers(allRiders);
-
-  const deliveryStopMarkers = todayDeliveries
-    .filter(
-      (inv) =>
-        typeof inv.delivery_latitude === 'number' &&
-        typeof inv.delivery_longitude === 'number'
-    )
-    .map((inv) => ({
-      pos: [inv.delivery_latitude as number, inv.delivery_longitude as number] as [number, number],
-      label: `${inv.invoice_number} - ${inv.hospital_name}`,
-      time: new Date(inv.delivered_at || inv.created_at).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      status: 'completed' as const,
-    }));
-
-  const jobCheckpointMarkers = selected
-    ? checkpointsToMapMarkers(dayCheckpoints, selectedCheckpointId)
+  const mapRiders = displayRidersToMapPreviewMarkers(rider ? allRiders.filter((r) => r.id === rider.id) : allRiders);
+  const markers = rider
+    ? [
+        ...checkpointsToMapMarkers(dayCheckpoints, null),
+        ...stops
+          .filter((inv) => typeof inv.delivery_latitude === 'number' && typeof inv.delivery_longitude === 'number')
+          .map((inv) => ({
+            pos: [inv.delivery_latitude as number, inv.delivery_longitude as number] as [number, number],
+            label: `${inv.invoice_number} · ${inv.hospital_name}`,
+            time: clock(inv.delivered_at || inv.created_at),
+            status: 'completed' as const,
+          })),
+      ]
     : [];
 
-  const mapCheckpoints = [...jobCheckpointMarkers, ...deliveryStopMarkers];
+  const fitPoints: [number, number][] = rider
+    ? visibleTrips.length > 0
+      ? visibleTrips.flatMap((t) => t.positions)
+      : mapRiders.map((m) => m.pos)
+    : mapRiders.map((m) => m.pos);
+  const fitKey = rider ? `r${rider.id}-${pathDate}-${trips.length}-${hidden.size}` : `fleet-${allRiders.length}`;
 
-  const segmentLines =
-    pathViewMode === 'segment' && segmentRoute.length > 1 && selectedCheckpoint
-      ? [
-          {
-            positions: segmentRoute,
-            color: segmentColorForCheckpoint(selectedCheckpoint.checkpoint_type),
-            weight: 5,
-            opacity: 0.9,
-          },
-        ]
-      : [];
-
-  const mapDayRoute = pathViewMode === 'day' ? selectedPath : [];
-
-  let mapCenter = DEFAULT_MAP_CENTER;
-  const activeRoute = pathViewMode === 'segment' ? segmentRoute : selectedPath;
-  if (activeRoute.length > 0) {
-    const last = activeRoute[activeRoute.length - 1];
-    mapCenter = [last[0], last[1]];
-  }
-  if (mapRiders.length > 0) {
-    const sum = mapRiders.reduce(
-      (acc, m) => ({ lat: acc.lat + m.pos[0], lng: acc.lng + m.pos[1] }),
-      { lat: 0, lng: 0 },
-    );
-    mapCenter = [sum.lat / mapRiders.length, sum.lng / mapRiders.length];
-  }
+  const onListKey = (e: React.KeyboardEvent) => {
+    if (!['ArrowDown', 'ArrowUp', 'j', 'k'].includes(e.key)) return;
+    const rows = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[data-nav-row]'));
+    const i = rows.indexOf(document.activeElement as HTMLElement);
+    if (i < 0) return;
+    e.preventDefault();
+    rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' || e.key === 'j' ? 1 : -1)))]?.focus();
+  };
 
   if (!canTrack) {
-    return (
-      <Card className="p-8 text-foreground/70 text-sm" >
-        Live fleet tracking is limited to admin and manager accounts.
-      </Card>
-    );
+    return <Card className="p-8 text-sm text-foreground/70">Live fleet tracking is limited to admin and manager accounts.</Card>;
   }
 
   return (
-    <div className="space-y-4 h-[calc(100vh-6rem)] flex flex-col">
-      <div className="flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">Live Fleet</h1>
-            <p className="text-[13px] text-muted-foreground">On-duty delivery staff and live GPS</p>
-          </div>
-          <div className="h-10 w-px bg-border mx-2 hidden md:block" />
-          <div className="hidden md:flex flex-col">
-            <label className="text-xs font-medium text-muted-foreground/70 mb-1">Select Rider</label>
-            <SearchableSelect
-              value={selected ? String(selected) : ''}
-              onChange={(v) => setSelected(v ? Number(v) : null)}
-              options={[
-                { value: '', label: 'All Fleet View' },
-                ...allRiders.map((r) => ({ value: String(r.id), label: r.name })),
-              ]}
-              className="min-w-[180px]"
-            />
-          </div>
-            <div className="hidden md:flex flex-col">
-              <label className="text-xs font-medium text-muted-foreground/70 mb-1">Travel Date</label>
-              <Input className="min-w-[140px]"
-                type="date"
-                value={pathDate}
-                onChange={(e) => setPathDate(e.target.value)}
-                
-              />
-            </div>
+    <div className="flex h-[calc(100dvh-8.5rem)] min-h-[520px] flex-col gap-3">
+      {/* One compact bar: title, counts, date, refresh, live state */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="mr-2">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">Live fleet</h1>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm"
-            type="button"
-            onClick={() => loadSnapshots()}
-            disabled={loadingList}
-            
-            title="Refresh list from server"
-          >
-            <RefreshCw size={14} className={loadingList ? 'animate-spin' : ''} />
-            Refresh
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="outline">{counts.all} on duty</Badge>
+          <Badge variant="success" dot>{counts.moving} moving</Badge>
+          <Badge variant="warning" dot>{counts.waiting} standing</Badge>
+          {counts.disconnected > 0 && <Badge variant="danger" dot>{counts.disconnected} no signal</Badge>}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Input type="date" className="w-[150px]" value={pathDate} max={todayIso()} onChange={(e) => setPathDate(e.target.value || todayIso())} aria-label="Travel date" />
+          {pathDate !== todayIso() && <Button variant="ghost" size="sm" onClick={() => setPathDate(todayIso())}>Today</Button>}
+          <Button variant="ghost" size="icon" data-hotkey-refresh="" aria-label="Refresh" title="Refresh (r)" onClick={loadSnapshots} disabled={loadingList}>
+            <RefreshCw className={loadingList ? 'animate-spin' : ''} />
           </Button>
-          <div className="flex flex-col items-end">
-            <div
-              className={`flex items-center gap-2 text-[10px] font-bold px-2 py-1 rounded-lg border uppercase tracking-wider ${
-                connected
-                  ? 'text-primary bg-accent border-primary/20'
-                  : 'text-warning bg-warning/10 border-warning/25'
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-primary animate-pulse' : 'bg-warning'}`} />
-              {connected ? 'Live socket' : 'Connecting…'}
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70 font-medium mt-1">
-              Updated {lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          </div>
+          <Badge variant={connected ? 'success' : 'warning'} dot title={`Updated ${lastRefresh.toLocaleTimeString()}`}>
+            {connected ? 'Live' : 'Connecting…'}
+          </Badge>
         </div>
       </div>
 
-      {loadError && (
-        <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">{loadError}</div>
-      )}
+      {loadError && <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{loadError}</div>}
 
-      <KpiStrip items={[
-  { label: 'On duty', value: riders.length },
-  { label: 'Moving', value: riders.filter((r) => r.status === 'moving').length },
-  { label: 'Waiting', value: riders.filter((r) => r.status === 'waiting').length },
-  { label: 'Disconnected', value: riders.filter((r) => r.status === 'disconnected').length },
-  { label: 'On map', value: riders.filter((r) => r.lat != null && r.lng != null).length },
-]} />
-
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-0">
-        <Card className="lg:col-span-3 overflow-hidden min-h-[300px] lg:min-h-0 relative" >
-          <MapPreview
-            riders={mapRiders}
-            route={mapDayRoute}
-            routeSegments={segmentLines}
-            checkpoints={selected ? mapCheckpoints : []}
-            center={mapCenter}
-            zoom={activeRoute.length > 0 || mapRiders.length === 1 ? 15 : 13}
-          />
-        </Card>
-
-        <Card className="flex flex-col min-h-0" >
-          <div className="p-4 border-b border-border shrink-0">
-            <h3 className="font-semibold text-foreground">Active Riders</h3>
-            <p className="text-[11px] text-muted-foreground/70 mt-0.5">{riders.length} on duty</p>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-hide">
-            {riders.map((rider) => (
-              <RiderCard
-                key={rider.id}
-                rider={rider}
-                selected={selected === rider.id}
-                onClick={() => setSelected(selected === rider.id ? null : rider.id)}
-              />
-            ))}
-            {riders.length === 0 && (
-              <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground/70 silver-gradient rounded-xl">
-                <Users size={32} className="mb-2 opacity-20" />
-                <p className="text-xs font-semibold">No riders on duty</p>
-              </div>
-            )}
-          </div>
-
-          {selected && (
-            <div className="p-4 border-t border-border shrink-0 bg-muted/50 space-y-3">
-              <div className="text-xs text-muted-foreground font-medium flex items-center justify-between">
-                <span>
-                  {loadingPath ? 'Loading day path…' : `Day path: ${selectedPath.length} pts`}
-                </span>
-                <span>source: {pathSource}</span>
-              </div>
-              <CheckpointPathPanel
-                checkpoints={dayCheckpoints}
-                selectedCheckpointId={selectedCheckpointId}
-                onSelectCheckpoint={handleSelectCheckpoint}
-                loadingPath={loadingSegment}
-                segmentPointCount={segmentRoute.length}
-                segmentSmoothed={segmentSmoothed}
-                viewMode={pathViewMode}
-                onViewModeChange={setPathViewMode}
-                compact
-              />
-              <div className="text-xs text-muted-foreground font-medium flex items-center justify-between">
-                <span>Today&apos;s delivered stops</span>
-                <span>{deliveryStopMarkers.length}</span>
-              </div>
-              <Button variant="soft" size="icon-sm" className="w-full bg-accent border-primary/20 text-accent-foreground hover:bg-primary/15"
-                type="button"
-                onClick={() => setSelected(null)}
-                
-              >
-                <div className="flex items-center gap-2">
-                  <X size={12} /> Clear Rider Filter
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[22rem_minmax(0,1fr)]">
+        {/* Side panel: rider list, or one rider's day */}
+        <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card max-lg:max-h-72" onKeyDown={onListKey}>
+          {!rider ? (
+            <>
+              <div className="grid gap-2 border-b p-3">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input data-search="" className="w-full pl-9" placeholder="Find a rider   ( / )" value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
-                <ChevronRight size={12} />
-              </Button>
-            </div>
+                <Segmented
+                  className="w-full"
+                  value={statusFilter}
+                  onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
+                  options={[
+                    { value: 'all', label: <>All</> },
+                    { value: 'moving', label: <>Moving</> },
+                    { value: 'waiting', label: <>Standing</> },
+                    { value: 'disconnected', label: <>No signal</> },
+                  ]}
+                />
+              </div>
+              <ul className="min-h-0 flex-1 divide-y overflow-y-auto">
+                {listRiders.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      data-nav-row=""
+                      onClick={() => setSelected(r.id)}
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left outline-none transition-colors hover:bg-muted focus-visible:bg-accent"
+                    >
+                      <span className="relative grid size-9 shrink-0 place-items-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
+                        {r.initials}
+                        <span className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-card ${dot[r.status]}`} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{r.name}</span>
+                        <span className={`block truncate text-xs ${r.status === 'disconnected' ? 'text-destructive' : 'text-muted-foreground'}`}>{statusText(r)}</span>
+                      </span>
+                      {r.batteryPercent != null && (
+                        <span className={`flex items-center gap-1 text-xs tabular-nums ${r.batteryPercent <= 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          <Battery className="size-3.5" />{r.batteryPercent}%
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+                {listRiders.length === 0 && (
+                  <li className="p-8 text-center text-sm text-muted-foreground">{allRiders.length === 0 ? 'No riders on duty.' : 'No rider matches.'}</li>
+                )}
+              </ul>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 border-b p-3">
+                <Button variant="ghost" size="icon-sm" aria-label="Back to all riders" title="Back (Esc)" onClick={() => setSelected(null)}>
+                  <ArrowLeft />
+                </Button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{rider.name}</p>
+                  <p className={`flex items-center gap-1.5 text-xs ${rider.status === 'disconnected' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    <span className={`size-2 rounded-full ${dot[rider.status]}`} />{statusText(rider)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <dl className="grid grid-cols-3 divide-x border-b text-center">
+                  <div className="px-2 py-2.5"><dt className="text-[11px] text-muted-foreground">Distance</dt><dd className="text-base font-semibold tabular-nums">{loadingPath ? '…' : km(totalM)}</dd></div>
+                  <div className="px-2 py-2.5"><dt className="text-[11px] text-muted-foreground">Trips</dt><dd className="text-base font-semibold tabular-nums">{trips.length}</dd></div>
+                  <div className="px-2 py-2.5"><dt className="text-[11px] text-muted-foreground">Delivered</dt><dd className="text-base font-semibold tabular-nums">{stops.length}</dd></div>
+                </dl>
+
+                {rider.suspectedPowerOff && (
+                  <div className="m-3 flex gap-2 rounded-md border border-warning/30 bg-warning/10 p-2.5 text-xs text-warning">
+                    <Power className="mt-0.5 size-3.5 shrink-0" />
+                    <span>Phone may have been switched off: last ping {formatDateTimeIST(rider.suspectedPowerOff.last_device_ping_at)}, battery was {rider.suspectedPowerOff.battery_percent_at_last_ping}%.</span>
+                  </div>
+                )}
+
+                <div className="grid gap-1 px-3 py-2.5 text-xs text-muted-foreground">
+                  {rider.lat != null && rider.lng != null && (
+                    <p className="flex items-center gap-1.5"><MapPin className="size-3.5" /> {rider.lat.toFixed(5)}, {rider.lng.toFixed(5)}</p>
+                  )}
+                  {rider.lastLocationAt && <p>Last seen {ago(rider.lastLocationAt)} ({formatDateTimeIST(rider.lastLocationAt)})</p>}
+                  {rider.batteryPercent != null && <p>Battery {rider.batteryPercent}%</p>}
+                </div>
+
+                <div className="border-t">
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Trips</h3>
+                    {trips.length > 0 && <span className="text-[11px] text-muted-foreground">same road, different colour per trip</span>}
+                  </div>
+                  {trips.length === 0 ? (
+                    <p className="px-3 pb-4 text-sm text-muted-foreground">
+                      {loadingPath ? 'Loading…' : dayCheckpoints.length === 0 ? 'No stops recorded for this day.' : 'No movement between stops was recorded.'}
+                    </p>
+                  ) : (
+                    <ul className="divide-y border-t">
+                      {trips.map((t) => (
+                        <li
+                          key={t.id}
+                          data-nav-row=""
+                          tabIndex={0}
+                          onMouseEnter={() => setHover(t.id)}
+                          onMouseLeave={() => setHover(null)}
+                          onFocus={() => setHover(t.id)}
+                          onBlur={() => setHover(null)}
+                          onKeyDown={(e) => {
+                            if (e.key === ' ' || e.key === 'Enter') {
+                              e.preventDefault();
+                              setHidden((h) => { const n = new Set(h); n.has(t.id) ? n.delete(t.id) : n.add(t.id); return n; });
+                            }
+                          }}
+                          className="flex items-center gap-2.5 px-3 py-2 outline-none hover:bg-muted focus-visible:bg-accent"
+                        >
+                          <Checkbox
+                            aria-label={`Show trip ${t.number}`}
+                            checked={!hidden.has(t.id)}
+                            tabIndex={-1}
+                            onCheckedChange={(v) => setHidden((h) => { const n = new Set(h); v ? n.delete(t.id) : n.add(t.id); return n; })}
+                          />
+                          <span className="grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white" style={{ background: t.color }}>{t.number}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[13px]">{t.title}</span>
+                            <span className="block text-xs text-muted-foreground">{clock(t.startAt)} – {clock(t.endAt)}</span>
+                          </span>
+                          <span className="text-xs tabular-nums text-muted-foreground">{km(t.distanceM)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {trips.length > 0 && <p className="border-t px-3 py-2 text-[11px] text-muted-foreground">Path source: {pathSource}. Space shows or hides a trip. Hover or focus a trip to highlight it.</p>}
+                </div>
+              </div>
+            </>
           )}
+        </aside>
+
+        <Card className="relative min-h-[320px] overflow-hidden">
+          <MapPreview
+            bare
+            riders={mapRiders}
+            trips={mapTrips}
+            checkpoints={markers}
+            center={DEFAULT_MAP_CENTER}
+            zoom={13}
+            fitPoints={fitPoints}
+            fitKey={fitKey}
+          />
         </Card>
       </div>
     </div>

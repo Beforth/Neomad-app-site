@@ -1,7 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 // Fix for default marker icons in Leaflet with Webpack/Vite
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -75,6 +75,80 @@ const createRiderIcon = (
   });
 };
 
+
+/** One trip (a leg between two checkpoints) drawn as its own coloured line with direction arrows. */
+export interface MapTrip {
+  id: number | string;
+  number: number;
+  color: string;
+  positions: [number, number][];
+  /** Everything else dims while one trip is highlighted. */
+  dimmed?: boolean;
+  highlighted?: boolean;
+  label?: string;
+}
+
+const toRad = (d: number) => (d * Math.PI) / 180;
+function bearingDeg(a: [number, number], b: [number, number]): number {
+  const y = Math.sin(toRad(b[1] - a[1])) * Math.cos(toRad(b[0]));
+  const x = Math.cos(toRad(a[0])) * Math.sin(toRad(b[0])) - Math.sin(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.cos(toRad(b[1] - a[1]));
+  return (Math.atan2(y, x) * 180) / Math.PI;
+}
+function stepM(a: [number, number], b: [number, number]): number {
+  const R = 6371000;
+  const dp = toRad(b[0] - a[0]);
+  const dl = toRad(b[1] - a[1]);
+  const h = Math.sin(dp / 2) ** 2 + Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dl / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/** Points along the line (by distance) where a direction arrow is drawn. */
+function arrowSpots(positions: [number, number][]): { pos: [number, number]; angle: number }[] {
+  if (positions.length < 2) return [];
+  const cum: number[] = [0];
+  for (let i = 1; i < positions.length; i++) cum.push(cum[i - 1] + stepM(positions[i - 1], positions[i]));
+  const total = cum[cum.length - 1];
+  if (total < 120) return [];
+  const count = Math.min(6, Math.max(1, Math.floor(total / 400)));
+  const out: { pos: [number, number]; angle: number }[] = [];
+  for (let k = 1; k <= count; k++) {
+    const target = (total * k) / (count + 1);
+    let i = 1;
+    while (i < cum.length - 1 && cum[i] < target) i++;
+    out.push({ pos: positions[i], angle: bearingDeg(positions[i - 1], positions[i]) });
+  }
+  return out;
+}
+
+const arrowIcon = (color: string, angle: number, faded: boolean) =>
+  L.divIcon({
+    className: 'trip-arrow',
+    html: `<div style="transform:rotate(${angle}deg);opacity:${faded ? 0.25 : 1};width:16px;height:16px;display:flex;align-items:center;justify-content:center">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="${color}" stroke="white" stroke-width="2.5" stroke-linejoin="round"><path d="M12 2 20 21 12 16 4 21z"/></svg></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
+
+const tripBadgeIcon = (n: number, color: string, faded: boolean) =>
+  L.divIcon({
+    className: 'trip-badge',
+    html: `<div style="background:${color};opacity:${faded ? 0.35 : 1}" class="flex items-center justify-center w-5 h-5 rounded-full border-2 border-white shadow font-semibold text-[10px] text-white">${n}</div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  });
+
+/** Zoom the map to fit these points whenever `fitKey` changes. */
+function FitBounds({ points, fitKey }: { points: [number, number][]; fitKey: string }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points.length === 0) return;
+    if (points.length === 1) { map.setView(points[0], 16); return; }
+    map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 17 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitKey, map]);
+  return null;
+}
+
 export const DEFAULT_RIDERS = [
   { id: 1, name: 'Sagar Wagh', pos: [19.9975, 73.7898] as [number, number], status: 'Heading to City Hospital', motion: 'moving' as const, order: 'INV-2024-001' },
   { id: 2, name: 'Rahul Patil', pos: [20.0050, 73.7800] as [number, number], status: 'Waiting at Metro Clinic', motion: 'waiting' as const, order: 'INV-2024-002' },
@@ -97,6 +171,13 @@ interface MapPreviewProps {
   checkpoints?: { pos: [number, number]; label: string; time: string; status: 'completed' | 'active' }[];
   center?: [number, number];
   zoom?: number;
+  /** Coloured, numbered trips with arrows. Use this when the same road may be driven several times. */
+  trips?: MapTrip[];
+  /** When set, the map zooms to these points whenever `fitKey` changes. */
+  fitPoints?: [number, number][];
+  fitKey?: string;
+  /** Fill the parent without the framed border (full-bleed maps). */
+  bare?: boolean;
 }
 
 export default function MapPreview({
@@ -106,9 +187,14 @@ export default function MapPreview({
   checkpoints = [],
   center = [19.9975, 73.7898],
   zoom = 13,
+  trips = [],
+  fitPoints,
+  fitKey,
+  bare = false,
 }: MapPreviewProps) {
+  const arrows = useMemo(() => trips.map((t) => ({ id: t.id, spots: arrowSpots(t.positions) })), [trips]);
   return (
-    <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-inner bg-muted">
+    <div className={bare ? 'w-full h-full bg-muted' : 'w-full h-full rounded-lg overflow-hidden border border-border shadow-inner bg-muted'}>
       <MapContainer
         center={center}
         zoom={zoom}
@@ -120,6 +206,7 @@ export default function MapPreview({
         zoomDelta={0.5}
       >
         <ResizeHandler center={center} zoom={zoom} />
+        {fitPoints && <FitBounds points={fitPoints} fitKey={fitKey ?? String(fitPoints.length)} />}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -143,6 +230,31 @@ export default function MapPreview({
           : route.length > 0 && (
               <Polyline positions={route} color="#10b981" weight={4} opacity={0.6} dashArray="8, 8" />
             )}
+
+        {/* Trips: white casing under a coloured line so overlapping trips stay readable */}
+        {trips.map((t) =>
+          t.positions.length > 1 ? (
+            <Polyline key={`trip-casing-${t.id}`} positions={t.positions} pathOptions={{ color: '#ffffff', weight: t.highlighted ? 10 : 8, opacity: t.dimmed ? 0.25 : 0.9 }} />
+          ) : null,
+        )}
+        {trips.map((t) =>
+          t.positions.length > 1 ? (
+            <Polyline key={`trip-${t.id}`} positions={t.positions} pathOptions={{ color: t.color, weight: t.highlighted ? 6 : 4, opacity: t.dimmed ? 0.3 : 0.95 }}>
+              {t.label && <Tooltip sticky>{t.label}</Tooltip>}
+            </Polyline>
+          ) : null,
+        )}
+        {arrows.map((a) => {
+          const t = trips.find((x) => x.id === a.id)!;
+          return a.spots.map((sp, i) => (
+            <Marker key={`arrow-${a.id}-${i}`} position={sp.pos} icon={arrowIcon(t.color, sp.angle, !!t.dimmed)} interactive={false} />
+          ));
+        })}
+        {trips.map((t) =>
+          t.positions.length > 0 ? (
+            <Marker key={`badge-${t.id}`} position={t.positions[0]} icon={tripBadgeIcon(t.number, t.color, !!t.dimmed)} interactive={false} zIndexOffset={500} />
+          ) : null,
+        )}
 
         {/* Render Checkpoints */}
         {checkpoints.map((cp, idx) => (
