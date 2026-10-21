@@ -3,7 +3,19 @@ import type { KpiItem } from '@/components/KpiStrip';
 import BarList from '@/components/BarList';
 
 /** Which controls a report has above its table. */
-export type ReportFilter = 'range' | 'month' | 'none';
+export type ReportFilter = 'range' | 'month' | 'date' | 'none';
+
+export type ReportPreset = 'today' | '7d' | '30d' | '90d' | 'all' | 'custom';
+
+/** What the person picked above the table, handed to a report's own fetch / excel. */
+export interface ReportQuery {
+  from: string;
+  to: string;
+  month: string;
+  /** Single day, for reports with filter 'date'. */
+  day: string;
+  department?: number;
+}
 
 export interface ReportColumn {
   key: string;
@@ -18,7 +30,7 @@ export interface ReportColumn {
 
 export interface ReportDef {
   id: string;
-  group: 'Money' | 'Deliveries' | 'Riders' | 'People';
+  group: string;
   title: string;
   /** One sentence: what question this answers. */
   description: string;
@@ -26,6 +38,16 @@ export interface ReportDef {
   /** Re-fetch every minute (queues and live lists). */
   live?: boolean;
   endpoint?: string;
+  /** Own data source, for reports that do not live under /reports/. */
+  fetch?: (token: string, q: ReportQuery) => Promise<any>;
+  /** Adds a "Download Excel" button next to Export CSV. */
+  excel?: (token: string, q: ReportQuery) => Promise<unknown>;
+  /** Data is { tables: [{ sheet, columns, rows }] }: columns come from the data, one tab per sheet. */
+  sheets?: boolean;
+  /** Which period buttons to offer. Default: all of them. */
+  presets?: ReportPreset[];
+  /** Offer a department filter. */
+  department?: boolean;
   /** Extra controls (for example Day / Month / Hospital). */
   options?: { name: string; label: string; choices: { value: string; label: string }[]; default: string };
   kpis?: (d: any) => KpiItem[];
@@ -33,6 +55,10 @@ export interface ReportDef {
   rows?: (d: any) => any[];
   /** Where Enter on a row goes. */
   rowLink?: (row: any) => string | null;
+  /** Status cells open a drawer to mark that person's attendance (needs row meta from the server). */
+  markAttendance?: boolean;
+  /** Counts open a drawer with the days behind them (needs row meta from the server). */
+  drillAttendance?: boolean;
   /** Small note under the table. */
   note?: string;
   /** Content between the headline numbers and the table (charts). */
@@ -287,34 +313,6 @@ export const REPORTS: ReportDef[] = [
     description: 'A rider’s route for one day: distance, moving, slow and idle time, on a map.',
     filter: 'none',
   },
-  {
-    id: 'attendance',
-    group: 'People',
-    title: 'Late, absent and overtime',
-    description: 'Per employee for one month: late days, half days, absences, overtime and penalties.',
-    filter: 'month',
-    endpoint: 'attendance-exceptions',
-    kpis: (d) => [
-      { label: 'Employees', value: d.summary.employees },
-      { label: 'Late days', value: d.summary.late_days },
-      { label: 'Absent days', value: d.summary.absent_days },
-      { label: 'Overtime hours', value: d.summary.overtime_hours },
-      { label: 'Penalties', value: inr(d.summary.penalty_amount) },
-    ],
-    rows: (d) => d.rows,
-    columns: [
-      { key: 'employee', header: 'Employee' },
-      { key: 'present_days', header: 'Present', num: true },
-      { key: 'late_days', header: 'Late', num: true },
-      { key: 'half_days', header: 'Half day', num: true },
-      { key: 'absent_days', header: 'Absent', num: true },
-      { key: 'overtime_hours', header: 'Overtime (h)', num: true },
-      { key: 'overtime_amount', header: 'Overtime pay', num: true, render: (r) => inr(r.overtime_amount) },
-      { key: 'penalty_amount', header: 'Penalty', num: true, render: (r) => inr(r.penalty_amount) },
-    ],
-    note: 'Absent days include days the system marked absent automatically.',
-    empty: 'No attendance records for this month.',
-  },
 ];
 
-export const REPORT_GROUPS: ReportDef['group'][] = ['Money', 'Deliveries', 'Riders', 'People'];
+export const REPORT_GROUPS: ReportDef['group'][] = ['Money', 'Deliveries', 'Riders'];

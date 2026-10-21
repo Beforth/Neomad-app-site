@@ -4,17 +4,19 @@
  * Replaces the old add/edit modals on the Staff list. The record is split into
  * numbered steps so each screen stays short.
  */
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, ChevronLeft, ChevronRight, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getRoles, listWorkingLocations, type ApiRole, type WorkingLocation } from '../../lib/api';
 import {
-  listDepartments, GENDER_OPTIONS, EMPLOYEE_TYPE_OPTIONS,
-  COUNTRY_CODES, SALARY_TYPE_OPTIONS, PAYROLL_GROUP_OPTIONS,
+  listDepartments, getOrgChart, type OrgChartPerson, GENDER_OPTIONS, EMPLOYEE_TYPE_OPTIONS,
+  COUNTRY_CODES,
   type DepartmentOut, type StaffOut, type StaffReference, type Gender,
 } from '../../lib/hrmsStaff';
+import { emptyStaffSalary, type StaffSalary } from '../../lib/hrmsPayroll';
 import StaffDocuments from './StaffDocuments';
+import SalaryStructureFields from './SalaryStructureFields';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input, Textarea, fieldClass, selectClass } from '@/components/ui/input';
@@ -33,6 +35,7 @@ export interface StaffFormValues {
   employee_type: string;
   designation: string;
   department_id: number | '';
+  reports_to_id: number | '';
   master_branch_id: number | '';
   punch_branch_ids: number[];
   door_lock_permission: boolean;
@@ -43,10 +46,10 @@ export interface StaffFormValues {
   pf_number: string;
   uan_number: string;
   esic_number: string;
+  wc_policy_no: string;
+  mediclaim_policy_no: string;
+  mediclaim_policy_period: string;
   aadhaar_number: string;
-  salary_type: string;
-  monthly_salary: string;
-  payroll_group: string;
   bank_name: string;
   bank_branch_name: string;
   bank_account_no: string;
@@ -57,17 +60,20 @@ export interface StaffFormValues {
   emergency_contact_relation: string;
   emergency_contact_address: string;
   references: StaffReference[];
+  /** Pay model, CTC and rates. Saved to the salary structure, not the staff record. */
+  salary: StaffSalary;
 }
 
 export function emptyStaffForm(): StaffFormValues {
   return {
     employee_code: '', full_name: '', display_name: '', email: '', password: '', phone: '',
     country_code: '+91', emergency_contact_country_code: '+91',
-    aadhaar_number: '', salary_type: 'monthly', monthly_salary: '', payroll_group: '',
-    gender: '', employee_type: '', designation: '', department_id: '', master_branch_id: '',
+    aadhaar_number: '', salary: emptyStaffSalary(),
+    gender: '', employee_type: '', designation: '', department_id: '', reports_to_id: '', master_branch_id: '',
     punch_branch_ids: [], door_lock_permission: false, role_code: 'staff',
     date_of_joining: '', date_of_birth: '', address: '',
     pf_number: '', uan_number: '', esic_number: '',
+    wc_policy_no: '', mediclaim_policy_no: '', mediclaim_policy_period: '',
     bank_name: '', bank_branch_name: '', bank_account_no: '', bank_ifsc: '',
     emergency_contact_name: '', emergency_contact_number: '',
     emergency_contact_relation: '', emergency_contact_address: '',
@@ -89,6 +95,7 @@ export function staffToForm(s: StaffOut): StaffFormValues {
     employee_type: s.employee_type ?? '',
     designation: s.designation ?? '',
     department_id: s.department_id ?? '',
+    reports_to_id: s.reports_to_id ?? '',
     master_branch_id: s.master_branch_id ?? '',
     punch_branch_ids: s.punch_branch_ids ?? [],
     door_lock_permission: Boolean(s.door_lock_permission),
@@ -99,10 +106,10 @@ export function staffToForm(s: StaffOut): StaffFormValues {
     pf_number: s.pf_number ?? '',
     uan_number: s.uan_number ?? '',
     esic_number: s.esic_number ?? '',
+    wc_policy_no: s.wc_policy_no ?? '',
+    mediclaim_policy_no: s.mediclaim_policy_no ?? '',
+    mediclaim_policy_period: s.mediclaim_policy_period ?? '',
     aadhaar_number: s.aadhaar_number ?? '',
-    salary_type: s.salary_type ?? 'monthly',
-    monthly_salary: s.monthly_salary != null ? String(s.monthly_salary) : '',
-    payroll_group: s.payroll_group ?? '',
     bank_name: s.bank_name ?? '',
     bank_branch_name: s.bank_branch_name ?? '',
     bank_account_no: s.bank_account_no ?? '',
@@ -133,6 +140,7 @@ export function formToPayload(f: StaffFormValues) {
     employee_type: orNull(f.employee_type),
     designation: orNull(f.designation),
     department_id: f.department_id === '' ? null : Number(f.department_id),
+    reports_to_id: f.reports_to_id === '' ? 0 : Number(f.reports_to_id),
     master_branch_id: f.master_branch_id === '' ? null : Number(f.master_branch_id),
     punch_branch_ids: f.punch_branch_ids,
     door_lock_permission: f.door_lock_permission,
@@ -142,10 +150,10 @@ export function formToPayload(f: StaffFormValues) {
     pf_number: orNull(f.pf_number),
     uan_number: orNull(f.uan_number),
     esic_number: orNull(f.esic_number),
+    wc_policy_no: orNull(f.wc_policy_no),
+    mediclaim_policy_no: orNull(f.mediclaim_policy_no),
+    mediclaim_policy_period: orNull(f.mediclaim_policy_period),
     aadhaar_number: orNull(f.aadhaar_number),
-    salary_type: orNull(f.salary_type),
-    monthly_salary: f.monthly_salary.trim() === '' ? null : Number(f.monthly_salary),
-    payroll_group: orNull(f.payroll_group),
     bank_name: orNull(f.bank_name),
     bank_branch_name: orNull(f.bank_branch_name),
     bank_account_no: orNull(f.bank_account_no),
@@ -177,10 +185,8 @@ export function validateStep(f: StaffFormValues, step: number, mode: 'create' | 
     if (f.punch_branch_ids.length === 0) return 'Select at least one Punch In Branch.';
   }
   if (step === 1) {
-    if (!f.salary_type) return 'Salary Type is required.';
-    if (f.monthly_salary.trim() === '') return 'Monthly Salary is required.';
-    if (Number(f.monthly_salary) < 0) return 'Monthly Salary cannot be negative.';
-    if (!f.payroll_group) return 'Payroll Group is required.';
+    const s = f.salary.fields;
+    if ([s.ctc, s.shiftRate, s.overtimeRate].some((v) => Number(v) < 0)) return 'Salary amounts cannot be negative.';
   }
   if (f.aadhaar_number && f.aadhaar_number.length !== 12) {
     return 'Aadhaar Number must be exactly 12 digits.';
@@ -219,16 +225,16 @@ const STEPS = [
   'Reference',
 ] as const;
 
-function Stepper({ current, furthest, onJump }: {
-  current: number; furthest: number; onJump: (i: number) => void;
+function Stepper({ current, furthest, onJump, allOpen }: {
+  current: number; furthest: number; onJump: (i: number) => void; allOpen?: boolean;
 }) {
   return (
     <Card className="px-4 py-3 overflow-x-auto" >
       <div className="flex items-center gap-2 min-w-max">
         {STEPS.map((label, i) => {
-          const done = i < furthest;
+          const done = allOpen ? i < current : i < furthest;
           const active = i === current;
-          const reachable = i <= furthest;
+          const reachable = allOpen || i <= furthest;
           return (
             <button
               key={label}
@@ -305,9 +311,18 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
   const [step, setStep] = useState(0);
   const [furthest, setFurthest] = useState(0);
   const [stepError, setStepError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  // Editing an existing person: every section is open. Save still checks required fields.
+  const allOpen = mode === 'edit';
+
+  // The message sits at the top of the page; bring it into view so Next never fails silently.
+  useEffect(() => {
+    if (stepError) errorRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [stepError]);
   const [departments, setDepartments] = useState<DepartmentOut[]>([]);
   const [branches, setBranches] = useState<WorkingLocation[]>([]);
   const [roles, setRoles] = useState<ApiRole[]>([]);
+  const [people, setPeople] = useState<OrgChartPerson[]>([]);
 
   const set = useCallback(
     <K extends keyof StaffFormValues>(key: K, v: StaffFormValues[K]) =>
@@ -322,6 +337,7 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
       .catch(() => setDepartments([]));
     listWorkingLocations(token).then(setBranches).catch(() => setBranches([]));
     getRoles(token).then(setRoles).catch(() => setRoles([]));
+    getOrgChart(token).then(setPeople).catch(() => setPeople([]));
   }, [token]);
 
   const togglePunchBranch = (id: number) => {
@@ -356,14 +372,14 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
       </div>
 
       {(error || stepError) && (
-        <div className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div ref={errorRef} role="alert" className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error || stepError}
         </div>
       )}
 
       <div>
         <div className="mb-4">
-          <Stepper current={step} furthest={furthest} onJump={setStep} />
+          <Stepper current={step} furthest={furthest} onJump={(i) => { setStepError(null); setStep(i); }} allOpen={allOpen} />
         </div>
 
           {step === 0 && (
@@ -418,6 +434,16 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
                   className={selectClass}>
                   <option value="">Select department</option>
                   {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Reports to" hint="Their manager. Used for the org chart.">
+                <select value={value.reports_to_id}
+                  onChange={(e) => set('reports_to_id', e.target.value === '' ? '' : Number(e.target.value))}
+                  className={selectClass}>
+                  <option value="">No one (top of the chart)</option>
+                  {people.filter((p) => p.id !== staffId).map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}{p.designation ? ` · ${p.designation}` : ''}</option>
+                  ))}
                 </select>
               </Field>
               <Field label="Designation" required>
@@ -486,6 +512,16 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
                 <Input value={value.esic_number} onChange={(e) => set('esic_number', e.target.value)}
                   placeholder="10-digit ESIC IP number" maxLength={10}  />
               </Field>
+              <Field label="WC policy number">
+                <Input value={value.wc_policy_no} onChange={(e) => set('wc_policy_no', e.target.value)} />
+              </Field>
+              <Field label="Mediclaim policy number">
+                <Input value={value.mediclaim_policy_no} onChange={(e) => set('mediclaim_policy_no', e.target.value)} />
+              </Field>
+              <Field label="Mediclaim policy period">
+                <Input value={value.mediclaim_policy_period} onChange={(e) => set('mediclaim_policy_period', e.target.value)}
+                  placeholder="e.g. 01-Apr-2026 to 31-Mar-2027" />
+              </Field>
             </div>
 
             <div className="mt-4">
@@ -504,40 +540,21 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
                 <Input type="date" value={value.date_of_joining}
                   onChange={(e) => set('date_of_joining', e.target.value)}  />
               </Field>
-              <Field label="Monthly Salary" required>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">&#8377;</span>
-                  <Input type="number" min="0" step="1" value={value.monthly_salary}
-                    onChange={(e) => set('monthly_salary', e.target.value)}
-                    placeholder="0"  />
-                </div>
-              </Field>
-              <Field label="Payroll Group" required>
-                <select value={value.payroll_group} onChange={(e) => set('payroll_group', e.target.value)}
-                  className={selectClass}>
-                  <option value="">Select payroll group</option>
-                  {PAYROLL_GROUP_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
-                </select>
-              </Field>
             </div>
-            <div className="mt-4">
-              <Field label="Salary Type" required>
-                <div className="flex items-center gap-4 pt-1.5">
-                  {SALARY_TYPE_OPTIONS.map((t) => (
-                    <label key={t.value} className="flex items-center gap-1.5 text-sm text-foreground/85 cursor-pointer">
-                      <input type="radio" name="salary_type" checked={value.salary_type === t.value}
-                        onChange={() => set('salary_type', t.value)} className="accent-emerald-600" />
-                      {t.label}
-                    </label>
-                  ))}
-                </div>
-              </Field>
+
+            <div className="border-t border-border mt-5 pt-4">
+              <h3 className="text-sm font-semibold text-foreground">Salary structure</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Payroll is calculated from this.
+                {value.salary.structureId ? '' : ' Leave empty to set it up later.'}
+              </p>
+              <div className="pt-4">
+                <SalaryStructureFields
+                  value={value.salary.fields}
+                  onChange={(fields) => set('salary', { ...value.salary, fields })}
+                />
+              </div>
             </div>
-            <p className="text-xs text-warning bg-warning/10 border border-warning/25 rounded-lg px-3 py-2 mt-4">
-              Payroll runs are calculated from{' '}
-              <a href="/hrms/payroll/structures" className="font-semibold underline">Salary Structures</a>,
-              not from this field. Update both so they agree.
-            </p>
           </Section>
           )}
 
@@ -673,6 +690,7 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
           Cancel
         </Button>
         <div className="flex items-center gap-2">
+          {stepError && <span className="text-xs text-destructive mr-2 max-w-[260px] truncate" title={stepError}>{stepError}</span>}
           <span className="text-xs text-muted-foreground/70 mr-2 hidden sm:inline">
             Step {step + 1} of {STEPS.length}
           </span>
@@ -684,7 +702,7 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
           {step < STEPS.length - 1 && (
             <Button variant="secondary" type="button"
               onClick={() => {
-                const msg = validateStep(value, step, mode);
+                const msg = allOpen ? null : validateStep(value, step, mode);
                 if (msg) { setStepError(msg); return; }
                 setStepError(null);
                 const next = Math.min(STEPS.length - 1, step + 1);

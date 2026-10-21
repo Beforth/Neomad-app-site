@@ -11,7 +11,6 @@ import {
   RefreshCw,
   MoreHorizontal,
   Eye,
-  Paperclip,
 } from 'lucide-react';
 import type { ApiInvoice } from '../../lib/api';
 import { formatDateTimeIST } from '../../lib/timeUtils';
@@ -98,9 +97,6 @@ function InvoiceDesktopRowInner({
       <TableCell className="whitespace-nowrap">
         <div className="flex items-center gap-2">
           <span className="font-medium text-foreground">{invoice.invoice_number}</span>
-          {invoice.signed_copy_url && (
-            <Paperclip className="size-3.5 text-muted-foreground" aria-label="Has signed copy" />
-          )}
         </div>
         <span className="text-xs text-muted-foreground">{typeLabel(invoice.invoice_type)}</span>
       </TableCell>
@@ -118,7 +114,28 @@ function InvoiceDesktopRowInner({
         {travel !== '—' && <span className="block text-xs text-muted-foreground">Took {travel}</span>}
       </TableCell>
       <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{formatDateTimeIST(invoice.created_at)}</TableCell>
-      <TableCell className="w-10 pl-0" onClick={stop}>
+      <TableCell className="w-24 pl-0" onClick={stop}>
+        <div className="flex items-center justify-end gap-1.5">
+          {invoice.signed_copy_url && (
+            <button
+              type="button"
+              title="View signed copy"
+              aria-label={`View signed copy for ${invoice.invoice_number}`}
+              className="size-8 shrink-0 overflow-hidden rounded-md border border-border bg-muted transition hover:ring-2 hover:ring-primary/40"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenSignedPreview(invoice.signed_copy_url!, invoice.invoice_number);
+              }}
+            >
+              <img
+                src={invoice.signed_copy_url}
+                alt=""
+                loading="lazy"
+                className="size-full object-cover"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            </button>
+          )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm" data-row-menu="" aria-label={`Actions for ${invoice.invoice_number}`}>
@@ -151,6 +168,7 @@ function InvoiceDesktopRowInner({
             {showDelete && <DropdownMenuItem destructive onSelect={() => onRequestDelete(invoice)}><Trash2 /> Delete invoice</DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </TableCell>
     </TableRow>
   );

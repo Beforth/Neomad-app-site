@@ -46,6 +46,7 @@ export default function SalaryAdvances() {
   const [confirmAdvModal, setConfirmAdvModal] = useState<{ advanceId: number; action: 'approve' | 'reject' } | null>(null);
   const [advConfirmNotes, setAdvConfirmNotes] = useState('');
   const [advApproveAmount, setAdvApproveAmount] = useState(0);
+  const [advInstallments, setAdvInstallments] = useState(1);
 
   const fetchAdvancesData = useCallback(async () => {
     if (!token) {
@@ -96,13 +97,14 @@ export default function SalaryAdvances() {
     }
   }
 
-  async function updateAdvStatus(advId: number, newStatus: 'approved' | 'rejected', notes = '', approvedAmt?: number) {
+  async function updateAdvStatus(advId: number, newStatus: 'approved' | 'rejected', notes = '', approvedAmt?: number, installments?: number) {
     if (!token) return;
     try {
       await resolveAdvance(token, advId, {
         status: newStatus,
         approval_notes: notes || undefined,
         approved_amount: newStatus === 'approved' ? approvedAmt : undefined,
+        installments: newStatus === 'approved' ? installments : undefined,
       });
       await fetchAdvancesData();
       setToast(newStatus === 'approved' ? 'Salary Advance Approved' : 'Salary Advance Rejected');
@@ -277,7 +279,7 @@ export default function SalaryAdvances() {
                         {isAdmin && a.status === 'pending' ? (
                           <div className="flex items-center justify-end gap-1.5">
                             <Button variant="soft" size="xs" className="bg-accent text-accent-foreground hover:bg-primary/15"
-                              onClick={() => { setConfirmAdvModal({ advanceId: a.id, action: 'approve' }); setAdvApproveAmount(a.amount); }}
+                              onClick={() => { setConfirmAdvModal({ advanceId: a.id, action: 'approve' }); setAdvApproveAmount(a.amount); setAdvInstallments(1); }}
                               
                             >
                               Approve
@@ -400,6 +402,14 @@ export default function SalaryAdvances() {
                       type="number" min={1} value={advApproveAmount} onChange={(e) => setAdvApproveAmount(parseFloat(e.target.value) || 0)}
                       
                     />
+                    <label className="block text-xs font-semibold text-foreground/85 mb-1 mt-3">Recover over (pay cycles)</label>
+                    <Input className="w-full" type="number" min={1} max={60} value={advInstallments}
+                      onChange={(e) => setAdvInstallments(Math.max(1, parseInt(e.target.value) || 1))} />
+                    {advInstallments > 1 && advApproveAmount > 0 && (
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        About {formatINR(Math.round(advApproveAmount / advInstallments))} is taken from each salary until it is repaid.
+                      </p>
+                    )}
                   </div>
                 )}
                 <div>
@@ -414,7 +424,7 @@ export default function SalaryAdvances() {
                   <Button variant="outline" size="sm" onClick={() => setConfirmAdvModal(null)} >Cancel</Button>
                   <button
                     onClick={() => {
-                      updateAdvStatus(confirmAdvModal.advanceId, confirmAdvModal.action === 'approve' ? 'approved' : 'rejected', advConfirmNotes, confirmAdvModal.action === 'approve' ? advApproveAmount : undefined);
+                      updateAdvStatus(confirmAdvModal.advanceId, confirmAdvModal.action === 'approve' ? 'approved' : 'rejected', advConfirmNotes, confirmAdvModal.action === 'approve' ? advApproveAmount : undefined, confirmAdvModal.action === 'approve' ? advInstallments : undefined);
                       setConfirmAdvModal(null);
                     }}
                     className={`px-4 py-2 rounded-md text-xs font-semibold text-white ${confirmAdvModal.action === 'approve' ? 'bg-primary hover:bg-primary' : 'bg-destructive hover:bg-destructive'}`}

@@ -26,6 +26,9 @@ export interface DeductionsConfig {
   pt: number;
   tdsEnabled: boolean;
   tds: number;
+  lwfEnabled: boolean;
+  lwf: number;
+  lwfEmployer: number;
 }
 
 export interface SalaryStructure {
@@ -71,6 +74,18 @@ export interface PayEntry extends PayInputs {
   structureId?: number | null;
   employeeName: string;
   employeeEmail?: string;
+  employeeCode?: string;
+  designation?: string;
+  departmentName?: string;
+  uanNumber?: string;
+  esicNumber?: string;
+  paidDays?: number;
+  ctc?: number;
+  /** Working columns: rate per month, earned CTE, full-month basic, ESIC wages. */
+  calc?: { ratePerMonth: number; earnedCtc: number; fullBasic: number; esicWages: number };
+  /** Register inputs: added to gross / taken from pay. Kept across recalculation. */
+  extraEarning?: number;
+  penaltyAmount?: number;
   role: string;
   payModel: PayModel;
   status: EntryStatus;
@@ -89,6 +104,11 @@ export interface PayEntry extends PayInputs {
   paymentDate: string;
   paymentRef: string;
   note: string;
+  /** Payment sheet: held entries are skipped when the run is paid. */
+  onHold: boolean;
+  /** Manual change to the amount paid (negative recovers money). */
+  payableAdjustment: number;
+  adjustmentNote: string;
   approvedAt?: string;
   paidAt?: string;
 }
@@ -118,7 +138,26 @@ export interface PayrollSettings {
   defaultEsicCap: number;
   defaultPt: number;
   defaultTds: number;
+  rules: PayrollRules;
 }
+
+export interface PayrollRules {
+  payDays: number;
+  basicPercent: number;
+  hraPercent: number;
+  conveyancePercent: number;
+  pfEmployerPercent: number;
+  esicEmployerPercent: number;
+  pfWageCap: number;
+  /** basic_or_half_gross: the larger of basic and half of gross. basic: basic only. */
+  esicWagesRule: 'basic_or_half_gross' | 'basic';
+}
+
+export const DEFAULT_RULES: PayrollRules = {
+  payDays: 26, basicPercent: 60, hraPercent: 30, conveyancePercent: 20,
+  pfEmployerPercent: 13, esicEmployerPercent: 3.25, pfWageCap: 15000,
+  esicWagesRule: 'basic_or_half_gross',
+};
 
 export interface PayrollSummary {
   runs: number;
@@ -195,11 +234,14 @@ export function defaultDeductions(): DeductionsConfig {
     pfEnabled: true,
     pfPercent: 12,
     esicEnabled: true,
-    esicPercent: 0.75,
+    esicPercent: 0.55,
     esicCap: 21000,
     ptEnabled: true,
     pt: 200,
     tdsEnabled: false,
+    lwfEnabled: false,
+    lwf: 0,
+    lwfEmployer: 0,
     tds: 0,
   };
 }
@@ -229,10 +271,11 @@ export function defaultSettings(): PayrollSettings {
     esicNumber: '24000000000',
     panNumber: 'AAAAA0000A',
     defaultPfPercent: 12,
-    defaultEsicPercent: 0.75,
+    defaultEsicPercent: 0.55,
     defaultEsicCap: 21000,
     defaultPt: 200,
     defaultTds: 0,
+    rules: { ...DEFAULT_RULES },
   };
 }
 
@@ -289,6 +332,9 @@ interface DeductionsApi {
   pt?: number;
   tds_enabled?: boolean;
   tds?: number;
+  lwf_enabled?: boolean;
+  lwf?: number;
+  lwf_employer?: number;
 }
 
 interface StructureOut {
@@ -315,6 +361,12 @@ interface EntryOut {
   user_id: number;
   employee_name: string | null;
   employee_email: string | null;
+  employee_code?: string | null;
+  designation?: string | null;
+  department_name?: string | null;
+  uan_number?: string | null;
+  esic_number?: string | null;
+  paid_days?: number;
   structure_id: number | null;
   role: string;
   pay_model: string;
@@ -325,10 +377,17 @@ interface EntryOut {
   lop_days: number;
   bonus: number;
   late_penalty?: number;
+  ctc?: number;
+  calc_detail?: { rate_per_month?: number; earned_ctc?: number; full_basic?: number; esic_wages?: number };
+  extra_earning?: number;
+  penalty_amount?: number;
   overtime_amount?: number;
   advance_deduction?: number;
   mediclaim_deduction?: number;
   expense_reimbursement?: number;
+  on_hold?: boolean;
+  payable_adjustment?: number;
+  adjustment_note?: string;
   earnings: PayLineItem[];
   deductions: PayLineItem[];
   gross: number;
@@ -373,6 +432,7 @@ interface SettingsOut {
   default_esic_cap: number;
   default_pt: number;
   default_tds: number;
+  rules?: Record<string, number | string>;
 }
 
 interface SummaryOut {
@@ -410,6 +470,9 @@ function toDeductions(d: DeductionsApi | null | undefined): DeductionsConfig {
     pt: Number(d.pt) || 0,
     tdsEnabled: d.tds_enabled ?? base.tdsEnabled,
     tds: Number(d.tds) || 0,
+    lwfEnabled: d.lwf_enabled ?? base.lwfEnabled,
+    lwf: Number(d.lwf) || 0,
+    lwfEmployer: Number(d.lwf_employer) || 0,
   };
 }
 
@@ -440,6 +503,12 @@ export function toUiEntry(api: EntryOut): PayEntry {
     structureId: api.structure_id,
     employeeName: api.employee_name || api.employee_email?.split('@')[0] || '',
     employeeEmail: api.employee_email || undefined,
+    employeeCode: api.employee_code || undefined,
+    designation: api.designation || undefined,
+    departmentName: api.department_name || undefined,
+    uanNumber: api.uan_number || undefined,
+    esicNumber: api.esic_number || undefined,
+    paidDays: Number(api.paid_days) || 0,
     role: api.role,
     payModel: (api.pay_model as PayModel) || 'monthly',
     status: (api.status as EntryStatus) || 'draft',
@@ -449,6 +518,15 @@ export function toUiEntry(api: EntryOut): PayEntry {
     lopDays: Number(api.lop_days) || 0,
     bonus: Number(api.bonus) || 0,
     latePenalty: Number(api.late_penalty) || 0,
+    ctc: Number(api.ctc) || 0,
+    calc: {
+      ratePerMonth: Number(api.calc_detail?.rate_per_month) || 0,
+      earnedCtc: Number(api.calc_detail?.earned_ctc) || 0,
+      fullBasic: Number(api.calc_detail?.full_basic) || 0,
+      esicWages: Number(api.calc_detail?.esic_wages) || 0,
+    },
+    extraEarning: Number(api.extra_earning) || 0,
+    penaltyAmount: Number(api.penalty_amount) || 0,
     overtimeAmount: Number(api.overtime_amount) || 0,
     advanceDeduction: Number(api.advance_deduction) || 0,
     mediclaimDeduction: Number(api.mediclaim_deduction) || 0,
@@ -467,6 +545,9 @@ export function toUiEntry(api: EntryOut): PayEntry {
     paymentDate: api.payment_date || '',
     paymentRef: api.payment_ref || '',
     note: api.note || '',
+    onHold: !!api.on_hold,
+    payableAdjustment: Number(api.payable_adjustment) || 0,
+    adjustmentNote: api.adjustment_note || '',
     approvedAt: api.approved_at || undefined,
     paidAt: api.paid_at || undefined,
   };
@@ -500,6 +581,16 @@ export function toUiSettings(api: SettingsOut): PayrollSettings {
     defaultEsicCap: api.default_esic_cap,
     defaultPt: api.default_pt,
     defaultTds: api.default_tds,
+    rules: {
+      payDays: Number(api.rules?.pay_days ?? DEFAULT_RULES.payDays),
+      basicPercent: Number(api.rules?.basic_percent ?? DEFAULT_RULES.basicPercent),
+      hraPercent: Number(api.rules?.hra_percent ?? DEFAULT_RULES.hraPercent),
+      conveyancePercent: Number(api.rules?.conveyance_percent ?? DEFAULT_RULES.conveyancePercent),
+      pfEmployerPercent: Number(api.rules?.pf_employer_percent ?? DEFAULT_RULES.pfEmployerPercent),
+      esicEmployerPercent: Number(api.rules?.esic_employer_percent ?? DEFAULT_RULES.esicEmployerPercent),
+      pfWageCap: Number(api.rules?.pf_wage_cap ?? DEFAULT_RULES.pfWageCap),
+      esicWagesRule: api.rules?.esic_wages_rule === 'basic' ? 'basic' : 'basic_or_half_gross',
+    },
   };
 }
 
@@ -538,6 +629,9 @@ export function structureToApiBody(s: {
       pt: s.deductions.pt,
       tds_enabled: s.deductions.tdsEnabled,
       tds: s.deductions.tds,
+      lwf_enabled: s.deductions.lwfEnabled,
+      lwf: s.deductions.lwf,
+      lwf_employer: s.deductions.lwfEmployer,
     },
     is_active: s.active,
     effective_from: s.effectiveFrom,
@@ -556,6 +650,16 @@ export function settingsToApi(s: PayrollSettings) {
     default_esic_cap: s.defaultEsicCap,
     default_pt: s.defaultPt,
     default_tds: s.defaultTds,
+    rules: {
+      pay_days: s.rules.payDays,
+      basic_percent: s.rules.basicPercent,
+      hra_percent: s.rules.hraPercent,
+      conveyance_percent: s.rules.conveyancePercent,
+      pf_employer_percent: s.rules.pfEmployerPercent,
+      esic_employer_percent: s.rules.esicEmployerPercent,
+      pf_wage_cap: s.rules.pfWageCap,
+      esic_wages_rule: s.rules.esicWagesRule,
+    },
   };
 }
 
@@ -590,6 +694,122 @@ async function authJson<T>(token: string, path: string, init?: RequestInit): Pro
 function rethrow(e: unknown, fallback: string): never {
   if (e instanceof Error && e.message && !e.message.startsWith('Failed to')) throw e;
   throw new Error(normalizeFetchError(e, fallback));
+}
+
+// ── Salary structure form (shared by Payroll and the staff form) ─────────
+
+/** Everything a salary structure form edits, as the strings the inputs hold. */
+export interface StructureFields {
+  payModel: PayModel;
+  ctc: string;
+  basic: string;
+  hra: string;
+  conveyance: string;
+  specialAllowance: string;
+  shiftRate: string;
+  overtimeRate: string;
+  pfEnabled: boolean;
+  pfPercent: string;
+  esicEnabled: boolean;
+  esicPercent: string;
+  esicCap: string;
+  ptEnabled: boolean;
+  pt: string;
+  tdsEnabled: boolean;
+  tds: string;
+  lwfEnabled: boolean;
+  lwf: string;
+  lwfEmployer: string;
+}
+
+export const emptyStructureFields = (): StructureFields => ({
+  payModel: 'monthly',
+  ctc: '0',
+  basic: '0', hra: '0', conveyance: '0', specialAllowance: '0',
+  shiftRate: '0', overtimeRate: '0',
+  pfEnabled: true, pfPercent: '12',
+  esicEnabled: true, esicPercent: '0.55', esicCap: '21000',
+  ptEnabled: true, pt: '200',
+  tdsEnabled: false, tds: '0',
+  lwfEnabled: false, lwf: '0', lwfEmployer: '0',
+});
+
+export function fieldsFromStructure(s: SalaryStructure): StructureFields {
+  return {
+    payModel: s.payModel,
+    ctc: String(s.ctc || 0),
+    basic: String(s.monthly.basic), hra: String(s.monthly.hra),
+    conveyance: String(s.monthly.conveyance), specialAllowance: String(s.monthly.specialAllowance),
+    shiftRate: String(s.shiftRate), overtimeRate: String(s.overtimeRate),
+    pfEnabled: s.deductions.pfEnabled, pfPercent: String(s.deductions.pfPercent),
+    esicEnabled: s.deductions.esicEnabled, esicPercent: String(s.deductions.esicPercent), esicCap: String(s.deductions.esicCap),
+    ptEnabled: s.deductions.ptEnabled, pt: String(s.deductions.pt),
+    tdsEnabled: s.deductions.tdsEnabled, tds: String(s.deductions.tds),
+    lwfEnabled: s.deductions.lwfEnabled, lwf: String(s.deductions.lwf), lwfEmployer: String(s.deductions.lwfEmployer),
+  };
+}
+
+const nonNeg = (s: string) => Math.max(0, Number(s) || 0);
+
+/** The numbers a create or update call needs. A zero breakdown is worked out from the CTC by the server. */
+export function fieldsToPayload(f: StructureFields) {
+  return {
+    payModel: f.payModel,
+    monthly: {
+      basic: nonNeg(f.basic), hra: nonNeg(f.hra),
+      conveyance: nonNeg(f.conveyance), specialAllowance: nonNeg(f.specialAllowance),
+    },
+    ctc: nonNeg(f.ctc),
+    shiftRate: nonNeg(f.shiftRate),
+    overtimeRate: nonNeg(f.overtimeRate),
+    deductions: {
+      pfEnabled: f.pfEnabled, pfPercent: nonNeg(f.pfPercent),
+      esicEnabled: f.esicEnabled, esicPercent: nonNeg(f.esicPercent), esicCap: nonNeg(f.esicCap),
+      ptEnabled: f.ptEnabled, pt: nonNeg(f.pt),
+      tdsEnabled: f.tdsEnabled, tds: nonNeg(f.tds),
+      lwfEnabled: f.lwfEnabled, lwf: nonNeg(f.lwf), lwfEmployer: nonNeg(f.lwfEmployer),
+    },
+  };
+}
+
+/** A person's salary structure as the staff form holds it. */
+export interface StaffSalary {
+  /** Set when the person already has a structure. */
+  structureId: number | null;
+  fields: StructureFields;
+}
+
+export const emptyStaffSalary = (): StaffSalary => ({ structureId: null, fields: emptyStructureFields() });
+
+/** The person's current salary structure, or the empty one when there is none. */
+export async function getStaffSalary(token: string, userId: number): Promise<StaffSalary> {
+  const list = await getSalaryStructureHistory(token, userId);
+  const cur = list.find((s) => s.active) ?? list[0];
+  return cur ? { structureId: cur.id, fields: fieldsFromStructure(cur) } : emptyStaffSalary();
+}
+
+/** True when the form holds a salary worth saving as a new structure. */
+export const hasSalary = (f: StructureFields) =>
+  f.payModel === 'monthly' ? nonNeg(f.ctc) > 0 : nonNeg(f.shiftRate) > 0;
+
+/** Creates the structure, or updates the existing one when something changed. */
+export async function saveStaffSalary(
+  token: string,
+  userId: number,
+  now: StaffSalary,
+  before: StaffSalary,
+): Promise<void> {
+  const payload = fieldsToPayload(now.fields);
+  if (before.structureId) {
+    if (JSON.stringify(now.fields) === JSON.stringify(before.fields)) return;
+    await updateSalaryStructure(token, before.structureId, payload);
+    return;
+  }
+  // Nothing entered: leave salary for later rather than create an empty structure.
+  if (!hasSalary(now.fields)) return;
+  await createSalaryStructure(token, {
+    userId, role: '', ...payload, active: true, effectiveFrom: currentMonthStr(),
+  });
 }
 
 // ── Settings API ──────────────────────────────────────────────────────────
@@ -681,6 +901,9 @@ export async function updateSalaryStructure(
       pt: body.deductions.pt,
       tds_enabled: body.deductions.tdsEnabled,
       tds: body.deductions.tds,
+      lwf_enabled: body.deductions.lwfEnabled,
+      lwf: body.deductions.lwf,
+      lwf_employer: body.deductions.lwfEmployer,
     };
   }
   if (body.active != null) payload.is_active = body.active;
@@ -805,6 +1028,8 @@ export async function updatePayrollEntry(
     advanceDeduction: number;
     mediclaimDeduction: number;
     expenseReimbursement: number;
+    extraEarning: number;
+    penaltyAmount: number;
     paymentMode: PaymentMode;
     paymentRef: string;
     note: string;
@@ -821,6 +1046,8 @@ export async function updatePayrollEntry(
   if (body.advanceDeduction != null) payload.advance_deduction = body.advanceDeduction;
   if (body.mediclaimDeduction != null) payload.mediclaim_deduction = body.mediclaimDeduction;
   if (body.expenseReimbursement != null) payload.expense_reimbursement = body.expenseReimbursement;
+  if (body.extraEarning != null) payload.extra_earning = body.extraEarning;
+  if (body.penaltyAmount != null) payload.penalty_amount = body.penaltyAmount;
   if (body.paymentMode != null) payload.payment_mode = body.paymentMode;
   if (body.paymentRef != null) payload.payment_ref = body.paymentRef;
   if (body.note != null) payload.note = body.note;
@@ -853,6 +1080,28 @@ export async function payPayrollEntry(
     return toUiEntry(data);
   } catch (e) {
     rethrow(e, 'Failed to pay payroll entry');
+  }
+}
+
+/** Payment sheet: hold or release an entry, or adjust the amount paid. */
+export async function updateEntryPayment(
+  token: string,
+  runId: number,
+  entryId: number,
+  body: { onHold?: boolean; payableAdjustment?: number; adjustmentNote?: string },
+): Promise<PayEntry> {
+  const payload: Record<string, unknown> = {};
+  if (body.onHold !== undefined) payload.on_hold = body.onHold;
+  if (body.payableAdjustment !== undefined) payload.payable_adjustment = body.payableAdjustment;
+  if (body.adjustmentNote !== undefined) payload.adjustment_note = body.adjustmentNote;
+  try {
+    const data = await authJson<EntryOut>(token, `/hrms/payroll/runs/${runId}/entries/${entryId}/payment`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    return toUiEntry(data);
+  } catch (e) {
+    rethrow(e, 'Failed to update payment');
   }
 }
 

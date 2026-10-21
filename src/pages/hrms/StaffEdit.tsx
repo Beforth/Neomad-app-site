@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getStaff, updateStaff } from '../../lib/hrmsStaff';
+import { emptyStaffSalary, getStaffSalary, saveStaffSalary, type StaffSalary } from '../../lib/hrmsPayroll';
 import StaffForm, { emptyStaffForm, formToPayload, staffToForm, type StaffFormValues } from './StaffForm';
 
 export default function StaffEdit() {
@@ -12,13 +13,19 @@ export default function StaffEdit() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The salary as loaded, so only a real change touches the salary structure.
+  const salaryBefore = useRef<StaffSalary>(emptyStaffSalary());
 
   useEffect(() => {
     if (!token || !staffId) return;
     let cancelled = false;
     setLoading(true);
-    getStaff(token, Number(staffId))
-      .then((s) => { if (!cancelled) setForm(staffToForm(s)); })
+    Promise.all([getStaff(token, Number(staffId)), getStaffSalary(token, Number(staffId)).catch(() => emptyStaffSalary())])
+      .then(([s, salary]) => {
+        if (cancelled) return;
+        salaryBefore.current = salary;
+        setForm({ ...staffToForm(s), salary });
+      })
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load employee'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -34,6 +41,7 @@ export default function StaffEdit() {
         email: form.email.trim() || undefined,
         role_code: form.role_code,
       });
+      await saveStaffSalary(token, Number(staffId), form.salary, salaryBefore.current);
       navigate('/hrms/staff');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to update employee');

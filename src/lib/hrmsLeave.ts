@@ -471,6 +471,8 @@ export async function previewLeaveRequest(token: string, body: {
 }
 
 export async function createLeaveRequest(token: string, body: {
+  /** Admin or manager applying for someone else. */
+  user_id?: number;
   leave_type_id: number;
   start_date: string;
   end_date: string;

@@ -618,7 +618,7 @@ export default function Invoices() {
                 >
                   Created {sortBy === 'created_at' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </TableHead>
-                <TableHead className="w-10"><span className="sr-only">Actions</span></TableHead>
+                <TableHead className="w-24"><span className="sr-only">Preview and actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

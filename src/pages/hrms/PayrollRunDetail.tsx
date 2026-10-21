@@ -4,10 +4,11 @@ import { motion } from 'motion/react';
 import {
   Banknote, Search, XCircle, Eye, X, Pen, Trash2, Inbox,
   ChevronLeft, ChevronRight, ArrowUpDown, ChevronUp, ChevronDown,
-  IndianRupee, CheckCircle2, Zap, Users, Receipt, Repeat, MoreHorizontal } from 'lucide-react';
+  IndianRupee, CheckCircle2, Zap, Users, Receipt, Repeat, MoreHorizontal, FileSpreadsheet, Pause, Play } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
 import { useAuth } from '../../context/AuthContext';
 import { formatINR } from '../../lib/hrmsExpenses';
+import { exportPayrollReportXlsx, type PayrollReport } from '../../lib/hrmsExports';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -19,7 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import {
   PayrollRun, PayEntry, EntryStatus,
   getPayrollRun, calculatePayrollRun, approvePayrollRun, payPayrollRun,
-  deletePayrollRun, regeneratePayrollRun, syncPayrollRun, updatePayrollEntry, payPayrollEntry,
+  deletePayrollRun, regeneratePayrollRun, syncPayrollRun, updatePayrollEntry, payPayrollEntry, updateEntryPayment,
   monthLabel, PAYMENT_MODE_OPTIONS, payModelLabel, ROLE_LABELS,
 } from '../../lib/hrmsPayroll';
 
@@ -248,6 +249,49 @@ export default function PayrollRunDetail() {
     }
   }
 
+  async function downloadReport(report: PayrollReport) {
+    if (!token || !run) return;
+    try {
+      const res = await exportPayrollReportXlsx(token, run.month, report);
+      showToast(`Downloaded ${res.filename}`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Download failed');
+    }
+  }
+
+  async function toggleHold(e: PayEntry) {
+    if (!token || !run) return;
+    try {
+      await updateEntryPayment(token, run.id, e.id, { onHold: !e.onHold });
+      setRun(await getPayrollRun(token, run.id));
+      showToast(e.onHold ? 'Hold released' : 'Payment put on hold');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update payment');
+    }
+  }
+
+  async function adjustPayment(e: PayEntry) {
+    if (!token || !run) return;
+    const amount = window.prompt(
+      'Adjustment to the amount paid (use a minus sign to deduct, e.g. -3000):',
+      String(e.payableAdjustment || 0),
+    );
+    if (amount === null) return;
+    const value = Number(amount);
+    if (!Number.isFinite(value)) {
+      showToast('Enter a number');
+      return;
+    }
+    const note = window.prompt('Reason (shown on the payment sheet):', e.adjustmentNote) ?? e.adjustmentNote;
+    try {
+      await updateEntryPayment(token, run.id, e.id, { payableAdjustment: value, adjustmentNote: note });
+      setRun(await getPayrollRun(token, run.id));
+      showToast('Payment adjusted');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update payment');
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -333,6 +377,21 @@ export default function PayrollRunDetail() {
               <Banknote size={14} />Pay All
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={() => navigate(`/hrms/payroll/run/${run.id}/register`)}>
+            <FileSpreadsheet size={14} />Register
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm"><FileSpreadsheet size={14} />Reports</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuItem onSelect={() => downloadReport('muster-roll')}>Muster roll (Form II)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => downloadReport('payment-sheet')}>Payment sheet</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => downloadReport('statutory')}>PF, ESIC and PT statements</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => downloadReport('department-cost')}>Department-wise cost</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => downloadReport('designation-cost')}>Designation-wise cost</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" size="sm" onClick={() => setConfirmRegenerate(true)} >
             <Repeat size={14} />Regenerate
           </Button>
@@ -460,6 +519,9 @@ export default function PayrollRunDetail() {
                         <Badge className={`${ENTRY_STATUS_BADGE[e.status].base}`}>
                           {ENTRY_STATUS_BADGE[e.status].label}
                         </Badge>
+                        {e.onHold && e.status !== 'paid' && (
+                          <Badge className="ml-1 bg-amber-100 text-amber-800">On hold</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="w-10 pl-0" onClick={(e) => e.stopPropagation()}>
 <DropdownMenu>
@@ -473,6 +535,14 @@ export default function PayrollRunDetail() {
                           )}
                           {e.status === 'approved' && (
                             <DropdownMenuItem onSelect={() => payEntry(e)}><Banknote /> Mark Paid</DropdownMenuItem>
+                          )}
+                          {(e.status === 'calculated' || e.status === 'approved') && (
+                            <DropdownMenuItem onSelect={() => toggleHold(e)}>
+                              {e.onHold ? <Play /> : <Pause />} {e.onHold ? 'Release hold' : 'Hold payment'}
+                            </DropdownMenuItem>
+                          )}
+                          {(e.status === 'calculated' || e.status === 'approved') && (
+                            <DropdownMenuItem onSelect={() => adjustPayment(e)}><Pen /> Adjust amount paid</DropdownMenuItem>
                           )}
 </DropdownMenuContent>
 </DropdownMenu>

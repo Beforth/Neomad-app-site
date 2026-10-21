@@ -30,30 +30,32 @@ export default function PayslipView({
     return item ? item.amount : defaultVal;
   };
 
-  const basic = getEarning('basic', Math.round(entry.gross * 0.6) || 12493);
-  const hra = getEarning('hra', Math.round(entry.gross * 0.18) || 3748);
-  const conveyance = getEarning('conveyance', 2499);
-  const specialAllowance = getEarning('special', Math.max(0, entry.gross - (basic + hra + conveyance)) || 2082);
-  const extra = getEarning('extra', 0);
-  const others = getEarning('other', 0);
-  const totalSalary = entry.gross || (basic + hra + conveyance + specialAllowance + extra + others);
+  const basic = getEarning('basic');
+  const hra = getEarning('hra');
+  const conveyance = getEarning('conveyance');
+  const specialAllowance = getEarning('special');
+  const totalSalary = entry.gross || 0;
+  // Everything else earned (overtime, bonus, custom lines) is shown as Extra so
+  // the column always adds up to Total Salary.
+  const extra = Math.max(0, Math.round((totalSalary - (basic + hra + conveyance + specialAllowance)) * 100) / 100);
+  const others = 0;
 
-  const pf = getDeduction('pf', 0);
-  const esic = getDeduction('esic', 0);
-  const pt = getDeduction('pt', 0);
-  const advances = entry.advanceDeduction || getDeduction('advance', 0);
-  const penalty = entry.latePenalty || getDeduction('penalty', 0);
-  const mediclaim = entry.mediclaimDeduction || getDeduction('mediclaim', 0);
-  const totalDeduction = entry.totalDeductions || (pf + esic + pt + advances + penalty + mediclaim);
+  const pf = getDeduction('pf');
+  const esic = getDeduction('esic');
+  const pt = getDeduction('professional');
+  const advances = entry.advanceDeduction || getDeduction('advance');
+  const penalty = entry.latePenalty || getDeduction('late penalty');
+  const mediclaim = entry.mediclaimDeduction || getDeduction('mediclaim');
+  const totalDeduction = entry.totalDeductions || 0;
   const reimbursement = Number(entry.totalReimbursements ?? entry.expenseReimbursement ?? 0) || 0;
 
-  const employerPf = entry.employerPf || Math.round(pf * 1.0833) || (basic > 15000 ? 1950 : Math.round(basic * 0.13));
-  const employerEsic = entry.employerEsic || Math.round(esic * 4.33) || (basic <= 21000 ? Math.round(totalSalary * 0.0325) : 0);
-  const totalEmployerCost = entry.employerTotalCost || (employerPf + employerEsic);
+  const employerPf = entry.employerPf || 0;
+  const employerEsic = entry.employerEsic || 0;
+  const totalEmployerCost = entry.employerTotalCost || employerPf + employerEsic;
 
-  const empId = entry.userId ? `SE${100 + entry.userId}` : 'SE109';
-  const companyName = settings.companyName || 'NEOMED PHARMA AGENCIES';
-  const companyAddress = settings.companyAddress || 'G-18/19/20, A WING, SUYOJIT CITY CENTER, MUMBAI NAKA, NASHIK-422001';
+  const empId = entry.employeeCode || `#${entry.userId ?? ''}`;
+  const companyName = settings.companyName;
+  const companyAddress = settings.companyAddress;
 
   return (
     <motion.div
@@ -77,9 +79,9 @@ export default function PayslipView({
           <div className="sm:col-span-1 bg-muted p-2 font-bold uppercase text-foreground flex items-center">EMPLOYEE ID</div>
           <div className="sm:col-span-1 p-2 font-semibold text-foreground uppercase flex items-center">{empId}</div>
           <div className="sm:col-span-1 bg-muted p-2 font-bold uppercase text-foreground flex items-center">DESIGNATION</div>
-          <div className="sm:col-span-1 p-2 font-semibold text-foreground uppercase flex items-center">{ROLE_LABELS[entry.role] || entry.role || 'SALES EXECUTIVE'}</div>
-          <div className="sm:col-span-1 bg-muted p-2 font-bold uppercase text-foreground flex items-center">PF NO</div>
-          <div className="sm:col-span-1 p-2 font-mono font-bold text-foreground flex items-center truncate">{settings.pfNumber || '102221066730'}</div>
+          <div className="sm:col-span-1 p-2 font-semibold text-foreground uppercase flex items-center">{entry.designation || ROLE_LABELS[entry.role] || entry.role}</div>
+          <div className="sm:col-span-1 bg-muted p-2 font-bold uppercase text-foreground flex items-center">PF NO (UAN)</div>
+          <div className="sm:col-span-1 p-2 font-mono font-bold text-foreground flex items-center truncate">{entry.uanNumber || '-'}</div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-foreground">
           <div className="sm:col-span-1 bg-muted p-2 font-bold uppercase text-foreground flex items-center">EMPLOYEE NAME</div>
@@ -87,7 +89,7 @@ export default function PayslipView({
           <div className="sm:col-span-1 bg-muted p-2 font-bold uppercase text-foreground flex items-center">MONTH & YEAR</div>
           <div className="sm:col-span-1 p-2 font-semibold text-foreground flex items-center">{monthLabel(run.month)}</div>
           <div className="sm:col-span-1 bg-muted p-2 font-bold uppercase text-foreground flex items-center">ESIC NO</div>
-          <div className="sm:col-span-1 p-2 font-mono font-bold text-foreground flex items-center truncate">{settings.esicNumber || '3601720461'}</div>
+          <div className="sm:col-span-1 p-2 font-mono font-bold text-foreground flex items-center truncate">{entry.esicNumber || '-'}</div>
         </div>
       </div>
 

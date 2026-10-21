@@ -415,17 +415,17 @@ export default function InvoiceDetailPage() {
                   <label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1.5">
                     <FileImage size={12} /> Invoice document
                   </label>
-                  <Button variant="secondary" className="w-full cursor-pointer"
+                  <button
                     type="button"
+                    className="group/img block w-full cursor-pointer overflow-hidden rounded-xl border border-border bg-muted/50"
                     onClick={() => setPreviewImage({ url: invoice.signed_copy_url, number: invoice.invoice_number })}
-                    
                   >
                     <img
                       src={invoice.signed_copy_url}
                       alt="Invoice signed copy"
-                      className="w-full h-48 object-cover transition-transform duration-300 group-hover/img:scale-105"
+                      className="h-48 w-full object-cover transition-transform duration-300 group-hover/img:scale-105"
                     />
-                  </Button>
+                  </button>
                 </div>
               )}
 

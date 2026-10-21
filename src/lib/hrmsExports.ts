@@ -122,3 +122,124 @@ export function exportEmployeesXlsx(
 export function exportExpensePdf(token: string, expenseId: number): Promise<DownloadResult> {
   return download(token, `/hrms/exports/expenses/${expenseId}.pdf`, {}, `expense-${expenseId}.pdf`);
 }
+
+export type PayrollReport = 'muster-roll' | 'payment-sheet' | 'statutory' | 'department-cost' | 'designation-cost';
+
+/** Payroll registers for one month (YYYY-MM). Needs a payroll run for that month. */
+export function exportPayrollReportXlsx(
+  token: string,
+  month: string,
+  report: PayrollReport,
+): Promise<DownloadResult> {
+  return download(token, `/hrms/exports/payroll/${month}/${report}.xlsx`, {}, `${report}-${month}.xlsx`);
+}
+
+/** Per-employee present / late / half-day / overtime / absent counts for a month. */
+export function exportAttendanceSummaryXlsx(
+  token: string,
+  month: string,
+  departmentId?: number,
+): Promise<DownloadResult> {
+  return download(
+    token,
+    `/hrms/exports/attendance-summary/${month}.xlsx`,
+    { department_id: departmentId },
+    `attendance-summary-${month}.xlsx`,
+  );
+}
+
+/** Salary advances register. */
+export function exportAdvancesXlsx(token: string, status?: string): Promise<DownloadResult> {
+  return download(token, '/hrms/exports/advances.xlsx', { status_: status }, 'advances.xlsx');
+}
+
+/** Late arrivals, early departures and overtime against each day's shift. */
+export function exportLateEarlyXlsx(
+  token: string,
+  fromDate: string,
+  toDate: string,
+  departmentId?: number,
+): Promise<DownloadResult> {
+  return download(
+    token,
+    '/hrms/exports/late-early.xlsx',
+    { from_date: fromDate, to_date: toDate, department_id: departmentId },
+    'late-early.xlsx',
+  );
+}
+
+/** Leave allocated, taken, pending and remaining per employee and leave type (current leave period). */
+export function exportLeaveBalanceXlsx(
+  token: string,
+  asOf?: string,
+  departmentId?: number,
+): Promise<DownloadResult> {
+  return download(
+    token,
+    '/hrms/exports/leave-balance.xlsx',
+    { as_of: asOf, department_id: departmentId },
+    'leave-balance.xlsx',
+  );
+}
+
+/** Everyone's status for one day, with a head-count summary. */
+export function exportDailyAttendanceXlsx(
+  token: string,
+  day: string,
+  departmentId?: number,
+): Promise<DownloadResult> {
+  return download(
+    token,
+    '/hrms/exports/daily-attendance.xlsx',
+    { day, department_id: departmentId },
+    `daily-attendance-${day}.xlsx`,
+  );
+}
+
+/** Employee x day roster of assigned shifts (up to 62 days). */
+export function exportShiftRosterXlsx(
+  token: string,
+  fromDate: string,
+  toDate: string,
+  departmentId?: number,
+): Promise<DownloadResult> {
+  return download(
+    token,
+    '/hrms/exports/shift-roster.xlsx',
+    { from_date: fromDate, to_date: toDate, department_id: departmentId },
+    'shift-roster.xlsx',
+  );
+}
+
+export interface ReportTable {
+  sheet: string;
+  columns: string[];
+  rows: (string | number | null)[][];
+}
+
+/**
+ * The same report as the Excel download, as tables for the Reports screen.
+ * `path` is the .xlsx endpoint; the server switches to JSON for format=json.
+ */
+export async function fetchReportTables(
+  token: string,
+  path: string,
+  params: Record<string, string | number | undefined> = {},
+): Promise<{ tables: ReportTable[] }> {
+  const qs = new URLSearchParams({ format: 'json' });
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== '') qs.set(k, String(v));
+  });
+  let res: Response;
+  try {
+    res = await fetch(`${getBaseUrl()}${path}?${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+  } catch {
+    throw new Error('Could not reach the server. Check your connection and try again.');
+  }
+  if (!res.ok) {
+    notifyIfUnauthorized(res, true);
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(err.detail || `Report failed (${res.status})`);
+  }
+  return res.json();
+}

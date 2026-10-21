@@ -28,12 +28,17 @@ export interface StaffProfile {
   punch_branch_ids?: number[] | null;
   door_lock_permission?: boolean | null;
   date_of_joining?: string | null;
+  /** User id of the manager. Send 0 to clear. */
+  reports_to_id?: number | null;
   date_of_birth?: string | null;
   address?: string | null;
 
   pf_number?: string | null;
   uan_number?: string | null;
   esic_number?: string | null;
+  wc_policy_no?: string | null;
+  mediclaim_policy_no?: string | null;
+  mediclaim_policy_period?: string | null;
   aadhaar_number?: string | null;
 
   salary_type?: string | null;
@@ -103,7 +108,20 @@ async function apiError(res: Response): Promise<Error> {
   return new Error(detail);
 }
 
-async function authJson<T>(token: string, path: string, init?: RequestInit): Promise<T> {
+export interface OrgChartPerson {
+  id: number;
+  name: string;
+  designation: string | null;
+  department: string | null;
+  reports_to_id: number | null;
+}
+
+/** Active staff with who they report to. */
+export async function getOrgChart(token: string): Promise<OrgChartPerson[]> {
+  return authJson<OrgChartPerson[]>(token, '/hrms/staff/org-chart');
+}
+
+export async function authJson<T>(token: string, path: string, init?: RequestInit): Promise<T> {
   const base = getBaseUrl();
   const res = await fetch(`${base}${path}`, {
     ...init,

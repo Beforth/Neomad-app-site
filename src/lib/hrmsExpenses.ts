@@ -53,6 +53,9 @@ export interface AdvanceExpense {
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
   approvedAmount?: number;
+  /** Pay cycles the advance is recovered over. */
+  installments?: number;
+  recoveredAmount?: number;
   approvalNotes: string;
   submittedAt: string;
   resolvedAt?: string;
@@ -110,6 +113,8 @@ export interface AdvanceOut {
   employee_email: string | null;
   category: string | null;
   title: string;
+  installments?: number;
+  recovered_amount?: number;
   amount: number;
   date: string;
   time: string | null;
@@ -169,6 +174,7 @@ export interface AdvanceResolveBody {
   status: 'approved' | 'rejected';
   approval_notes?: string;
   approved_amount?: number;
+  installments?: number;
 }
 
 export interface ListExpensesParams {
@@ -322,6 +328,8 @@ export function toUiAdvance(api: AdvanceOut): AdvanceExpense {
     reason: api.reason || '',
     status: api.status,
     approvedAmount: api.approved_amount ?? undefined,
+    installments: api.installments ?? 1,
+    recoveredAmount: api.recovered_amount ?? 0,
     approvalNotes: api.approval_notes || '',
     submittedAt: api.submitted_at,
     resolvedAt: api.resolved_at || undefined,

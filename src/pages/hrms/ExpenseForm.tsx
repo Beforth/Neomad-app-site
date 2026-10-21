@@ -5,6 +5,7 @@ import { ArrowLeft, Save, Banknote, Smartphone, Landmark, FileText, CreditCard, 
 import SearchableSelect from '../../components/SearchableSelect';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
 import { Input, Textarea, fieldClass } from '@/components/ui/input';
 import {
   Category, Payment, PaymentMethod,
@@ -12,6 +13,7 @@ import {
   newPayment, todayStr, paymentsToApi,
   getExpense, createExpense, updateExpense,
 } from '../../lib/hrmsExpenses';
+import { listStaff, type StaffOut } from '../../lib/hrmsStaff';
 
 interface FormState {
   employeeName: string;
@@ -54,6 +56,14 @@ export default function ExpenseForm() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
+  // Admins and managers can log the claim for a team member. Empty means themselves.
+  const [employeeId, setEmployeeId] = useState('');
+  const [staff, setStaff] = useState<StaffOut[]>([]);
+
+  useEffect(() => {
+    if (isEmployee || isEdit || !token) return;
+    listStaff(token, { is_active: true }).then(setStaff).catch(() => setStaff([]));
+  }, [isEmployee, isEdit, token]);
 
   useEffect(() => {
     if (!isEdit || !token || !id) return;
@@ -129,6 +139,7 @@ export default function ExpenseForm() {
       }
 
       const body = {
+        ...(!isEmployee && !isEdit && employeeId ? { user_id: Number(employeeId) } : {}),
         date: form.date,
         description: desc,
         status: (isEmployee ? 'pending' : form.status) as 'draft' | 'pending',
@@ -187,6 +198,27 @@ export default function ExpenseForm() {
             <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Expense Details</h2>
           </div>
           <div className="p-4 space-y-4">
+            {!isEmployee && (
+              <div>
+                <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Employee</label>
+                {isEdit ? (
+                  <p className="text-sm font-medium text-foreground">{form.employeeName}</p>
+                ) : (
+                  <Combobox
+                    value={employeeId}
+                    onValueChange={(v) => setEmployeeId(v ?? "")}
+                    placeholder="Myself"
+                    searchPlaceholder="Search by name or code..."
+                    emptyText="No employee found."
+                    options={staff.map((s) => ({
+                      value: String(s.id),
+                      label: s.full_name || s.email,
+                      description: [s.employee_code, s.department_name].filter(Boolean).join(' · ') || undefined,
+                    }))}
+                  />
+                )}
+              </div>
+            )}
             <div>
               <label className="block text-xs text-muted-foreground/70 font-medium mb-1.5">Date *</label>
               <Input type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}  />

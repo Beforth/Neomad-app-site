@@ -46,10 +46,16 @@ import ExpenseForm from './pages/hrms/ExpenseForm';
 import ExpenseDetail from './pages/hrms/ExpenseDetail';
 import EmployeeExpenses from './pages/hrms/EmployeeExpenses';
 import SalaryAdvances from './pages/hrms/SalaryAdvances';
+import HrmsReports from './pages/hrms/HrmsReports';
+import OrgChartPage from './pages/hrms/OrgChartPage';
+import Exits from './pages/hrms/Exits';
+import ExitDetail from './pages/hrms/ExitDetail';
+import MyExit from './pages/hrms/MyExit';
 import ApprovalTemplate from './pages/hrms/ApprovalTemplate';
 import Payroll from './pages/hrms/Payroll';
 import MyPayroll from './pages/hrms/MyPayroll';
 import PayrollRunDetail from './pages/hrms/PayrollRunDetail';
+import PayrollRegister from './pages/hrms/PayrollRegister';
 import PayrollPayslip from './pages/hrms/PayrollPayslip';
 // import LeaveApply from './pages/hrms/LeaveApply';
 import LeaveApplyForm from './pages/hrms/LeaveApplyForm';
@@ -110,10 +116,16 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/expenses/new': 'Add Expense',
   '/hrms/expenses/:id': 'Expense Detail',
   '/hrms/approval-template': 'Approval Template',
+  '/hrms/reports': 'Reports',
+  '/hrms/org-chart': 'Org chart',
+  '/hrms/exits': 'Exits',
+  '/hrms/exits/:id': 'Exit',
+  '/hrms/my-exit': 'Resignation',
   '/hrms/payroll': 'Payroll',
   '/hrms/payroll/structures': 'Payroll',
   '/hrms/payroll/settings': 'Payroll',
   '/hrms/payroll/run/:id': 'Payroll Run',
+  '/hrms/payroll/run/:id/register': 'Payroll Register',
   '/hrms/payroll/run/:id/payslip/:entryId': 'Payslip',
   '/hrms/leave': 'Leave',
   '/hrms/leave/apply': 'Apply Leave',
@@ -270,10 +282,16 @@ function AppRoutes() {
             <Route path="/hrms/shifts/assign" element={<Navigate to="/hrms/shifts/assign/calendar" replace />} />
             <Route path="/hrms/expenses" element={isEmployee ? <MyExpenses /> : <Expenses />} />
             <Route path="/hrms/advances" element={<SalaryAdvances />} />
+            <Route path="/hrms/org-chart" element={<OrgChartPage />} />
+            <Route path="/hrms/exits" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <Exits />} />
+            <Route path="/hrms/exits/:id" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <ExitDetail />} />
+            <Route path="/hrms/my-exit" element={<MyExit />} />
+            <Route path="/hrms/reports" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <HrmsReports />} />
             <Route path="/hrms/approval-template" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <ApprovalTemplate />} />
             <Route path="/hrms/payroll" element={isEmployee ? <MyPayroll /> : <Payroll />} />
             <Route path="/hrms/payroll/structures" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <Payroll />} />
             <Route path="/hrms/payroll/settings" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <Payroll />} />
+            <Route path="/hrms/payroll/run/:id/register" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <PayrollRegister />} />
             <Route path="/hrms/payroll/run/:id" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <PayrollRunDetail />} />
             <Route path="/hrms/payroll/run/:id/payslip/:entryId" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <PayrollPayslip />} />
             <Route path="/hrms/leave" element={isEmployee ? <MyLeave /> : <Navigate to="/hrms/leave/requests" replace />} />

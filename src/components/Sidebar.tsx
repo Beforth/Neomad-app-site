@@ -2,7 +2,7 @@ import {
   LayoutDashboard, FileText, MapPin, BarChart3, Users,
   UserCircle, Bell, Package, History, Settings as SettingsIcon,
   ChevronsUpDown, Truck, CalendarCheck, Wallet, Banknote, CalendarOff, CalendarClock,
-  Building2, Check,
+  Building2, Check, FileSpreadsheet, Network, LogOut,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
@@ -44,6 +44,9 @@ export const HRMS_ITEMS: NavItem[] = [
   { icon: CalendarCheck, label: 'Attendance', path: '/hrms/attendance', roles: ['admin', 'manager', 'staff', 'delivery_boy'] },
   { icon: Users, label: 'Staff', path: '/hrms/staff', roles: ['admin', 'manager'] },
   { icon: Building2, label: 'Departments', path: '/hrms/departments', roles: ['admin', 'manager'] },
+  { icon: Network, label: 'Org chart', path: '/hrms/org-chart', roles: ['admin', 'manager', 'staff', 'delivery_boy'] },
+  { icon: LogOut, label: 'Exits', path: '/hrms/exits', roles: ['admin', 'manager'] },
+  { icon: LogOut, label: 'Resignation', path: '/hrms/my-exit', roles: ['staff', 'delivery_boy'] },
   { icon: Wallet, label: 'Expenses', roles: ['admin', 'manager', 'staff', 'delivery_boy'], children: [
     { label: 'Business Claims', path: '/hrms/expenses' },
     { label: 'Salary Advances', path: '/hrms/expenses?tab=advances' },
@@ -51,9 +54,9 @@ export const HRMS_ITEMS: NavItem[] = [
   { icon: Banknote, label: 'Payroll', path: '/hrms/payroll', roles: ['staff', 'delivery_boy'] },
   { icon: Banknote, label: 'Payroll', roles: ['admin', 'manager'], children: [
     { label: 'Pay Cycles', path: '/hrms/payroll' },
-    { label: 'Structures', path: '/hrms/payroll/structures' },
     { label: 'Settings', path: '/hrms/payroll/settings' },
   ]},
+  { icon: FileSpreadsheet, label: 'Reports', path: '/hrms/reports', roles: ['admin', 'manager'] },
   { icon: CalendarOff, label: 'Leave', roles: ['admin', 'manager'], children: [
     // { label: 'Apply', path: '/hrms/leave/apply' },
     { label: 'Requests', path: '/hrms/leave/requests' },

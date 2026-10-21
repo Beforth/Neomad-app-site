@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -260,6 +260,31 @@ export default function Attendance() {
     if (sortField === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortField(key); setSortDir('asc'); }
   };
+
+  // Re-ask the server when the date range or status changes. The first load is
+  // done by fetchData above, so skip the initial run.
+  const filtersLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!token) return;
+    if (!filtersLoadedRef.current) {
+      filtersLoadedRef.current = true;
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const recordsData = await getAttendanceRecords(token, {
+          from_date: dateFrom,
+          to_date: dateTo,
+          status_: statusFilter !== 'all' ? statusFilter : undefined,
+        });
+        if (!cancelled) setRecords(recordsData);
+      } catch (error) {
+        if (!cancelled) showToast(error instanceof Error ? error.message : 'Failed to load records');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, dateFrom, dateTo, statusFilter]);
 
   const fetchData = async () => {
     if (!token) return;
@@ -1114,12 +1139,17 @@ export default function Attendance() {
                       >
                         <ChevronLeft size={16} />
                       </Button>
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                        <button key={p} onClick={() => setPage(p)}
-                          className={`w-8 h-8 rounded-lg text-xs font-semibold transition-all ${p === page ? 'bg-secondary text-foreground border border-input' : 'text-muted-foreground hover:bg-secondary'}`}>
-                          {p}
-                        </button>
-                      ))}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                        .flatMap((p, i, arr) => (i > 0 && p - arr[i - 1] > 1 ? ['gap-' + p, p] : [p]))
+                        .map((p) => typeof p === 'string' ? (
+                          <span key={p} className="w-6 text-center text-xs text-muted-foreground">…</span>
+                        ) : (
+                          <button key={p} onClick={() => setPage(p)}
+                            className={`w-8 h-8 rounded-lg text-xs font-semibold transition-all ${p === page ? 'bg-secondary text-foreground border border-input' : 'text-muted-foreground hover:bg-secondary'}`}>
+                            {p}
+                          </button>
+                        ))}
                       <Button variant="ghost" size="icon-sm"
                         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                         disabled={page >= totalPages}

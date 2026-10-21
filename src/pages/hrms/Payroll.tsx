@@ -10,6 +10,7 @@ import {
   Zap, Users, Repeat, FileText, Building2, Loader2,
 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
+import SalaryStructureFields from './SalaryStructureFields';
 import { formatINR } from '../../lib/hrmsExpenses';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ import {
   getPayrollSettings, updatePayrollSettings, defaultSettings,
   currentMonthStr, monthLabel, grossMonthly,
   ROLE_OPTIONS, ROLE_LABELS,
+  StructureFields, emptyStructureFields, fieldsFromStructure, fieldsToPayload,
 } from '../../lib/hrmsPayroll';
 
 type Section = 'runs' | 'structures' | 'settings';
@@ -63,42 +65,13 @@ const ROLE_BADGE: Record<string, { base: string; label: string }> = {
   delivery_boy: { base: 'bg-muted text-foreground/70', label: 'Delivery Boy' },
 };
 
-interface StructureForm {
+interface StructureForm extends StructureFields {
   userId: string;
   role: string;
-  payModel: PayModel;
-  ctc: string;
-  basic: string;
-  hra: string;
-  conveyance: string;
-  specialAllowance: string;
-  shiftRate: string;
-  overtimeRate: string;
-  pfEnabled: boolean;
-  pfPercent: string;
-  esicEnabled: boolean;
-  esicPercent: string;
-  esicCap: string;
-  ptEnabled: boolean;
-  pt: string;
-  tdsEnabled: boolean;
-  tds: string;
   active: boolean;
 }
 
-const emptyForm: StructureForm = {
-  userId: '',
-  role: 'staff',
-  payModel: 'monthly',
-  ctc: '0',
-  basic: '0', hra: '0', conveyance: '0', specialAllowance: '0',
-  shiftRate: '0', overtimeRate: '0',
-  pfEnabled: true, pfPercent: '12',
-  esicEnabled: true, esicPercent: '0.75', esicCap: '21000',
-  ptEnabled: true, pt: '200',
-  tdsEnabled: false, tds: '0',
-  active: true,
-};
+const emptyForm: StructureForm = { ...emptyStructureFields(), userId: '', role: 'staff', active: true };
 
 function num(s: string) { return Math.max(0, Number(s) || 0); }
 
@@ -405,20 +378,7 @@ export default function Payroll() {
 
   function openEdit(s: SalaryStructure) {
     setEditingId(s.id);
-    setForm({
-      userId: String(s.userId),
-      role: s.role,
-      payModel: s.payModel,
-      ctc: String(s.ctc || 0),
-      basic: String(s.monthly.basic), hra: String(s.monthly.hra),
-      conveyance: String(s.monthly.conveyance), specialAllowance: String(s.monthly.specialAllowance),
-      shiftRate: String(s.shiftRate), overtimeRate: String(s.overtimeRate),
-      pfEnabled: s.deductions.pfEnabled, pfPercent: String(s.deductions.pfPercent),
-      esicEnabled: s.deductions.esicEnabled, esicPercent: String(s.deductions.esicPercent), esicCap: String(s.deductions.esicCap),
-      ptEnabled: s.deductions.ptEnabled, pt: String(s.deductions.pt),
-      tdsEnabled: s.deductions.tdsEnabled, tds: String(s.deductions.tds),
-      active: s.active,
-    });
+    setForm({ ...fieldsFromStructure(s), userId: String(s.userId), role: s.role, active: s.active });
     setStructOpen(true);
   }
 
@@ -428,20 +388,7 @@ export default function Payroll() {
     const isNew = !editingId;
     const payload = {
       role: form.role || 'staff',
-      payModel: form.payModel,
-      monthly: {
-        basic: num(form.basic), hra: num(form.hra),
-        conveyance: num(form.conveyance), specialAllowance: num(form.specialAllowance),
-      },
-      ctc: num(form.ctc),
-      shiftRate: num(form.shiftRate),
-      overtimeRate: num(form.overtimeRate),
-      deductions: {
-        pfEnabled: form.pfEnabled, pfPercent: num(form.pfPercent),
-        esicEnabled: form.esicEnabled, esicPercent: num(form.esicPercent), esicCap: num(form.esicCap),
-        ptEnabled: form.ptEnabled, pt: num(form.pt),
-        tdsEnabled: form.tdsEnabled, tds: num(form.tds),
-      },
+      ...fieldsToPayload(form),
       active: form.active,
       effectiveFrom: currentMonthStr(),
     };
@@ -1027,6 +974,38 @@ export default function Payroll() {
             </Field>
           </div>
 
+          <div className="border-t border-border pt-6">
+            <h2 className="text-sm font-semibold text-foreground">Calculation Rules</h2>
+            <p className="text-[11px] text-muted-foreground/70 font-medium mt-0.5">
+              How a monthly salary is worked out from CTC. Applies the next time a run is calculated.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {([
+              ['payDays', 'Pay days in a month'],
+              ['basicPercent', 'Basic % of rate'],
+              ['hraPercent', 'HRA % of basic'],
+              ['conveyancePercent', 'Conveyance % of basic'],
+              ['pfEmployerPercent', 'PF employer %'],
+              ['esicEmployerPercent', 'ESIC employer %'],
+              ['pfWageCap', 'PF wage cap (₹)'],
+            ] as const).map(([key, label]) => (
+              <Field key={key} label={label}>
+                <Input type="number" value={settings.rules[key]} onChange={(e) => setSettings({ ...settings, rules: { ...settings.rules, [key]: num(e.target.value) } })} />
+              </Field>
+            ))}
+            <Field label="ESIC wages">
+              <select
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                value={settings.rules.esicWagesRule}
+                onChange={(e) => setSettings({ ...settings, rules: { ...settings.rules, esicWagesRule: e.target.value === 'basic' ? 'basic' : 'basic_or_half_gross' } })}
+              >
+                <option value="basic_or_half_gross">Larger of basic and half of gross</option>
+                <option value="basic">Basic only</option>
+              </select>
+            </Field>
+          </div>
+
           <div className="flex justify-end">
             <Button variant="dark" size="sm" type="submit" >
               <Save size={14} />Save Settings
@@ -1099,135 +1078,7 @@ export default function Payroll() {
                 )}
               </div>
 
-              <Field label="Pay Model">
-                <Segmented className="w-fit" value={String(form.payModel)} onValueChange={(v) => { ({ ['monthly']: (() => setForm({ ...form, payModel: 'monthly' })), ['shift']: (() => setForm({ ...form, payModel: 'shift' })) } as Record<string, () => void>)[v]?.(); }} options={[
-  { value: 'monthly', label: <>Monthly Salary</> },
-  { value: 'shift', label: <>Shift / Daily</> }
-]} />
-              </Field>
-
-              {form.payModel === 'monthly' ? (
-                <div className="space-y-4">
-                  <div className="bg-accent/70 border border-primary/20 rounded-xl p-3.5 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-accent-foreground flex items-center gap-1.5">
-                        <Zap size={14} className="text-primary" />
-                        CTC Auto-Breakdown Calculator
-                      </span>
-                      <span className="text-[11px] font-medium text-accent-foreground">Auto-populates 60% Basic, 30% HRA, 20% Conveyance</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">₹</span>
-                        <Input
-                          type="number"
-                          placeholder="Enter total CTC (e.g. 48400)"
-                          className={`${inputClass} pl-7`}
-                          value={form.ctc || ''}
-                          onChange={(e) => {
-                            const ctcVal = Math.max(0, Number(e.target.value) || 0);
-                            const rate = ctcVal > 21000 ? Math.max(0, ctcVal - 1950) : ctcVal;
-                            const basic = Math.round(rate * 0.60);
-                            const hra = Math.round(basic * 0.30);
-                            const conveyance = Math.round(basic * 0.20);
-                            const specialAllowance = Math.max(0, rate - (basic + hra + conveyance));
-                            setForm({
-                              ...form,
-                              ctc: e.target.value,
-                              basic: String(basic),
-                              hra: String(hra),
-                              conveyance: String(conveyance),
-                              specialAllowance: String(specialAllowance),
-                            });
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Monthly Earnings (Editable)</p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Field label="Basic">
-                      <Input type="number"  value={form.basic} onChange={(e) => setForm({ ...form, basic: e.target.value })} />
-                    </Field>
-                    <Field label="HRA">
-                      <Input type="number"  value={form.hra} onChange={(e) => setForm({ ...form, hra: e.target.value })} />
-                    </Field>
-                    <Field label="Conveyance">
-                      <Input type="number"  value={form.conveyance} onChange={(e) => setForm({ ...form, conveyance: e.target.value })} />
-                    </Field>
-                    <Field label="Special Allowance">
-                      <Input type="number"  value={form.specialAllowance} onChange={(e) => setForm({ ...form, specialAllowance: e.target.value })} />
-                    </Field>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Shift Rates (₹)</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Shift Rate / day">
-                      <Input type="number"  value={form.shiftRate} onChange={(e) => setForm({ ...form, shiftRate: e.target.value })} />
-                    </Field>
-                    <Field label="Overtime Rate / hr">
-                      <Input type="number"  value={form.overtimeRate} onChange={(e) => setForm({ ...form, overtimeRate: e.target.value })} />
-                    </Field>
-                  </div>
-                </div>
-              )}
-
-              <div className="border-t border-border pt-5">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Deductions</p>
-                <div className="space-y-3">
-                  {([
-                    { key: 'pfEnabled', label: 'Provident Fund (PF)' },
-                    { key: 'esicEnabled', label: 'ESIC' },
-                    { key: 'ptEnabled', label: 'Professional Tax (PT)' },
-                    { key: 'tdsEnabled', label: 'TDS (Income Tax)' },
-                  ] as const).map(({ key, label }) => (
-                    <div key={key} className="flex items-center justify-between gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, [key]: !form[key] })}
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all border ${form[key] ? 'bg-accent text-accent-foreground border-primary/20' : 'bg-muted text-muted-foreground/70 border-border'}`}
-                      >
-                        <CheckCircle2 size={11} />{label}
-                      </button>
-                      <div className="flex items-center gap-3">
-                        {key === 'pfEnabled' && (
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-foreground/85">%</span>
-                            <Input type="number" className={`${inputClass} w-20 pl-8`} value={form.pfPercent} onChange={(e) => setForm({ ...form, pfPercent: e.target.value })} />
-                          </div>
-                        )}
-                        {key === 'esicEnabled' && (
-                          <>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-foreground/85">%</span>
-                              <Input type="number" className={`${inputClass} w-20 pl-8`} value={form.esicPercent} onChange={(e) => setForm({ ...form, esicPercent: e.target.value })} />
-                            </div>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-foreground/85">₹</span>
-                              <Input type="number" className={`${inputClass} w-24 pl-8`} value={form.esicCap} onChange={(e) => setForm({ ...form, esicCap: e.target.value })} />
-                            </div>
-                          </>
-                        )}
-                        {key === 'ptEnabled' && (
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-foreground/85">₹</span>
-                            <Input type="number" className={`${inputClass} w-20 pl-8`} value={form.pt} onChange={(e) => setForm({ ...form, pt: e.target.value })} />
-                          </div>
-                        )}
-                        {key === 'tdsEnabled' && (
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-foreground/85">₹</span>
-                            <Input type="number" className={`${inputClass} w-20 pl-8`} value={form.tds} onChange={(e) => setForm({ ...form, tds: e.target.value })} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <SalaryStructureFields value={form} onChange={(next) => setForm({ ...form, ...next })} />
 
               <Button variant="dark" size="lg" className="w-full"
                 type="submit"

@@ -154,6 +154,8 @@ export interface AttendanceMarkBody {
   shift_start?: string | null;
   shift_end?: string | null;
   status?: 'present' | 'absent' | 'late' | 'half_day' | 'overtime' | null;
+  /** Overtime worked in hours (when status is overtime). */
+  overtime_hours?: number | null;
 }
 
 export interface AttendanceRecordsParams {
@@ -280,6 +282,15 @@ export async function markAttendanceRecord(
     if (e instanceof Error && e.message.startsWith('Request failed')) throw e;
     throw new Error(normalizeFetchError(e, 'Failed to mark attendance record'));
   }
+}
+
+/** Admin/manager removes one attendance record. */
+export async function deleteAttendanceRecord(token: string, recordId: number): Promise<void> {
+  const res = await fetch(`${getBaseUrl()}/hrms/attendance/records/${recordId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw await apiError(res);
 }
 
 /** Today's headcount summary: total staff, present, absent. */
