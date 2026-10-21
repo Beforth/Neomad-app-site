@@ -150,7 +150,7 @@ export interface PayrollRules {
   esicEmployerPercent: number;
   pfWageCap: number;
   /** basic_or_half_gross: the larger of basic and half of gross. basic: basic only. */
-  esicWagesRule: 'basic_or_half_gross' | 'basic';
+  esicWagesRule: 'basic_or_half_gross' | 'gross';
 }
 
 export const DEFAULT_RULES: PayrollRules = {
@@ -589,7 +589,7 @@ export function toUiSettings(api: SettingsOut): PayrollSettings {
       pfEmployerPercent: Number(api.rules?.pf_employer_percent ?? DEFAULT_RULES.pfEmployerPercent),
       esicEmployerPercent: Number(api.rules?.esic_employer_percent ?? DEFAULT_RULES.esicEmployerPercent),
       pfWageCap: Number(api.rules?.pf_wage_cap ?? DEFAULT_RULES.pfWageCap),
-      esicWagesRule: api.rules?.esic_wages_rule === 'basic' ? 'basic' : 'basic_or_half_gross',
+      esicWagesRule: api.rules?.esic_wages_rule === 'gross' ? 'gross' : 'basic_or_half_gross',
     },
   };
 }
@@ -770,6 +770,101 @@ export function fieldsToPayload(f: StructureFields) {
       lwfEnabled: f.lwfEnabled, lwf: nonNeg(f.lwf), lwfEmployer: nonNeg(f.lwfEmployer),
     },
   };
+}
+
+// ── Salary templates ──────────────────────────────────────────────────────
+
+export interface SalaryTemplate {
+  id: number;
+  name: string;
+  description: string;
+  fields: StructureFields;
+}
+
+interface TemplateOut {
+  id: number;
+  name: string;
+  description: string;
+  pay_model: string;
+  ctc: number;
+  monthly_earnings: Record<string, number>;
+  shift_rate: number;
+  overtime_rate: number;
+  deductions: Record<string, number | boolean>;
+}
+
+function toUiTemplate(t: TemplateOut): SalaryTemplate {
+  return {
+    id: t.id,
+    name: t.name,
+    description: t.description || '',
+    fields: fieldsFromStructure({
+      payModel: t.pay_model === 'shift' ? 'shift' : 'monthly',
+      ctc: t.ctc,
+      monthly: toEarnings(t.monthly_earnings as never),
+      shiftRate: t.shift_rate,
+      overtimeRate: t.overtime_rate,
+      deductions: toDeductions(t.deductions as never),
+    } as SalaryStructure),
+  };
+}
+
+function templateBody(name: string, description: string, f: StructureFields) {
+  const p = fieldsToPayload(f);
+  return {
+    name,
+    description,
+    pay_model: p.payModel,
+    ctc: p.ctc,
+    monthly_earnings: {
+      basic: p.monthly.basic, hra: p.monthly.hra,
+      conveyance: p.monthly.conveyance, special_allowance: p.monthly.specialAllowance,
+    },
+    shift_rate: p.shiftRate,
+    overtime_rate: p.overtimeRate,
+    deductions: {
+      pf_enabled: p.deductions.pfEnabled, pf_percent: p.deductions.pfPercent,
+      esic_enabled: p.deductions.esicEnabled, esic_percent: p.deductions.esicPercent, esic_cap: p.deductions.esicCap,
+      pt_enabled: p.deductions.ptEnabled, pt: p.deductions.pt,
+      tds_enabled: p.deductions.tdsEnabled, tds: p.deductions.tds,
+      lwf_enabled: p.deductions.lwfEnabled, lwf: p.deductions.lwf, lwf_employer: p.deductions.lwfEmployer,
+    },
+  };
+}
+
+export async function listSalaryTemplates(token: string): Promise<SalaryTemplate[]> {
+  try {
+    return (await authJson<TemplateOut[]>(token, '/hrms/payroll/templates')).map(toUiTemplate);
+  } catch (e) {
+    rethrow(e, 'Failed to load salary templates');
+  }
+}
+
+export async function saveSalaryTemplate(
+  token: string,
+  id: number | null,
+  name: string,
+  description: string,
+  fields: StructureFields,
+): Promise<SalaryTemplate> {
+  try {
+    const data = await authJson<TemplateOut>(
+      token,
+      id ? `/hrms/payroll/templates/${id}` : '/hrms/payroll/templates',
+      { method: id ? 'PUT' : 'POST', body: JSON.stringify(templateBody(name.trim(), description.trim(), fields)) },
+    );
+    return toUiTemplate(data);
+  } catch (e) {
+    rethrow(e, 'Failed to save salary template');
+  }
+}
+
+export async function deleteSalaryTemplate(token: string, id: number): Promise<void> {
+  try {
+    await authJson<void>(token, `/hrms/payroll/templates/${id}`, { method: 'DELETE' });
+  } catch (e) {
+    rethrow(e, 'Failed to delete salary template');
+  }
 }
 
 /** A person's salary structure as the staff form holds it. */

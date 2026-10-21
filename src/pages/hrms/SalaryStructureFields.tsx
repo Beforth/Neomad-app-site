@@ -1,7 +1,12 @@
+import { useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
+import { toast } from '@/components/ui/toast';
 import { Input, fieldClass } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
-import type { StructureFields } from '../../lib/hrmsPayroll';
+import { listSalaryTemplates, saveSalaryTemplate, type SalaryTemplate, type StructureFields } from '../../lib/hrmsPayroll';
 
 const label = 'block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1';
 
@@ -30,14 +35,68 @@ function Money({ prefix, className, ...rest }: { prefix: string; className?: str
 export default function SalaryStructureFields({
   value,
   onChange,
+  templates = true,
 }: {
   value: StructureFields;
   onChange: (next: StructureFields) => void;
+  /** Show "start from a template" and "save as template". Off on the template page itself. */
+  templates?: boolean;
 }) {
+  const { token } = useAuth();
+  const [list, setList] = useState<SalaryTemplate[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState('');
+
+  useEffect(() => {
+    if (!templates || !token) return;
+    listSalaryTemplates(token).then(setList).catch(() => setList([]));
+  }, [templates, token]);
+
+  const saveAsTemplate = async () => {
+    if (!token || !name.trim()) return;
+    try {
+      const made = await saveSalaryTemplate(token, null, name, '', value);
+      setList((l) => [...l, made].sort((a, b) => a.name.localeCompare(b.name)));
+      toast.success(`Template "${made.name}" saved`);
+      setSaving(false);
+      setName('');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not save the template');
+    }
+  };
+
   const set = <K extends keyof StructureFields>(key: K, v: StructureFields[K]) => onChange({ ...value, [key]: v });
 
   return (
     <div className="space-y-5">
+      {templates && (
+        <div className="rounded-xl border border-border bg-muted/40 p-3.5 space-y-2.5">
+          <Field title="Start from a template">
+            <Combobox
+              value=""
+              onValueChange={(id) => {
+                const tpl = list.find((x) => String(x.id) === id);
+                if (tpl) onChange({ ...tpl.fields });
+              }}
+              placeholder={list.length ? 'Pick a template to fill the form' : 'No templates yet'}
+              searchPlaceholder="Search templates..."
+              emptyText="No template found."
+              disabled={list.length === 0}
+              options={list.map((x) => ({ value: String(x.id), label: x.name, description: x.description || undefined }))}
+            />
+          </Field>
+          {saving ? (
+            <div className="flex items-center gap-2">
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Template name" autoFocus />
+              <Button type="button" size="sm" variant="dark" onClick={saveAsTemplate} disabled={!name.trim()}>Save</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => { setSaving(false); setName(''); }}>Cancel</Button>
+            </div>
+          ) : (
+            <Button type="button" size="sm" variant="outline" onClick={() => setSaving(true)}>Save this as a template</Button>
+          )}
+          <p className="text-[11px] text-muted-foreground">A template only fills in the values. Changing a template later does not change anyone already set up.</p>
+        </div>
+      )}
       <Field title="Pay Model">
         <Segmented
           className="w-fit"

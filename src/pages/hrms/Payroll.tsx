@@ -998,10 +998,10 @@ export default function Payroll() {
               <select
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                 value={settings.rules.esicWagesRule}
-                onChange={(e) => setSettings({ ...settings, rules: { ...settings.rules, esicWagesRule: e.target.value === 'basic' ? 'basic' : 'basic_or_half_gross' } })}
+                onChange={(e) => setSettings({ ...settings, rules: { ...settings.rules, esicWagesRule: e.target.value === 'gross' ? 'gross' : 'basic_or_half_gross' } })}
               >
                 <option value="basic_or_half_gross">Larger of basic and half of gross</option>
-                <option value="basic">Basic only</option>
+                <option value="gross">Whole gross</option>
               </select>
             </Field>
           </div>

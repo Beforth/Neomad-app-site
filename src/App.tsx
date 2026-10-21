@@ -56,6 +56,7 @@ import Payroll from './pages/hrms/Payroll';
 import MyPayroll from './pages/hrms/MyPayroll';
 import PayrollRunDetail from './pages/hrms/PayrollRunDetail';
 import PayrollRegister from './pages/hrms/PayrollRegister';
+import SalaryTemplates from './pages/hrms/SalaryTemplates';
 import PayrollPayslip from './pages/hrms/PayrollPayslip';
 // import LeaveApply from './pages/hrms/LeaveApply';
 import LeaveApplyForm from './pages/hrms/LeaveApplyForm';
@@ -124,6 +125,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/payroll': 'Payroll',
   '/hrms/payroll/structures': 'Payroll',
   '/hrms/payroll/settings': 'Payroll',
+  '/hrms/payroll/templates': 'Salary Templates',
   '/hrms/payroll/run/:id': 'Payroll Run',
   '/hrms/payroll/run/:id/register': 'Payroll Register',
   '/hrms/payroll/run/:id/payslip/:entryId': 'Payslip',
@@ -175,13 +177,13 @@ function TopBar() {
   if (p === '/hrms/expenses' || p.startsWith('/hrms/expenses/')) {
     title = PAGE_TITLES[p] || 'Expenses';
   }
-  if (p.startsWith('/hrms/payroll/') && !p.includes('/structures') && !p.includes('/settings')) {
+  if (p.startsWith('/hrms/payroll/') && !p.includes('/structures') && !p.includes('/settings') && !p.includes('/templates')) {
     title = p.includes('/payslip/') ? 'Payslip' : 'Payroll Run';
   }
   if (user && (user.role === 'delivery_boy' || user.role === 'staff') && p === '/hrms/payroll') {
     title = 'My Payroll';
   }
-  const showBack = p !== '/' && p !== '/hrms/dashboard' && p !== '/hrms/attendance' && p !== '/hrms/staff' && p !== '/hrms/expenses' && p !== '/hrms/payroll' && p !== '/hrms/payroll/structures' && p !== '/hrms/payroll/settings' && p !== '/hrms/leave';
+  const showBack = p !== '/' && p !== '/hrms/dashboard' && p !== '/hrms/attendance' && p !== '/hrms/staff' && p !== '/hrms/expenses' && p !== '/hrms/payroll' && p !== '/hrms/payroll/structures' && p !== '/hrms/payroll/settings' && p !== '/hrms/payroll/templates' && p !== '/hrms/leave';
   return (
     <Topbar className="print:hidden">
       {showBack && (
@@ -291,6 +293,7 @@ function AppRoutes() {
             <Route path="/hrms/payroll" element={isEmployee ? <MyPayroll /> : <Payroll />} />
             <Route path="/hrms/payroll/structures" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <Payroll />} />
             <Route path="/hrms/payroll/settings" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <Payroll />} />
+            <Route path="/hrms/payroll/templates" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <SalaryTemplates />} />
             <Route path="/hrms/payroll/run/:id/register" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <PayrollRegister />} />
             <Route path="/hrms/payroll/run/:id" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <PayrollRunDetail />} />
             <Route path="/hrms/payroll/run/:id/payslip/:entryId" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <PayrollPayslip />} />

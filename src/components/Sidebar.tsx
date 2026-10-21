@@ -54,6 +54,7 @@ export const HRMS_ITEMS: NavItem[] = [
   { icon: Banknote, label: 'Payroll', path: '/hrms/payroll', roles: ['staff', 'delivery_boy'] },
   { icon: Banknote, label: 'Payroll', roles: ['admin', 'manager'], children: [
     { label: 'Pay Cycles', path: '/hrms/payroll' },
+    { label: 'Templates', path: '/hrms/payroll/templates' },
     { label: 'Settings', path: '/hrms/payroll/settings' },
   ]},
   { icon: FileSpreadsheet, label: 'Reports', path: '/hrms/reports', roles: ['admin', 'manager'] },
