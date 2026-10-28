@@ -2,6 +2,9 @@
  * App-wide keyboard control. Rendered once inside the app shell.
  *
  *   Ctrl/⌘ + K   command palette (jump to any page, run common actions)
+ *   Ctrl + /     shortcuts for the screen you are on, plus the global ones
+ *   Ctrl + Enter save / submit the open form or pop-up (works inside a field)
+ *   Ctrl + .     collapse / expand the sidebar
  *   g then …     go to a page (g d = Dashboard, g i = Invoices …)
  *   /            focus the page's search box
  *   n            start the page's main "New / Add / Create" action
@@ -20,6 +23,7 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { ShortcutsDialog, type ShortcutGroup } from '@/components/ui/shortcuts-dialog';
 import { Kbd } from '@/components/ui/kbd';
+import { keycaps, runScreenShortcut, useRegisteredShortcuts } from '@/lib/screenShortcuts';
 import { DELIVERY_ITEMS, HRMS_ITEMS, type NavItem } from './Sidebar';
 
 /** key after "g" -> route */
@@ -42,6 +46,20 @@ const GO: Record<string, { path: string; label: string }> = {
   w: { path: '/hrms/shifts', label: 'Shifts' },
 };
 
+/** Presses the main Save / Create / Update button of the open pop-up, or of the form being typed in. */
+const submitForm = (): boolean => {
+  const dialog = document.querySelector<HTMLElement>('[role="dialog"][data-state="open"]');
+  const active = document.activeElement as HTMLElement | null;
+  if (!dialog && !isTyping(active)) return false;
+  const root: ParentNode = dialog ?? document.querySelector('main') ?? document;
+  const ready = Array.from(root.querySelectorAll<HTMLButtonElement>('button')).filter((b) => b.offsetParent !== null && !b.disabled);
+  const go = ready.find((b) => b.type === 'submit')
+    ?? ready.find((b) => /^(save|create|update|submit|apply|generate|confirm|approve|send|add)\b/i.test((b.textContent || '').trim()));
+  if (!go) return false;
+  go.click();
+  return true;
+};
+
 const isTyping = (t: EventTarget | null) => {
   const el = t as HTMLElement | null;
   return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
@@ -53,8 +71,11 @@ const SHORTCUTS: ShortcutGroup[] = [
     title: 'Everywhere',
     items: [
       { keys: ['Ctrl', 'K'], label: 'Command palette' },
-      { keys: ['?'], label: 'This list' },
-      { keys: ['['], label: 'Collapse sidebar' },
+      { keys: ['Ctrl', '/'], label: 'Shortcuts for this screen' },
+      { keys: ['?'], label: 'Shortcuts (outside a field)' },
+      { keys: ['Ctrl', 'Enter'], label: 'Save / submit the open form' },
+      { keys: ['Ctrl', '.'], label: 'Collapse sidebar' },
+      { keys: ['['], label: 'Collapse sidebar (outside a field)' },
       { keys: ['Esc'], label: 'Leave a field / close a popup' },
     ],
   },
@@ -98,6 +119,14 @@ export default function KeyboardLayer() {
   const [palette, setPalette] = useState(false);
   const [help, setHelp] = useState(false);
   const gPending = useRef<number | null>(null);
+  const screen = useRegisteredShortcuts();
+  const groups = useMemo<ShortcutGroup[]>(
+    () => [
+      ...screen.filter((g) => g.items.length).map((g) => ({ title: `This screen · ${g.title}`, items: g.items.map((i) => ({ keys: keycaps(i.keys), label: i.label })) })),
+      ...SHORTCUTS,
+    ],
+    [screen],
+  );
 
   // The top-bar search button asks for the palette through this event.
   useEffect(() => {
@@ -154,9 +183,15 @@ export default function KeyboardLayer() {
         setPalette((v) => !v);
         return;
       }
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === '/') { e.preventDefault(); setHelp((v) => !v); return; }
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === '.') { e.preventDefault(); if (isDesktop) setCollapsed(!collapsed); else setMobileOpen(true); return; }
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === 'Enter' && !e.shiftKey) { if (submitForm()) e.preventDefault(); return; }
+      // Keys the screen itself registered (Ctrl+S, Ctrl+Alt+M ...) work even inside a field.
+      if ((e.ctrlKey || e.metaKey || e.altKey) && !palette && runScreenShortcut(e)) return;
       if (e.key === 'Escape') {
         const el = document.activeElement as HTMLElement | null;
         if (el && isTyping(el) && !dialogOpen()) el.blur();
+        else if (!dialogOpen() && !palette && !help) runScreenShortcut(e);
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -195,7 +230,7 @@ export default function KeyboardLayer() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [palette, help, allowedPaths, navigate, focusSearch, clickMainAction, collapsed, setCollapsed, isDesktop, setMobileOpen]);
+  }, [palette, help, allowedPaths, isDesktop, navigate, focusSearch, clickMainAction, collapsed, setCollapsed, isDesktop, setMobileOpen]);
 
   // ArrowDown from the search box jumps into the first table row.
   useEffect(() => {
@@ -254,7 +289,7 @@ export default function KeyboardLayer() {
           </CommandGroup>
         </CommandList>
       </CommandDialog>
-      <ShortcutsDialog groups={SHORTCUTS} open={help} onOpenChange={setHelp} hotkey={false} />
+      <ShortcutsDialog groups={groups} open={help} onOpenChange={setHelp} hotkey={false} />
     </>
   );
 }

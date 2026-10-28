@@ -1,37 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { PageHeader } from '@/components/ui/app-shell';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from '@/components/ui/toast';
-import {
-  deleteSalaryTemplate, emptyStructureFields, listSalaryTemplates, saveSalaryTemplate,
-  type SalaryTemplate, type StructureFields,
-} from '../../lib/hrmsPayroll';
-import SalaryStructureFields from './SalaryStructureFields';
+import { deleteSalaryTemplate, listSalaryTemplates, type SalaryTemplate } from '../../lib/hrmsPayroll';
 
 const inr = (n: string) => `₹${(Number(n) || 0).toLocaleString('en-IN')}`;
-
-interface Draft {
-  id: number | null;
-  name: string;
-  description: string;
-  fields: StructureFields;
-}
 
 /** Ready-made salary set-ups. Pick one when adding an employee and the form fills in. */
 export default function SalaryTemplates() {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [items, setItems] = useState<SalaryTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [formError, setFormError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<SalaryTemplate | null>(null);
 
   const load = useCallback(() => {
@@ -43,23 +30,6 @@ export default function SalaryTemplates() {
       .finally(() => setLoading(false));
   }, [token]);
   useEffect(load, [load]);
-
-  const save = async () => {
-    if (!token || !draft) return;
-    if (!draft.name.trim()) { setFormError('Give the template a name.'); return; }
-    setBusy(true);
-    setFormError('');
-    try {
-      await saveSalaryTemplate(token, draft.id, draft.name, draft.description, draft.fields);
-      toast.success(draft.id ? 'Template updated' : 'Template created');
-      setDraft(null);
-      load();
-    } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Could not save');
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const remove = async () => {
     if (!token || !confirmDelete) return;
@@ -78,7 +48,7 @@ export default function SalaryTemplates() {
       <PageHeader
         title="Salary templates"
         description="Save a pay set-up once, then pick it when adding an employee. A template only fills in the values."
-        actions={<Button variant="dark" size="sm" onClick={() => { setFormError(''); setDraft({ id: null, name: '', description: '', fields: emptyStructureFields() }); }}><Plus size={14} />New template</Button>}
+        actions={<Button variant="dark" size="sm" onClick={() => navigate('/hrms/payroll/templates/new')}><Plus size={14} />New template</Button>}
       />
       {error && <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">{error}</div>}
       {loading ? (
@@ -97,36 +67,13 @@ export default function SalaryTemplates() {
                 <Button variant="ghost" size="icon-sm" aria-label={`Delete ${t.name}`} onClick={() => setConfirmDelete(t)}><Trash2 /></Button>
               </div>
               <p className="text-[13px]">
-                {t.fields.payModel === 'monthly' ? `Monthly, CTC ${inr(t.fields.ctc)}` : `Per shift, ${inr(t.fields.shiftRate)} a day`}
+                {t.fields.payModel === 'shift' ? `Per shift, ${inr(t.fields.shiftRate)} a day` : `${t.fields.payModel === 'custom' ? 'Custom formula' : 'Monthly'}, CTC ${inr(t.fields.ctc)}`}
                 {Number(t.fields.overtimeRate) > 0 ? ` · OT ${inr(t.fields.overtimeRate)}/hr` : ''}
               </p>
-              <Button variant="outline" size="sm" onClick={() => { setFormError(''); setDraft({ id: t.id, name: t.name, description: t.description, fields: t.fields }); }}>Edit</Button>
+              <Button variant="outline" size="sm" onClick={() => navigate(`/hrms/payroll/templates/${t.id}`)}>Edit</Button>
             </Card>
           ))}
         </div>
-      )}
-
-      {draft && (
-        <Dialog open onOpenChange={(open) => { if (!open) setDraft(null); }}>
-          <DialogContent aria-describedby={undefined} className="gap-0 p-0 max-w-2xl overflow-hidden max-h-[90dvh] flex flex-col">
-            <DialogTitle className="p-5 border-b border-border text-base font-semibold">{draft.id ? 'Edit template' : 'New template'}</DialogTitle>
-            <div className="p-5 overflow-y-auto space-y-5">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Name</label>
-                  <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Warehouse, 15,000" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Note (optional)</label>
-                  <Input value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
-                </div>
-              </div>
-              <SalaryStructureFields templates={false} value={draft.fields} onChange={(fields) => setDraft({ ...draft, fields })} />
-              {formError && <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{formError}</div>}
-              <Button variant="dark" size="lg" className="w-full" onClick={save} disabled={busy}>{busy && <Spinner className="mr-1" />}{draft.id ? 'Update template' : 'Create template'}</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       )}
 
       {confirmDelete && (

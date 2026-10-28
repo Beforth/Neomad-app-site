@@ -174,6 +174,7 @@ export default function PayrollRegister() {
                   <TableCell className="sticky left-0 z-10 bg-card">
                     <p className="whitespace-nowrap text-[13px] font-medium">{e.employeeName}</p>
                     <p className="text-[11px] text-muted-foreground">{e.employeeCode || '—'}{e.onHold ? ' · on hold' : ''}</p>
+                    {e.calc?.formulaError && <p className="max-w-[16rem] text-[11px] text-destructive" role="alert">Formula problem, figures not updated: {e.calc.formulaError}</p>}
                   </TableCell>
                   <TableCell className={td}>{cell('days', e.paidDays ?? 0, maxDays)}</TableCell>
                   <TableCell className="whitespace-nowrap text-left text-[13px]">{e.departmentName || '—'}</TableCell>

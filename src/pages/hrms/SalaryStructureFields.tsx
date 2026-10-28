@@ -6,7 +6,9 @@ import { Combobox } from '@/components/ui/combobox';
 import { toast } from '@/components/ui/toast';
 import { Input, fieldClass } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
-import { listSalaryTemplates, saveSalaryTemplate, type SalaryTemplate, type StructureFields } from '../../lib/hrmsPayroll';
+import FormulaEditor from './FormulaEditor';
+import { useScreenShortcuts } from '@/lib/screenShortcuts';
+import { countFormulas, listSalaryTemplates, saveSalaryTemplate, type SalaryTemplate, type StructureFields } from '../../lib/hrmsPayroll';
 
 const label = 'block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1';
 
@@ -67,6 +69,15 @@ export default function SalaryStructureFields({
 
   const set = <K extends keyof StructureFields>(key: K, v: StructureFields[K]) => onChange({ ...value, [key]: v });
 
+  const choosePayModel = (v: string) => onChange(v === 'custom'
+    ? { ...value, payModel: 'custom', basic: '0', hra: '0', conveyance: '0', specialAllowance: '0', overtimeRate: '0' }
+    : { ...value, payModel: v === 'shift' ? 'shift' : 'monthly' });
+  useScreenShortcuts('Salary form', [
+    { keys: 'ctrl+alt+m', label: 'Pay model: Monthly salary', run: () => choosePayModel('monthly') },
+    { keys: 'ctrl+alt+s', label: 'Pay model: Shift / Daily', run: () => choosePayModel('shift') },
+    { keys: 'ctrl+alt+c', label: 'Pay model: Custom formula', run: () => choosePayModel('custom') },
+  ]);
+
   return (
     <div className="space-y-5">
       {templates && (
@@ -94,26 +105,33 @@ export default function SalaryStructureFields({
           ) : (
             <Button type="button" size="sm" variant="outline" onClick={() => setSaving(true)}>Save this as a template</Button>
           )}
-          <p className="text-[11px] text-muted-foreground">A template only fills in the values. Changing a template later does not change anyone already set up.</p>
+          <p className="text-[11px] text-muted-foreground">A template fills in the values and any custom formulas. Changing a template later does not change anyone already set up.</p>
         </div>
       )}
       <Field title="Pay Model">
         <Segmented
           className="w-fit"
           value={value.payModel}
-          onValueChange={(v) => set('payModel', v === 'shift' ? 'shift' : 'monthly')}
+          onValueChange={choosePayModel}
           options={[
             { value: 'monthly', label: <>Monthly Salary</> },
             { value: 'shift', label: <>Shift / Daily</> },
+            { value: 'custom', label: <>Custom formula</> },
           ]}
         />
       </Field>
 
-      {value.payModel === 'monthly' ? (
+      {value.payModel !== 'shift' ? (
         <div className="space-y-4">
           <Field title="CTC (per month)">
-            <Money prefix="₹" placeholder="e.g. 25000" value={value.ctc === '0' ? '' : value.ctc} onChange={(e) => onChange({ ...value, ctc: e.target.value, basic: '0', hra: '0', conveyance: '0', specialAllowance: '0' })} />
+            <Money prefix="₹" placeholder="e.g. 25000" value={value.ctc === '0' ? '' : value.ctc} onChange={(e) => onChange(value.payModel === 'custom' ? { ...value, ctc: e.target.value } : { ...value, ctc: e.target.value, basic: '0', hra: '0', conveyance: '0', specialAllowance: '0' })} />
           </Field>
+          {value.payModel === 'custom' && (
+            <p className="text-[11px] text-muted-foreground">
+              Nothing is worked out from the CTC automatically. Write the earnings as formulas in Custom formulas below; the CTC is available there as <code>ctc</code>.
+            </p>
+          )}
+          {value.payModel === 'monthly' && (<>
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Monthly Earnings</p>
             <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
@@ -129,6 +147,7 @@ export default function SalaryStructureFields({
           <Field title="Overtime Rate / hr">
             <Input type="number" value={value.overtimeRate} onChange={(e) => set('overtimeRate', e.target.value)} />
           </Field>
+          </>)}
         </div>
       ) : (
         <div>
@@ -159,26 +178,31 @@ export default function SalaryStructureFields({
                 <CheckCircle2 size={11} />{text}
               </button>
               <div className="flex items-center gap-3">
-                {key === 'pfEnabled' && <Money prefix="%" className="w-20" value={value.pfPercent} onChange={(e) => set('pfPercent', e.target.value)} />}
+                {key === 'pfEnabled' && <Money prefix="%" className="w-28" value={value.pfPercent} onChange={(e) => set('pfPercent', e.target.value)} />}
                 {key === 'esicEnabled' && (
                   <>
-                    <Money prefix="%" className="w-20" value={value.esicPercent} onChange={(e) => set('esicPercent', e.target.value)} />
-                    <Money prefix="₹" className="w-24" value={value.esicCap} onChange={(e) => set('esicCap', e.target.value)} />
+                    <Money prefix="%" className="w-28" value={value.esicPercent} onChange={(e) => set('esicPercent', e.target.value)} />
+                    <Money prefix="₹" className="w-32" value={value.esicCap} onChange={(e) => set('esicCap', e.target.value)} />
                   </>
                 )}
-                {key === 'ptEnabled' && <Money prefix="₹" className="w-20" value={value.pt} onChange={(e) => set('pt', e.target.value)} />}
+                {key === 'ptEnabled' && <Money prefix="₹" className="w-28" value={value.pt} onChange={(e) => set('pt', e.target.value)} />}
                 {key === 'lwfEnabled' && (
                   <>
                     <Input type="number" placeholder="Employee ₹" className={`${fieldClass} w-24`} value={value.lwf} onChange={(e) => set('lwf', e.target.value)} />
                     <Input type="number" placeholder="Employer ₹" className={`${fieldClass} w-24`} value={value.lwfEmployer} onChange={(e) => set('lwfEmployer', e.target.value)} />
                   </>
                 )}
-                {key === 'tdsEnabled' && <Money prefix="₹" className="w-20" value={value.tds} onChange={(e) => set('tds', e.target.value)} />}
+                {key === 'tdsEnabled' && <Money prefix="₹" className="w-28" value={value.tds} onChange={(e) => set('tds', e.target.value)} />}
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Custom formula is its own pay model. Monthly only shows the section when it already holds formulas, so they are never hidden. */}
+      {(value.payModel === 'custom' || (value.payModel === 'monthly' && countFormulas(value.formulas) > 0)) && (
+        <FormulaEditor scope="set" value={value.formulas} onChange={(formulas) => set('formulas', formulas)} fields={value} defaultOpen={value.payModel === 'custom'} />
+      )}
     </div>
   );
 }

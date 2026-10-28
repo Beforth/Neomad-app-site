@@ -10,6 +10,7 @@ import {
   Zap, Users, Repeat, FileText, Building2, Loader2,
 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
+import FormulaEditor from './FormulaEditor';
 import SalaryStructureFields from './SalaryStructureFields';
 import { formatINR } from '../../lib/hrmsExpenses';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -55,6 +56,7 @@ const STATUS_OPTIONS = [
 const PAY_MODEL_BADGE: Record<PayModel, { base: string; label: string }> = {
   monthly: { base: 'bg-purple-50 text-purple-600', label: 'Monthly' },
   shift: { base: 'bg-cyan-50 text-cyan-600', label: 'Shift' },
+  custom: { base: 'bg-amber-50 text-amber-700', label: 'Custom' },
 };
 
 const ROLE_BADGE: Record<string, { base: string; label: string }> = {
@@ -804,9 +806,9 @@ export default function Payroll() {
                             </TableCell>
                              <TableCell>
                               <span className="text-xs font-semibold text-foreground">
-                                {s.payModel === 'monthly' ? (s.ctc > 0 ? `${formatINR(s.ctc)} CTC` : `${formatINR(grossMonthly(s))}/mo`) : `₹${s.shiftRate}/day`}
+                                {s.payModel !== 'shift' ? (s.ctc > 0 ? `${formatINR(s.ctc)} CTC` : `${formatINR(grossMonthly(s))}/mo`) : `₹${s.shiftRate}/day`}
                               </span>
-                              {s.payModel === 'monthly' && s.ctc > 0 && (
+                              {s.payModel !== 'shift' && s.ctc > 0 && (
                                 <p className="text-[11px] text-muted-foreground/70">Rate: {formatINR(grossMonthly(s))}/mo</p>
                               )}
                               {s.payModel === 'shift' && (
@@ -880,7 +882,7 @@ export default function Payroll() {
                         </div>
                         <div className="flex items-center justify-between">
                           <p className="text-xs font-semibold text-foreground">
-                            {s.payModel === 'monthly' ? formatINR(grossMonthly(s)) + '/mo' : '₹' + s.shiftRate + '/day'}
+                            {s.payModel !== 'shift' ? formatINR(grossMonthly(s)) + '/mo' : '₹' + s.shiftRate + '/day'}
                           </p>
                           <div className="flex items-center gap-1.5">
                             <Button variant="soft" size="xs" className="bg-info/10 text-info hover:bg-info/15 border-info/25" onClick={() => openHistory(s)}  title="History">
@@ -1005,6 +1007,8 @@ export default function Payroll() {
               </select>
             </Field>
           </div>
+
+          <FormulaEditor scope="company" value={settings.formulas} onChange={(formulas) => setSettings({ ...settings, formulas })} />
 
           <div className="flex justify-end">
             <Button variant="dark" size="sm" type="submit" >
@@ -1198,11 +1202,11 @@ export default function Payroll() {
                               <span className="text-xs font-semibold text-foreground/85">Effective {st.effectiveFrom}</span>
                             </div>
                             <span className="text-xs font-semibold text-foreground">
-                              {st.payModel === 'monthly' ? (st.ctc ? `${formatINR(st.ctc)} CTC` : `${formatINR(grossMonthly(st))}/mo`) : `₹${st.shiftRate}/day`}
+                              {st.payModel !== 'shift' ? (st.ctc ? `${formatINR(st.ctc)} CTC` : `${formatINR(grossMonthly(st))}/mo`) : `₹${st.shiftRate}/day`}
                             </span>
                           </div>
 
-                          {st.payModel === 'monthly' && (
+                          {st.payModel !== 'shift' && (
                             <Card className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] p-2.5" >
                               <div><span className="text-muted-foreground/70 block text-[11px] uppercase font-semibold">Basic</span><span className="font-semibold text-foreground">{formatINR(st.monthly.basic)}</span></div>
                               <div><span className="text-muted-foreground/70 block text-[11px] uppercase font-semibold">HRA</span><span className="font-semibold text-foreground">{formatINR(st.monthly.hra)}</span></div>

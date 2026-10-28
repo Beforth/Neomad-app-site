@@ -4,7 +4,7 @@
  */
 import { getBaseUrl, notifyIfUnauthorized, normalizeFetchError } from './api';
 
-export type PayModel = 'monthly' | 'shift';
+export type PayModel = 'monthly' | 'shift' | 'custom';
 export type RunStatus = 'draft' | 'calculated' | 'approved' | 'paid';
 export type EntryStatus = 'draft' | 'calculated' | 'approved' | 'paid';
 export type PaymentMode = 'bank_transfer' | 'upi' | 'cash' | 'cheque';
@@ -31,6 +31,27 @@ export interface DeductionsConfig {
   lwfEmployer: number;
 }
 
+/** One extra earning or deduction line worked out from a formula. */
+export interface FormulaLine {
+  key?: string;
+  label: string;
+  formula: string;
+}
+
+/** Custom formulas, in the shape the API stores. Empty means the built-in calculation. */
+export interface FormulaSet {
+  /** Own values for the calculation rules (templates and structures only). */
+  rules?: Record<string, number | string>;
+  /** A formula that replaces a built-in line, by line key (basic, hra, pf_employee ...). */
+  overrides?: Record<string, string>;
+  extra_earnings?: FormulaLine[];
+  extra_deductions?: FormulaLine[];
+}
+
+export const countFormulas = (f?: FormulaSet): number =>
+  Object.keys(f?.rules ?? {}).length + Object.keys(f?.overrides ?? {}).length +
+  (f?.extra_earnings?.length ?? 0) + (f?.extra_deductions?.length ?? 0);
+
 export interface SalaryStructure {
   id: number;
   userId: number;
@@ -43,6 +64,7 @@ export interface SalaryStructure {
   shiftRate: number;
   overtimeRate: number;
   deductions: DeductionsConfig;
+  formulas?: FormulaSet;
   active: boolean;
   effectiveFrom: string;
   updatedAt: string;
@@ -82,7 +104,7 @@ export interface PayEntry extends PayInputs {
   paidDays?: number;
   ctc?: number;
   /** Working columns: rate per month, earned CTE, full-month basic, ESIC wages. */
-  calc?: { ratePerMonth: number; earnedCtc: number; fullBasic: number; esicWages: number };
+  calc?: { ratePerMonth: number; earnedCtc: number; fullBasic: number; esicWages: number; formulaError?: string };
   /** Register inputs: added to gross / taken from pay. Kept across recalculation. */
   extraEarning?: number;
   penaltyAmount?: number;
@@ -139,6 +161,7 @@ export interface PayrollSettings {
   defaultPt: number;
   defaultTds: number;
   rules: PayrollRules;
+  formulas: FormulaSet;
 }
 
 export interface PayrollRules {
@@ -260,7 +283,7 @@ export function grossMonthly(s: SalaryStructure): number {
 }
 
 export function payModelLabel(m: PayModel) {
-  return m === 'monthly' ? 'Monthly' : 'Shift';
+  return m === 'monthly' ? 'Monthly' : m === 'custom' ? 'Custom' : 'Shift';
 }
 
 export function defaultSettings(): PayrollSettings {
@@ -276,6 +299,7 @@ export function defaultSettings(): PayrollSettings {
     defaultPt: 200,
     defaultTds: 0,
     rules: { ...DEFAULT_RULES },
+    formulas: {},
   };
 }
 
@@ -349,6 +373,7 @@ interface StructureOut {
   shift_rate: number;
   overtime_rate: number;
   deductions: DeductionsApi;
+  formulas?: FormulaSet;
   is_active: boolean;
   effective_from: string;
   created_at: string;
@@ -378,7 +403,7 @@ interface EntryOut {
   bonus: number;
   late_penalty?: number;
   ctc?: number;
-  calc_detail?: { rate_per_month?: number; earned_ctc?: number; full_basic?: number; esic_wages?: number };
+  calc_detail?: { rate_per_month?: number; earned_ctc?: number; full_basic?: number; esic_wages?: number; formula_error?: string };
   extra_earning?: number;
   penalty_amount?: number;
   overtime_amount?: number;
@@ -433,6 +458,7 @@ interface SettingsOut {
   default_pt: number;
   default_tds: number;
   rules?: Record<string, number | string>;
+  formulas?: FormulaSet;
 }
 
 interface SummaryOut {
@@ -489,6 +515,7 @@ export function toUiStructure(api: StructureOut): SalaryStructure {
     shiftRate: Number(api.shift_rate) || 0,
     overtimeRate: Number(api.overtime_rate) || 0,
     deductions: toDeductions(api.deductions),
+    formulas: api.formulas ?? {},
     active: !!api.is_active,
     effectiveFrom: api.effective_from,
     updatedAt: api.updated_at,
@@ -524,6 +551,7 @@ export function toUiEntry(api: EntryOut): PayEntry {
       earnedCtc: Number(api.calc_detail?.earned_ctc) || 0,
       fullBasic: Number(api.calc_detail?.full_basic) || 0,
       esicWages: Number(api.calc_detail?.esic_wages) || 0,
+      formulaError: api.calc_detail?.formula_error || undefined,
     },
     extraEarning: Number(api.extra_earning) || 0,
     penaltyAmount: Number(api.penalty_amount) || 0,
@@ -591,6 +619,7 @@ export function toUiSettings(api: SettingsOut): PayrollSettings {
       pfWageCap: Number(api.rules?.pf_wage_cap ?? DEFAULT_RULES.pfWageCap),
       esicWagesRule: api.rules?.esic_wages_rule === 'gross' ? 'gross' : 'basic_or_half_gross',
     },
+    formulas: api.formulas ?? {},
   };
 }
 
@@ -603,10 +632,12 @@ export function structureToApiBody(s: {
   shiftRate: number;
   overtimeRate: number;
   deductions: DeductionsConfig;
+  formulas?: FormulaSet;
   active: boolean;
   effectiveFrom: string;
 }) {
   return {
+    ...(s.formulas ? { formulas: s.formulas } : {}),
     user_id: s.userId,
     role: s.role,
     pay_model: s.payModel,
@@ -660,6 +691,7 @@ export function settingsToApi(s: PayrollSettings) {
       pf_wage_cap: s.rules.pfWageCap,
       esic_wages_rule: s.rules.esicWagesRule,
     },
+    formulas: s.formulas ?? {},
   };
 }
 
@@ -720,6 +752,7 @@ export interface StructureFields {
   lwfEnabled: boolean;
   lwf: string;
   lwfEmployer: string;
+  formulas: FormulaSet;
 }
 
 export const emptyStructureFields = (): StructureFields => ({
@@ -732,6 +765,7 @@ export const emptyStructureFields = (): StructureFields => ({
   ptEnabled: true, pt: '200',
   tdsEnabled: false, tds: '0',
   lwfEnabled: false, lwf: '0', lwfEmployer: '0',
+  formulas: {},
 });
 
 export function fieldsFromStructure(s: SalaryStructure): StructureFields {
@@ -746,6 +780,7 @@ export function fieldsFromStructure(s: SalaryStructure): StructureFields {
     ptEnabled: s.deductions.ptEnabled, pt: String(s.deductions.pt),
     tdsEnabled: s.deductions.tdsEnabled, tds: String(s.deductions.tds),
     lwfEnabled: s.deductions.lwfEnabled, lwf: String(s.deductions.lwf), lwfEmployer: String(s.deductions.lwfEmployer),
+    formulas: s.formulas ?? {},
   };
 }
 
@@ -769,6 +804,7 @@ export function fieldsToPayload(f: StructureFields) {
       tdsEnabled: f.tdsEnabled, tds: nonNeg(f.tds),
       lwfEnabled: f.lwfEnabled, lwf: nonNeg(f.lwf), lwfEmployer: nonNeg(f.lwfEmployer),
     },
+    formulas: f.formulas,
   };
 }
 
@@ -791,6 +827,7 @@ interface TemplateOut {
   shift_rate: number;
   overtime_rate: number;
   deductions: Record<string, number | boolean>;
+  formulas?: FormulaSet;
 }
 
 function toUiTemplate(t: TemplateOut): SalaryTemplate {
@@ -799,12 +836,13 @@ function toUiTemplate(t: TemplateOut): SalaryTemplate {
     name: t.name,
     description: t.description || '',
     fields: fieldsFromStructure({
-      payModel: t.pay_model === 'shift' ? 'shift' : 'monthly',
+      payModel: t.pay_model === 'shift' ? 'shift' : t.pay_model === 'custom' ? 'custom' : 'monthly',
       ctc: t.ctc,
       monthly: toEarnings(t.monthly_earnings as never),
       shiftRate: t.shift_rate,
       overtimeRate: t.overtime_rate,
       deductions: toDeductions(t.deductions as never),
+      formulas: t.formulas ?? {},
     } as SalaryStructure),
   };
 }
@@ -829,6 +867,7 @@ function templateBody(name: string, description: string, f: StructureFields) {
       tds_enabled: p.deductions.tdsEnabled, tds: p.deductions.tds,
       lwf_enabled: p.deductions.lwfEnabled, lwf: p.deductions.lwf, lwf_employer: p.deductions.lwfEmployer,
     },
+    formulas: p.formulas,
   };
 }
 
@@ -867,6 +906,62 @@ export async function deleteSalaryTemplate(token: string, id: number): Promise<v
   }
 }
 
+// ── Formulas ──────────────────────────────────────────────────────────────
+
+export interface FormulaMeta {
+  /** The built-in lines that can be replaced, with their built-in formula text. */
+  lines: { key: string; label: string; kind: string; default: string }[];
+  variables: { group: string; names: Record<string, string> }[];
+  rule_keys: string[];
+  functions: string[];
+}
+
+export async function getFormulaMeta(token: string): Promise<FormulaMeta> {
+  try {
+    return await authJson<FormulaMeta>(token, '/hrms/payroll/formulas/meta');
+  } catch (e) {
+    rethrow(e, 'Failed to load the formula help');
+  }
+}
+
+export interface FormulaPreview {
+  earnings: PayLineItem[];
+  gross: number;
+  deductions: PayLineItem[];
+  total_deductions: number;
+  net_pay: number;
+  employer_pf: number;
+  employer_esic: number;
+  employer_total_cost: number;
+}
+
+/** Works out one sample salary with the given formulas. Nothing is saved. */
+export async function previewFormulas(
+  token: string,
+  body: { formulas: FormulaSet; base: 'company' | 'none'; ctc: number; days: number; fields?: StructureFields },
+): Promise<FormulaPreview> {
+  const { fields, ...rest } = body;
+  // With a form to go on, use its deductions and hand-typed breakdown so the sample matches it.
+  const extra = fields ? (() => {
+    const p = fieldsToPayload(fields);
+    return {
+      monthly_earnings: {
+        basic: p.monthly.basic, hra: p.monthly.hra,
+        conveyance: p.monthly.conveyance, special_allowance: p.monthly.specialAllowance,
+      },
+      deductions: templateBody('', '', fields).deductions,
+    };
+  })() : {};
+  try {
+    return await authJson<FormulaPreview>(token, '/hrms/payroll/formulas/preview', {
+      method: 'POST',
+      body: JSON.stringify({ ...rest, ...extra }),
+    });
+  } catch (e) {
+    rethrow(e, 'Could not work out the sample');
+  }
+}
+
 /** A person's salary structure as the staff form holds it. */
 export interface StaffSalary {
   /** Set when the person already has a structure. */
@@ -885,7 +980,9 @@ export async function getStaffSalary(token: string, userId: number): Promise<Sta
 
 /** True when the form holds a salary worth saving as a new structure. */
 export const hasSalary = (f: StructureFields) =>
-  f.payModel === 'monthly' ? nonNeg(f.ctc) > 0 : nonNeg(f.shiftRate) > 0;
+  f.payModel === 'shift'
+    ? nonNeg(f.shiftRate) > 0
+    : nonNeg(f.ctc) > 0 || (f.payModel === 'custom' && countFormulas(f.formulas) > 0);
 
 /** Creates the structure, or updates the existing one when something changed. */
 export async function saveStaffSalary(
@@ -1001,6 +1098,7 @@ export async function updateSalaryStructure(
       lwf_employer: body.deductions.lwfEmployer,
     };
   }
+  if (body.formulas != null) payload.formulas = body.formulas;
   if (body.active != null) payload.is_active = body.active;
   if (body.effectiveFrom != null) payload.effective_from = body.effectiveFrom;
   try {

@@ -33,7 +33,7 @@ export function ShortcutsDialog({ groups, open, onOpenChange, hotkey = true }: {
       <DialogContent className="max-h-[85vh] max-w-xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Keyboard shortcuts</DialogTitle>
-          <DialogDescription>Press <Kbd>?</Kbd> any time to open this.</DialogDescription>
+          <DialogDescription>Press <Kbd>Ctrl</Kbd> <Kbd>/</Kbd> any time to open this. Keys for the screen you are on come first.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-5 sm:grid-cols-2">
           {groups.map((g) => (

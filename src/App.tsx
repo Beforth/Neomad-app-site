@@ -57,6 +57,7 @@ import MyPayroll from './pages/hrms/MyPayroll';
 import PayrollRunDetail from './pages/hrms/PayrollRunDetail';
 import PayrollRegister from './pages/hrms/PayrollRegister';
 import SalaryTemplates from './pages/hrms/SalaryTemplates';
+import SalaryTemplateEdit from './pages/hrms/SalaryTemplateEdit';
 import PayrollPayslip from './pages/hrms/PayrollPayslip';
 // import LeaveApply from './pages/hrms/LeaveApply';
 import LeaveApplyForm from './pages/hrms/LeaveApplyForm';
@@ -126,6 +127,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/payroll/structures': 'Payroll',
   '/hrms/payroll/settings': 'Payroll',
   '/hrms/payroll/templates': 'Salary Templates',
+  '/hrms/payroll/templates/new': 'New Salary Template',
+  '/hrms/payroll/templates/:id': 'Edit Salary Template',
   '/hrms/payroll/run/:id': 'Payroll Run',
   '/hrms/payroll/run/:id/register': 'Payroll Register',
   '/hrms/payroll/run/:id/payslip/:entryId': 'Payslip',
@@ -177,6 +180,7 @@ function TopBar() {
   if (p === '/hrms/expenses' || p.startsWith('/hrms/expenses/')) {
     title = PAGE_TITLES[p] || 'Expenses';
   }
+  if (/^\/hrms\/payroll\/templates\/\d+$/.test(p)) title = 'Edit Salary Template';
   if (p.startsWith('/hrms/payroll/') && !p.includes('/structures') && !p.includes('/settings') && !p.includes('/templates')) {
     title = p.includes('/payslip/') ? 'Payslip' : 'Payroll Run';
   }
@@ -294,6 +298,8 @@ function AppRoutes() {
             <Route path="/hrms/payroll/structures" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <Payroll />} />
             <Route path="/hrms/payroll/settings" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <Payroll />} />
             <Route path="/hrms/payroll/templates" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <SalaryTemplates />} />
+            <Route path="/hrms/payroll/templates/new" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <SalaryTemplateEdit />} />
+            <Route path="/hrms/payroll/templates/:id" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <SalaryTemplateEdit />} />
             <Route path="/hrms/payroll/run/:id/register" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <PayrollRegister />} />
             <Route path="/hrms/payroll/run/:id" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <PayrollRunDetail />} />
             <Route path="/hrms/payroll/run/:id/payslip/:entryId" element={isEmployee ? <Navigate to="/hrms/payroll" replace /> : <PayrollPayslip />} />

@@ -8,7 +8,7 @@ import { formatINR } from '../../lib/hrmsExpenses';
 import {
   PayrollRun, PayEntry, PayrollSettings,
   getMyPayslips, getPayrollRun, getPayrollSettings, defaultSettings,
-  monthLabel, ROLE_LABELS,
+  monthLabel, payModelLabel, ROLE_LABELS,
 } from '../../lib/hrmsPayroll';
 import PayslipView from '../../components/hrms/PayslipView';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -123,7 +123,7 @@ export default function MyPayroll() {
           <Banknote size={14} className="text-muted-foreground/70" />
           {user?.username || 'Employee'}
           {latest ? ` · ${ROLE_LABELS[latest.role] || latest.role}` : ''}
-          {latest ? ` · ${latest.payModel === 'shift' ? 'Shift' : 'Monthly'}` : ''}
+          {latest ? ` · ${payModelLabel(latest.payModel)}` : ''}
         </Card>
 </>} />
 
