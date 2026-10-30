@@ -39,6 +39,9 @@ export interface StaffFormValues {
   master_branch_id: number | '';
   punch_branch_ids: number[];
   door_lock_permission: boolean;
+  watch_in_office: boolean;
+  checkin_outside_mode: 'not_allowed' | 'needs_approval' | 'allowed';
+  checkout_outside_allowed: boolean;
   role_code: string;
   date_of_joining: string;
   date_of_birth: string;
@@ -70,7 +73,8 @@ export function emptyStaffForm(): StaffFormValues {
     country_code: '+91', emergency_contact_country_code: '+91',
     aadhaar_number: '', salary: emptyStaffSalary(),
     gender: '', employee_type: '', designation: '', department_id: '', reports_to_id: '', master_branch_id: '',
-    punch_branch_ids: [], door_lock_permission: false, role_code: 'staff',
+    punch_branch_ids: [], door_lock_permission: false,
+    watch_in_office: false, checkin_outside_mode: 'not_allowed', checkout_outside_allowed: false, role_code: 'staff',
     date_of_joining: '', date_of_birth: '', address: '',
     pf_number: '', uan_number: '', esic_number: '',
     wc_policy_no: '', mediclaim_policy_no: '', mediclaim_policy_period: '',
@@ -99,6 +103,9 @@ export function staffToForm(s: StaffOut): StaffFormValues {
     master_branch_id: s.master_branch_id ?? '',
     punch_branch_ids: s.punch_branch_ids ?? [],
     door_lock_permission: Boolean(s.door_lock_permission),
+    watch_in_office: Boolean(s.watch_in_office),
+    checkin_outside_mode: s.checkin_outside_mode ?? 'not_allowed',
+    checkout_outside_allowed: Boolean(s.checkout_outside_allowed),
     role_code: s.role_codes?.[0] ?? 'staff',
     date_of_joining: s.date_of_joining ?? '',
     date_of_birth: s.date_of_birth ?? '',
@@ -144,6 +151,9 @@ export function formToPayload(f: StaffFormValues) {
     master_branch_id: f.master_branch_id === '' ? null : Number(f.master_branch_id),
     punch_branch_ids: f.punch_branch_ids,
     door_lock_permission: f.door_lock_permission,
+    watch_in_office: f.watch_in_office,
+    checkin_outside_mode: f.checkin_outside_mode,
+    checkout_outside_allowed: f.checkout_outside_allowed,
     date_of_joining: orNull(f.date_of_joining),
     date_of_birth: orNull(f.date_of_birth),
     address: orNull(f.address),
@@ -499,6 +509,30 @@ export default function StaffForm({ mode, staffId = null, value, onChange, onSub
                     </label>
                   ))}
                 </div>
+              </Field>
+              <Field label="Watch in the office" hint="Alert managers when this employee leaves the office between check-in and check-out.">
+                <label className="flex items-center gap-2 text-sm text-foreground/85 cursor-pointer pt-1.5">
+                  <input type="checkbox" checked={value.watch_in_office}
+                    onChange={(e) => set('watch_in_office', e.target.checked)} className="accent-emerald-600" />
+                  Watch this employee
+                </label>
+              </Field>
+              <Field label="Check in outside the office">
+                <select value={value.checkin_outside_mode}
+                  onChange={(e) => set('checkin_outside_mode', e.target.value as StaffFormValues['checkin_outside_mode'])}
+                  className={selectClass}>
+                  <option value="not_allowed">Not allowed</option>
+                  <option value="needs_approval">Needs approval</option>
+                  <option value="allowed">Allowed</option>
+                </select>
+              </Field>
+              <Field label="Check out outside the office">
+                <select value={value.checkout_outside_allowed ? 'yes' : 'no'}
+                  onChange={(e) => set('checkout_outside_allowed', e.target.value === 'yes')}
+                  className={selectClass}>
+                  <option value="no">Not allowed</option>
+                  <option value="yes">Allowed</option>
+                </select>
               </Field>
               <Field label="Provident Fund (PF)">
                 <Input value={value.pf_number} onChange={(e) => set('pf_number', e.target.value)}

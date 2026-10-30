@@ -42,6 +42,7 @@ export const DELIVERY_ITEMS: NavItem[] = [
 export const HRMS_ITEMS: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/hrms/dashboard', roles: ['admin', 'manager', 'staff', 'delivery_boy'] },
   { icon: CalendarCheck, label: 'Attendance', path: '/hrms/attendance', roles: ['admin', 'manager', 'staff', 'delivery_boy'] },
+  { icon: MapPin, label: 'Office presence', path: '/hrms/office-presence', roles: ['admin', 'manager'] },
   { icon: Users, label: 'Staff', path: '/hrms/staff', roles: ['admin', 'manager'] },
   { icon: Building2, label: 'Departments', path: '/hrms/departments', roles: ['admin', 'manager'] },
   { icon: Network, label: 'Org chart', path: '/hrms/org-chart', roles: ['admin', 'manager', 'staff', 'delivery_boy'] },

@@ -68,12 +68,14 @@ const REQUEST_TYPE_LABELS: Record<string, string> = {
   regularization: 'Missed Punch',
   half_day: 'Request Half day',
   full_day_change: 'Full Day Request',
+  outside_checkin: 'Check in outside the office',
 };
 
 const REQUEST_TYPE_STYLES: Record<string, string> = {
   regularization: 'bg-muted text-foreground/70',
   half_day: 'bg-info/10 text-info',
   full_day_change: 'bg-violet-50 text-violet-700',
+  outside_checkin: 'bg-warning/10 text-warning',
 };
 
 const PAGE_SIZE = 10;
@@ -834,6 +836,11 @@ export default function Attendance() {
                             {(req.from_time || req.to_time) && (
                               <span className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground mt-1">
                                 <Clock size={10} /> {req.from_time || '--'}–{req.to_time || '--'}
+                              </span>
+                            )}
+                            {req.request_type === 'outside_checkin' && req.distance_m != null && (
+                              <span className="block text-[11px] font-semibold text-muted-foreground mt-1">
+                                {Math.round(req.distance_m)} m from the office
                               </span>
                             )}
                           </TableCell>

@@ -85,6 +85,7 @@ import HrmsDashboard from './pages/hrms/HrmsDashboard';
 import EmployeeDashboard from './pages/hrms/EmployeeDashboard';
 import MyAttendance from './pages/hrms/MyAttendance';
 import MyShifts from './pages/hrms/MyShifts';
+import OfficePresence from './pages/hrms/OfficePresence';
 import MyExpenses from './pages/hrms/MyExpenses';
 import MyLeave from './pages/hrms/MyLeave';
 import { useNotifications } from './hooks/useNotifications';
@@ -106,6 +107,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/profile': 'Profile',
   '/hrms/dashboard': 'HRMS Dashboard',
   '/hrms/attendance': 'Attendance',
+  '/hrms/office-presence': 'Office presence',
   '/hrms/staff': 'Staff',
   '/hrms/departments': 'Departments',
   '/hrms/shifts': 'Shifts',
@@ -268,6 +270,7 @@ function AppRoutes() {
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/hrms/dashboard" element={isEmployee ? <EmployeeDashboard /> : <HrmsDashboard />} />
             <Route path="/hrms/attendance" element={isEmployee ? <MyAttendance /> : <Attendance />} />
+            <Route path="/hrms/office-presence" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <OfficePresence />} />
             <Route path="/hrms/my-shifts" element={isEmployee ? <MyShifts /> : <Navigate to="/hrms/shifts/assign/calendar" replace />} />
             <Route path="/hrms/departments" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <Departments />} />
             <Route path="/hrms/staff/new" element={isEmployee ? <Navigate to="/hrms/dashboard" replace /> : <StaffCreate />} />

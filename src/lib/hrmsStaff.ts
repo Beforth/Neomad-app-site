@@ -27,6 +27,9 @@ export interface StaffProfile {
   master_branch_id?: number | null;
   punch_branch_ids?: number[] | null;
   door_lock_permission?: boolean | null;
+  watch_in_office?: boolean | null;
+  checkin_outside_mode?: 'not_allowed' | 'needs_approval' | 'allowed' | null;
+  checkout_outside_allowed?: boolean | null;
   date_of_joining?: string | null;
   /** User id of the manager. Send 0 to clear. */
   reports_to_id?: number | null;

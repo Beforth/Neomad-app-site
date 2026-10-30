@@ -81,7 +81,7 @@ export interface AttendanceMySummaryOut {
   overtime_hours: number;
 }
 
-export type AttendanceRequestType = 'regularization' | 'half_day' | 'full_day_change';
+export type AttendanceRequestType = 'regularization' | 'half_day' | 'full_day_change' | 'outside_checkin';
 
 export interface AttendanceRequestOut {
   id: number;
@@ -101,6 +101,10 @@ export interface AttendanceRequestOut {
   resolved_by: number | null;
   resolved_by_name: string | null;
   notes: string | null;
+  /** outside_checkin only: where the employee asked to check in from. */
+  lat?: number | null;
+  lng?: number | null;
+  distance_m?: number | null;
 }
 
 export interface AttendanceRequestCreateBody {
@@ -497,5 +501,48 @@ export async function updateHrmsSettings(
   } catch (e) {
     if (e instanceof Error && e.message.startsWith('Request failed')) throw e;
     throw new Error(normalizeFetchError(e, 'Failed to update HRMS settings'));
+  }
+}
+
+// ── Office presence ───────────────────────────────────────────────────────
+
+export interface PresenceEventRow {
+  id: number;
+  user_id: number;
+  user_name: string | null;
+  event_type: 'left' | 'returned';
+  occurred_at: string;
+  distance_m: number | null;
+  minutes_out: number | null;
+}
+
+export interface WatchedEmployeeRow {
+  user_id: number;
+  user_name: string | null;
+  checked_in: boolean;
+  /** False when a checked-in watched employee's phone has not reported for a while (today only). */
+  trackable: boolean;
+  last_seen_at: string | null;
+}
+
+export interface PresenceDayOut {
+  date: string;
+  events: PresenceEventRow[];
+  watched: WatchedEmployeeRow[];
+}
+
+/** Admin/manager: the day's left/returned events and which watched employees cannot be tracked. */
+export async function getPresenceDay(token: string, date?: string): Promise<PresenceDayOut> {
+  const base = getBaseUrl();
+  const qs = date ? `?date=${encodeURIComponent(date)}` : '';
+  try {
+    const res = await fetch(`${base}/hrms/presence/events${qs}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw await apiError(res);
+    return res.json() as Promise<PresenceDayOut>;
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('Request failed')) throw e;
+    throw new Error(normalizeFetchError(e, 'Failed to load office presence'));
   }
 }
