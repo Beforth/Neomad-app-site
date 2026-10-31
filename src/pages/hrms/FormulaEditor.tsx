@@ -194,36 +194,6 @@ export default function FormulaEditor({
             })}
           </div>
 
-          {scope === 'set' && (
-            <div className="space-y-2">
-              <div>
-                <p className={label}>Values for this set</p>
-                <p className="text-[11px] text-muted-foreground">For example a different PF ceiling. Empty uses the company value shown in grey.</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                {(meta?.rule_keys ?? []).filter((k) => RULE_LABELS[k]).map((k) => (
-                  <div key={k}>
-                    <label className="mb-1 block text-[11px] text-muted-foreground">{RULE_LABELS[k]}</label>
-                    <Input type="number" disabled={!canEdit} value={value.rules?.[k] ?? ''} placeholder={companyRule(k)} onChange={(e) => setRule(k, e.target.value)} />
-                  </div>
-                ))}
-                <div>
-                  <label className="mb-1 block text-[11px] text-muted-foreground">ESIC wages</label>
-                  <select
-                    disabled={!canEdit}
-                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                    value={String(value.rules?.esic_wages_rule ?? '')}
-                    onChange={(e) => setRule('esic_wages_rule', e.target.value)}
-                  >
-                    <option value="">Company default</option>
-                    <option value="basic_or_half_gross">Larger of basic or half gross</option>
-                    <option value="gross">Whole gross</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-
           {lineEditor('extra_earnings', 'Extra earnings', 'Added to gross. Give a short name to use the result in later lines.')}
           {lineEditor('extra_deductions', 'Extra deductions', 'Taken off net pay after PF, ESIC and tax. They can use gross, PF and ESIC.')}
 

@@ -29,7 +29,7 @@ import {
   calculatePayrollRun, approvePayrollRun, payPayrollRun,
   getPayrollSettings, updatePayrollSettings, defaultSettings,
   currentMonthStr, monthLabel, grossMonthly,
-  ROLE_OPTIONS, ROLE_LABELS,
+  ROLE_OPTIONS, ROLE_LABELS, WEEKDAY_LABELS,
   StructureFields, emptyStructureFields, fieldsFromStructure, fieldsToPayload,
 } from '../../lib/hrmsPayroll';
 
@@ -1006,6 +1006,32 @@ export default function Payroll() {
                 <option value="gross">Whole gross</option>
               </select>
             </Field>
+          </div>
+
+          <div className="border-t border-border pt-6">
+            <h2 className="text-sm font-semibold text-foreground">Weekly Off</h2>
+            <p className="text-[11px] text-muted-foreground/70 font-medium mt-0.5">
+              Days that are not worked and not marked absent. Pick one or more. Applies to attendance, working days and payslips.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {WEEKDAY_LABELS.map((label, i) => {
+                const on = settings.rules.weeklyOffDays.includes(i);
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => {
+                      const next = on ? settings.rules.weeklyOffDays.filter((d) => d !== i) : [...settings.rules.weeklyOffDays, i].sort();
+                      if (next.length >= 7) return;
+                      setSettings({ ...settings, rules: { ...settings.rules, weeklyOffDays: next } });
+                    }}
+                    className={`h-8 rounded-md border px-3 text-xs font-medium ${on ? 'border-foreground bg-foreground text-background' : 'border-input bg-background text-foreground'}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <FormulaEditor scope="company" value={settings.formulas} onChange={(formulas) => setSettings({ ...settings, formulas })} />

@@ -3,6 +3,7 @@ import { Landmark } from 'lucide-react';
 import { formatINR } from '../../lib/hrmsExpenses';
 import {
   PayrollRun, PayEntry, PayrollSettings, monthLabel,
+  monthDays, workingDaysInMonth, weeklyOffsInMonth,
   inWords, PAYMENT_MODE_LABELS, ROLE_LABELS,
 } from '../../lib/hrmsPayroll';
 
@@ -90,6 +91,26 @@ export default function PayslipView({
           <div className="sm:col-span-1 p-2 font-semibold text-foreground flex items-center">{monthLabel(run.month)}</div>
           <div className="sm:col-span-1 bg-muted p-2 font-bold uppercase text-foreground flex items-center">ESIC NO</div>
           <div className="sm:col-span-1 p-2 font-mono font-bold text-foreground flex items-center truncate">{entry.esicNumber || '-'}</div>
+        </div>
+      </div>
+
+      {/* Days counted */}
+      <div className="border-b border-foreground text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-7 divide-x divide-foreground">
+          {[
+            ['Days in month', monthDays(run.month)],
+            ['Weekly off', weeklyOffsInMonth(run.month, settings.rules.weeklyOffDays)],
+            ['Working days', workingDaysInMonth(run.month, settings.rules.weeklyOffDays)],
+            ['Present', entry.presentDays],
+            ['Half days', entry.halfDays],
+            ['Paid leave', entry.paidLeaveDays ?? 0],
+            ['Days paid', entry.paidDays ?? 0],
+          ].map(([label, value]) => (
+            <div key={label as string} className="p-2 text-center">
+              <div className="text-[10px] font-bold uppercase text-muted-foreground">{label}</div>
+              <div className="font-semibold text-foreground">{value}</div>
+            </div>
+          ))}
         </div>
       </div>
 

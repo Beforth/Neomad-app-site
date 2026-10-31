@@ -152,6 +152,12 @@ export default function KeyboardLayer() {
     };
     add(DELIVERY_ITEMS, 'Delivery');
     add(HRMS_ITEMS, 'HRMS');
+    // These live inside the Profile page, so the search links straight to their section.
+    if (role === 'admin' || role === 'manager') {
+      out.push({ label: 'Geofence (store radius)', path: '/profile?section=geofence', group: 'Settings' });
+      out.push({ label: 'Working Locations', path: '/profile?section=locations', group: 'Settings' });
+    }
+    if (role === 'admin') out.push({ label: 'Gmail / Invoice Inbox', path: '/profile?section=gmail', group: 'Settings' });
     return out;
   }, [role]);
 
@@ -254,7 +260,7 @@ export default function KeyboardLayer() {
         <CommandInput placeholder="Go to a page or run an action…" />
         <CommandList>
           <CommandEmpty>Nothing matches.</CommandEmpty>
-          {['Delivery', 'HRMS'].map((g) => {
+          {['Delivery', 'HRMS', 'Settings'].map((g) => {
             const items = pages.filter((p) => p.group === g);
             if (!items.length) return null;
             return (

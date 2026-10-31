@@ -10,7 +10,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { exportPayrollReportXlsx } from '../../lib/hrmsExports';
 import {
-  getPayrollRun, monthLabel, updatePayrollEntry, workingDaysInMonth,
+  getPayrollRun, getPayrollSettings, monthLabel, updatePayrollEntry, workingDaysInMonth,
   type PayEntry, type PayLineItem, type PayrollRun,
 } from '../../lib/hrmsPayroll';
 
@@ -48,16 +48,18 @@ export default function PayrollRegister() {
   const { token } = useAuth();
   const id = Number(useParams().id);
   const [run, setRun] = useState<PayrollRun | null>(null);
+  const [offDays, setOffDays] = useState<number[]>([6]);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
   const [excel, setExcel] = useState(false);
 
   useEffect(() => {
     if (!token) return;
+    getPayrollSettings(token).then((s) => setOffDays(s.rules.weeklyOffDays)).catch(() => {});
     getPayrollRun(token, id).then(setRun).catch((e) => setError(e instanceof Error ? e.message : 'Could not load the run'));
   }, [token, id]);
 
-  const wd = run ? workingDaysInMonth(run.month) : PAY_DAYS;
+  const wd = run ? workingDaysInMonth(run.month, offDays) : PAY_DAYS;
   const maxDays = Math.min(PAY_DAYS, wd);
   const locked = !run || (run.status !== 'draft' && run.status !== 'calculated');
 
@@ -69,7 +71,7 @@ export default function PayrollRegister() {
         key === 'days'
           ? e.payModel === 'shift'
             ? { presentDays: v, halfDays: 0 }
-            : { presentDays: v, halfDays: 0, lopDays: Math.max(0, wd - v) }
+            : { presentDays: v, halfDays: 0 }
           : key === 'extra' ? { extraEarning: v }
           : key === 'penalty' ? { penaltyAmount: v }
           : key === 'advance' ? { advanceDeduction: v }

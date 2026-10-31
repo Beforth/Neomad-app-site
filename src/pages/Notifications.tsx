@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { Fragment, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { APP_NOTIFICATIONS_UPDATED_EVENT, appApi } from '../lib/appApi';
@@ -8,12 +8,17 @@ import {
   Bell, Plus, Send, Trash2, Users, Shield, Truck,
   CheckCircle2, Clock, X, Bot, ChevronLeft, XCircle,
   ClipboardList, Calendar, CalendarDays, Receipt, FileText,
-  Search, CheckSquare, Square, ChevronDown, ChevronUp, AlertCircle
+  Search, Eye, MoreHorizontal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDateTimeIST } from '../lib/timeUtils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/app-shell';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
+import { EmptyState } from '@/components/ui/empty-state';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Input, Textarea } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -287,7 +292,7 @@ export default function Notifications() {
   const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto pb-10">
+    <div className="space-y-4 pb-10">
       {/* Toast Notification */}
       <AnimatePresence>
         {toast && (
@@ -298,40 +303,21 @@ export default function Notifications() {
         )}
       </AnimatePresence>
 
-      {/* Compact Top Header & Summary Stats */}
-      <Card className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3" >
-        <div className="flex items-center gap-3 min-w-0">
-          {(user?.role === 'delivery_boy' || user?.role === 'staff') && (
-            <Button variant="ghost" size="icon-sm" className="shrink-0"
-              type="button"
-              onClick={() => navigate(-1)}
-              
-              aria-label="Go back"
-            >
-              <ChevronLeft size={18} />
-            </Button>
-          )}
-          <div className="min-w-0">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">
-              Notifications & Updates
-            </h1>
-            <p className="text-[13px] text-muted-foreground">
-              {isAdminOrManager ? 'Management updates & user requests' : 'Your personal attendance requests & updates'}
-            </p>
-          </div>
-        </div>
-
-        {isAdminOrManager && (
-          <Button size="sm" className="shrink-0"
-            type="button"
-            onClick={() => setShowCompose(true)}
-            
-          >
+      {(user?.role === 'delivery_boy' || user?.role === 'staff') && (
+        <Button variant="ghost" size="sm" type="button" onClick={() => navigate(-1)} aria-label="Go back">
+          <ChevronLeft size={16} /> Back
+        </Button>
+      )}
+      <PageHeader
+        title="Notifications"
+        description={isAdminOrManager ? 'Management updates and user requests' : 'Your personal attendance requests and updates'}
+        actions={isAdminOrManager ? (
+          <Button variant="dark" size="sm" type="button" onClick={() => setShowCompose(true)}>
             <Plus className="size-3.5 shrink-0" strokeWidth={2.5} />
             New Announcement
           </Button>
-        )}
-      </Card>
+        ) : undefined}
+      />
 
       {/* Compose Modal */}
       <AnimatePresence>
@@ -439,7 +425,7 @@ export default function Notifications() {
       </AnimatePresence>
 
       {/* Integrated Filter Bar: Category Headings + Search Input */}
-      <Card className="p-2.5 space-y-2.5 md:space-y-0 md:flex md:items-center md:justify-between md:gap-3" >
+      <div className="space-y-2.5 md:space-y-0 md:flex md:items-center md:justify-between md:gap-3">
         {/* Left: Category Heading Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 md:pb-0">
           {FILTER_CATEGORIES.map(cat => {
@@ -506,160 +492,101 @@ export default function Notifications() {
             </Button>
           )}
         </div>
-      </Card>
+      </div>
 
-      {/* Sleek Compact Notification Feed List */}
-      <Card className="border-input divide-y divide-input overflow-hidden" ref={feedRef} >
+      {/* Listing: same table as the other pages */}
+      <Card className="overflow-hidden" ref={feedRef}>
         {paginated.length === 0 ? (
-          <div className="p-10 text-center">
-            <div className="w-12 h-12 bg-muted rounded-xl flex items-center justify-center mx-auto mb-2">
-              <Bell size={20} className="text-muted-foreground/50" />
-            </div>
-            <h3 className="text-xs font-semibold text-foreground mb-0.5">No notifications found</h3>
-            <p className="text-[11px] text-muted-foreground/70 max-w-xs mx-auto">
-              {searchQuery ? 'No items match your search filter' : 'No notifications available at this moment.'}
-            </p>
-          </div>
+          <EmptyState icon={<Bell />} title="No notifications found" description={searchQuery ? 'No items match your search' : 'No notifications available at this moment'} className="border-0" />
         ) : (
-          paginated.map((n: any) => {
-            const isSelected = selectedIds.includes(n.id);
-            const isExpanded = expandedIds.includes(n.id);
-            const hasDetails = Boolean(n.reason || n.adminNote);
-
-            // Left accent border status color
-            const accentClass =
-              n.status === 'pending' ? 'border-l-4 border-l-amber-400 bg-warning/10' :
-              n.status === 'approved' || n.status === 'active' ? 'border-l-4 border-l-emerald-500' :
-              n.status === 'rejected' || n.status === 'cancelled' ? 'border-l-4 border-l-rose-500' :
-              'border-l-4 border-l-zinc-300';
-
-            return (
-              <div
-                key={n.id}
-                onClick={() => setSelectedIds(prev => prev.includes(n.id) ? prev.filter(id => id !== n.id) : [...prev, n.id])}
-                className={`transition-all cursor-pointer select-none ${accentClass} ${
-                  isSelected ? 'bg-secondary border-foreground shadow-2xs' : 'hover:bg-muted'
-                }`}
-              >
-                {/* Main Compact Row */}
-                <div className="p-3 md:px-4 flex items-center justify-between gap-3">
-                  {/* Left: Checkbox + Icon + Title & Snippet */}
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="shrink-0 text-muted-foreground/70">
-                      {isSelected ? <CheckSquare size={16} className="text-foreground" /> : <Square size={16} className="text-muted-foreground/50" />}
-                    </div>
-
-                    {/* Category Icon */}
-                    <div className="shrink-0 hidden xs:flex w-7 h-7 rounded-lg bg-secondary text-foreground/70 items-center justify-center">
-                      {n.isAttendanceRequest ? <ClipboardList size={14} className="text-indigo-600" /> :
-                       n.isShiftAssignment ? <Calendar size={14} className="text-primary" /> :
-                       <Bell size={14} className="text-purple-600" />}
-                    </div>
-
-                    {/* Title, Badge & Text Snippet */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {/* Title */}
-                        <span className="font-semibold text-xs text-foreground truncate">
-                          {n.title}
-                        </span>
-
-                        {/* Unique Badge */}
-                        <Badge className={`${n.badgeColor || 'bg-purple-50 text-purple-800 border-purple-200'}`}>
-                          {n.badgeLabel || 'Announcement'}
-                        </Badge>
-
-                        {/* Date Tag */}
-                        {n.rangeLabel && (
-                          <Badge>
-                            {n.rangeLabel}
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Snippet summary line */}
-                      <p className="text-[11px] text-muted-foreground truncate mt-0.5 font-medium">
-                        {n.message}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Right: Status Pill + Time + Actions */}
-                  <div className="flex items-center gap-2.5 shrink-0">
-                    {/* Status Pill */}
-                    {n.status === 'pending' ? (
-                      <Badge variant="warning" className="hidden sm:inline-flex" >
-                        <Clock size={10} className="animate-pulse text-warning" />
-                        Pending
-                      </Badge>
-                    ) : n.status === 'approved' || n.status === 'active' ? (
-                      <Badge variant="success" className="hidden sm:inline-flex" >
-                        <CheckCircle2 size={10} className="text-primary" />
-                        {n.status === 'active' ? 'Active' : 'Approved'}
-                      </Badge>
-                    ) : n.status === 'rejected' || n.status === 'cancelled' ? (
-                      <Badge variant="danger" className="hidden sm:inline-flex" >
-                        <XCircle size={10} className="text-destructive" />
-                        Rejected
-                      </Badge>
-                    ) : null}
-
-                    {/* Timestamp */}
-                    <span className="text-[11px] text-muted-foreground/70 font-medium whitespace-nowrap hidden md:inline">
-                      {formatDateTimeIST(n.created_at)}
-                    </span>
-
-                    {/* Expand Details Toggle (if reason or adminNote exists) */}
-                    {hasDetails && (
-                      <Button variant="ghost" size="icon-sm"
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); toggleExpand(n.id); }}
-                        
-                        title={isExpanded ? 'Collapse' : 'Expand Details'}
-                      >
-                        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      </Button>
-                    )}
-
-                    {/* Delete Icon */}
-                    <Button variant="ghost" size="icon-sm" className="hover:text-destructive hover:bg-destructive/10"
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setNotificationToDelete(n.id); }}
-                      
-                      title="Delete notification"
-                    >
-                      <Trash2 size={13} />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Inline Expandable Details Box */}
-                {isExpanded && hasDetails && (
-                  <div className="px-4 pb-3 pt-2 text-xs border-t border-input bg-muted/70 space-y-2">
-                    {n.reason && (
-                      <div>
-                        <span className="font-medium text-muted-foreground text-xs">Reason / Description:</span>
-                        <p className="text-foreground/85 font-medium mt-0.5">{n.reason}</p>
-                      </div>
-                    )}
-
-                    {n.adminNote && (
-                      <div className={`p-2.5 rounded-lg border ${
-                        n.status === 'approved' ? 'bg-accent/80 border-primary/20 text-accent-foreground' :
-                        n.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive' :
-                        'bg-card border-border text-foreground'
-                      }`}>
-                        <div className="flex items-center gap-1 font-medium text-xs mb-0.5 opacity-80">
-                          <AlertCircle size={11} /> Admin Note / Response:
-                        </div>
-                        <p className="font-semibold">{n.adminNote}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      aria-label="Select all on this page"
+                      checked={paginated.every((n: any) => selectedIds.includes(n.id)) ? true : paginated.some((n: any) => selectedIds.includes(n.id)) ? 'indeterminate' : false}
+                      onCheckedChange={(v) => setSelectedIds(v === true ? Array.from(new Set([...selectedIds, ...paginated.map((n: any) => n.id)])) : selectedIds.filter(id => !paginated.some((n: any) => n.id === id)))}
+                    />
+                  </TableHead>
+                  {['Notification', 'Type', 'Dates', 'Status', 'Received'].map((h) => (
+                    <TableHead key={h} className="uppercase whitespace-nowrap">{h}</TableHead>
+                  ))}
+                  <TableHead className="w-10" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginated.map((n: any) => {
+                  const isSelected = selectedIds.includes(n.id);
+                  const isExpanded = expandedIds.includes(n.id);
+                  const hasDetails = Boolean(n.reason || n.adminNote);
+                  const base = 'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold capitalize';
+                  const status =
+                    n.status === 'pending' ? <span className={`${base} bg-warning/10 text-warning`}>Pending</span> :
+                    n.status === 'approved' ? <span className={`${base} bg-accent text-primary`}>Approved</span> :
+                    n.status === 'active' ? <span className={`${base} bg-accent text-primary`}>Active</span> :
+                    n.status === 'rejected' || n.status === 'cancelled' ? <span className={`${base} bg-destructive/10 text-destructive`}>Rejected</span> :
+                    <span className="text-muted-foreground/60">-</span>;
+                  return (
+                    <Fragment key={n.id}>
+                      <TableRow className="hover:bg-muted/70" data-state={isSelected ? 'selected' : undefined}>
+                        <TableCell className="w-10">
+                          <Checkbox
+                            aria-label="Select"
+                            checked={isSelected}
+                            onCheckedChange={() => setSelectedIds(prev => prev.includes(n.id) ? prev.filter(id => id !== n.id) : [...prev, n.id])}
+                          />
+                        </TableCell>
+                        <TableCell className="max-w-[360px]">
+                          <span className="block text-xs font-semibold text-foreground truncate">{n.title}</span>
+                          <span className="block text-[11px] text-muted-foreground truncate">{n.message}</span>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-secondary text-xs font-semibold text-foreground">{n.badgeLabel || 'Announcement'}</span>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground whitespace-nowrap">{n.rangeLabel || '-'}</TableCell>
+                        <TableCell>{status}</TableCell>
+                        <TableCell className="text-muted-foreground/70 whitespace-nowrap">{formatDateTimeIST(n.created_at)}</TableCell>
+                        <TableCell className="w-10 pl-0">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon-sm" data-row-menu="" aria-label="Row actions"><MoreHorizontal /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              {hasDetails && (
+                                <DropdownMenuItem onSelect={() => toggleExpand(n.id)}><Eye /> {isExpanded ? 'Hide details' : 'View details'}</DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem destructive onSelect={() => setNotificationToDelete(n.id)}><Trash2 /> Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                      {isExpanded && hasDetails && (
+                        <TableRow className="bg-muted/40 hover:bg-muted/40">
+                          <TableCell />
+                          <TableCell colSpan={6} className="space-y-2 text-xs">
+                            {n.reason && (
+                              <div>
+                                <span className="font-medium text-muted-foreground">Reason / Description</span>
+                                <p className="mt-0.5 font-medium text-foreground/85">{n.reason}</p>
+                              </div>
+                            )}
+                            {n.adminNote && (
+                              <div>
+                                <span className="font-medium text-muted-foreground">Admin note / Response</span>
+                                <p className="mt-0.5 font-semibold text-foreground">{n.adminNote}</p>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </Card>
 

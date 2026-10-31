@@ -218,7 +218,6 @@ export default function PayrollRunDetail() {
         presentDays: editForm.presentDays,
         halfDays: editForm.halfDays,
         overtimeHours: editForm.overtimeHours,
-        lopDays: editForm.lopDays,
         bonus: editForm.bonus,
         latePenalty: editForm.latePenalty,
         overtimeAmount: editForm.overtimeAmount,
@@ -494,7 +493,7 @@ export default function PayrollRunDetail() {
                       </TableCell>
                       <TableCell>
                         <p className="text-[11px] text-muted-foreground whitespace-nowrap">
-                          P {e.presentDays} · H {e.halfDays} · LOP {e.lopDays}
+                          P {e.presentDays} · H {e.halfDays}
                           {(e.latePenalty > 0 || e.overtimeAmount > 0) && (
                             <span className="block mt-0.5">
                               {e.latePenalty > 0 && <span className="text-destructive">−₹{e.latePenalty} pen </span>}
@@ -573,7 +572,7 @@ export default function PayrollRunDetail() {
                     </Badge>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                    <span>P {e.presentDays}</span><span>H {e.halfDays}</span><span>LOP {e.lopDays}</span>
+                    <span>P {e.presentDays}</span><span>H {e.halfDays}</span>
                     {e.latePenalty > 0 && <span className="text-destructive">−₹{e.latePenalty}</span>}
                     {e.overtimeAmount > 0 && <span className="text-violet-600">+₹{e.overtimeAmount} OT</span>}
                   </div>
@@ -640,9 +639,6 @@ export default function PayrollRunDetail() {
                 </Field>
                 <Field label="Overtime Hours">
                   <Input type="number"  value={editForm.overtimeHours} onChange={(e) => setEditForm({ ...editForm, overtimeHours: num(e.target.value) })} />
-                </Field>
-                <Field label="LOP Days (Unpaid)">
-                  <Input type="number"  value={editForm.lopDays} onChange={(e) => setEditForm({ ...editForm, lopDays: num(e.target.value) })} />
                 </Field>
                 <Field label="Bonus / Incentive">
                   <Input type="number"  value={editForm.bonus} onChange={(e) => setEditForm({ ...editForm, bonus: num(e.target.value) })} />

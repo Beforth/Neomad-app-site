@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   changePassword,
@@ -44,9 +44,14 @@ import { Input } from '@/components/ui/input';
 import { Avatar } from '@/components/ui/avatar';
 import { Segmented } from '@/components/ui/segmented';
 import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/ui/app-shell';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   ShieldCheck, LogOut, Mail, Lock, RefreshCw,
-  CheckCircle2, XCircle, AlertTriangle, Clock, Search, Star, MapPin, ChevronLeft
+  CheckCircle2, XCircle, AlertTriangle, Clock, Search, Star, MapPin, ChevronLeft,
+  MoreHorizontal, Pencil, Trash2,
 } from 'lucide-react';
 
 export default function Profile() {
@@ -654,25 +659,30 @@ export default function Profile() {
     ...(canManageWorkLoc ? [{ id: 'locations' as const, label: 'Working Locations', icon: MapPin }] : []),
     ...(user?.role === 'admin' ? [{ id: 'gmail' as const, label: 'Gmail / Inbox', icon: Mail }] : []),
   ];
-  const [activeSection, setActiveSection] = useState<SectionId>('account');
+  // ?section=geofence | locations | gmail opens that section (the search box links here).
+  const [searchParams] = useSearchParams();
+  const wanted = searchParams.get('section') as SectionId | null;
+  const [activeSection, setActiveSection] = useState<SectionId>(
+    wanted && sectionTabs.some((t) => t.id === wanted) ? wanted : 'account',
+  );
+  useEffect(() => {
+    if (wanted && sectionTabs.some((t) => t.id === wanted)) setActiveSection(wanted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wanted, user?.role]);
 
   return (
-    <div className="mx-auto grid max-w-3xl gap-5">
-      <div className="flex items-center gap-4">
-        {(user?.role === 'delivery_boy' || user?.role === 'staff') && (
-          <Button variant="ghost" size="icon-sm" type="button" onClick={() => navigate(-1)} aria-label="Go back">
-            <ChevronLeft />
-          </Button>
-        )}
-        <Avatar name={user?.username || 'User'} size="lg" />
-        <div className="min-w-0">
-          <h1 className="truncate text-xl font-semibold tracking-tight text-foreground">{user?.username}</h1>
-          <p className="text-[13px] capitalize text-muted-foreground">{user?.role?.replace('_', ' ')}</p>
-        </div>
-        <Button variant="outline" className="ml-auto" onClick={logout}>
-          <LogOut /> Sign out
+    <div className="grid gap-5">
+      {(user?.role === 'delivery_boy' || user?.role === 'staff') && (
+        <Button variant="ghost" size="sm" type="button" className="w-fit" onClick={() => navigate(-1)} aria-label="Go back">
+          <ChevronLeft /> Back
         </Button>
-      </div>
+      )}
+      <PageHeader
+        title="Profile"
+        description={`${user?.username ?? ''}${user?.role ? ' · ' + user.role.replace('_', ' ') : ''}`}
+        className="mb-0"
+        actions={<Button variant="outline" onClick={logout}><LogOut /> Sign out</Button>}
+      />
 
       {sectionTabs.length > 1 && (
         <Segmented
@@ -757,30 +767,30 @@ export default function Profile() {
 
         {activeSection === 'geofence' && (
           <Card className="overflow-hidden" >
-            <div className="px-6 py-5 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">Store Geofence</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
+            <div className="border-b px-6 py-4">
+              <h2 className="text-base font-semibold text-foreground">Store Geofence</h2>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">
                 Delivery geofence used for store radius alerts (latitude, longitude, radius).
               </p>
             </div>
             <div className="px-6 py-5">
               <form onSubmit={handleSaveStoreGeo} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <Input className="w-full" type="number" step="any" placeholder="Latitude"
+                  <div><label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Latitude</label><Input className="w-full" type="number" step="any"
                     value={geoForm.latitude}
                     onChange={(e) => setGeoForm((prev) => ({ ...prev, latitude: e.target.value }))}
                     
-                    disabled={geoLoading || geoSaving} />
-                  <Input className="w-full" type="number" step="any" placeholder="Longitude"
+                    disabled={geoLoading || geoSaving} /></div>
+                  <div><label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Longitude</label><Input className="w-full" type="number" step="any"
                     value={geoForm.longitude}
                     onChange={(e) => setGeoForm((prev) => ({ ...prev, longitude: e.target.value }))}
                     
-                    disabled={geoLoading || geoSaving} />
-                  <Input className="w-full" type="number" min="0" max="10000" placeholder="Radius (meters)"
+                    disabled={geoLoading || geoSaving} /></div>
+                  <div><label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Radius (meters)</label><Input className="w-full" type="number" min="0" max="10000"
                     value={geoForm.radius_meters}
                     onChange={(e) => setGeoForm((prev) => ({ ...prev, radius_meters: e.target.value }))}
                     
-                    disabled={geoLoading || geoSaving} />
+                    disabled={geoLoading || geoSaving} /></div>
                 </div>
                 {geoMsg && (
                   <div className={`text-sm font-medium ${geoMsg.type === 'success' ? 'text-primary' : 'text-destructive'}`}>{geoMsg.text}</div>
@@ -798,23 +808,40 @@ export default function Profile() {
                   )}
                 </div>
               </form>
-              <div className="mt-6 space-y-2">
-                <h4 className="text-sm font-semibold text-foreground">Configured Geofences</h4>
+<div className="mt-6">
+                <h4 className="mb-2 text-sm font-semibold text-foreground">Configured Geofences</h4>
                 {geoList.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No store geofence added yet.</p>
-                ) : geoList.map((g) => (
-                  <div key={g.id} className="rounded-lg border border-border px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="text-sm text-foreground/85">
-                      Lat: {g.latitude}, Lng: {g.longitude}, Radius: {g.radius_meters}m
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button variant="outline" size="sm" type="button" onClick={() => startEditGeo(g)} disabled={geoSaving}
-                        >Edit</Button>
-                      <Button variant="outline" size="sm" className="border-destructive/20 text-destructive hover:bg-destructive/10" type="button" onClick={() => handleDeleteGeo(g.id)} disabled={geoSaving}
-                        >Delete</Button>
-                    </div>
+                  <EmptyState icon={<MapPin />} title="No geofences added yet" className="border" />
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="uppercase whitespace-nowrap">Latitude</TableHead><TableHead className="uppercase whitespace-nowrap">Longitude</TableHead><TableHead className="uppercase whitespace-nowrap">Radius</TableHead>
+                          <TableHead className="w-10" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {geoList.map((x) => (
+                          <TableRow key={x.id} className="hover:bg-muted/70">
+                            <TableCell>{x.latitude}</TableCell><TableCell>{x.longitude}</TableCell><TableCell>{x.radius_meters} m</TableCell>
+                            <TableCell className="w-10 pl-0">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon-sm" data-row-menu="" aria-label="Row actions"><MoreHorizontal /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40">
+                                  <DropdownMenuItem onSelect={() => startEditGeo(x)}><Pencil /> Edit</DropdownMenuItem>
+                                  <DropdownMenuItem destructive onSelect={() => handleDeleteGeo(x.id)}><Trash2 /> Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </Card>
@@ -822,35 +849,35 @@ export default function Profile() {
 
         {activeSection === 'locations' && (
           <Card className="overflow-hidden" >
-            <div className="px-6 py-5 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">Working Locations</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
+            <div className="border-b px-6 py-4">
+              <h2 className="text-base font-semibold text-foreground">Working Locations</h2>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">
                 Staff users must be within the configured radius of a working location.
               </p>
             </div>
             <div className="px-6 py-5">
               <form onSubmit={handleSaveWorkLoc} className="space-y-4">
-                <Input className="w-full" type="text" placeholder="Location name (e.g. Nashik Office)"
+                <div><label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Location name</label><Input className="w-full" type="text" placeholder="e.g. Nashik Office"
                   value={wlForm.name}
                   onChange={(e) => setWlForm((prev) => ({ ...prev, name: e.target.value }))}
                   
-                  disabled={wlLoading || wlSaving} />
+                  disabled={wlLoading || wlSaving} /></div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <Input className="w-full" type="number" step="any" placeholder="Latitude"
+                  <div><label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Latitude</label><Input className="w-full" type="number" step="any"
                     value={wlForm.latitude}
                     onChange={(e) => setWlForm((prev) => ({ ...prev, latitude: e.target.value }))}
                     
-                    disabled={wlLoading || wlSaving} />
-                  <Input className="w-full" type="number" step="any" placeholder="Longitude"
+                    disabled={wlLoading || wlSaving} /></div>
+                  <div><label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Longitude</label><Input className="w-full" type="number" step="any"
                     value={wlForm.longitude}
                     onChange={(e) => setWlForm((prev) => ({ ...prev, longitude: e.target.value }))}
                     
-                    disabled={wlLoading || wlSaving} />
-                  <Input className="w-full" type="number" min="0" max="10000" placeholder="Radius (meters)"
+                    disabled={wlLoading || wlSaving} /></div>
+                  <div><label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Radius (meters)</label><Input className="w-full" type="number" min="0" max="10000"
                     value={wlForm.radius_meters}
                     onChange={(e) => setWlForm((prev) => ({ ...prev, radius_meters: e.target.value }))}
                     
-                    disabled={wlLoading || wlSaving} />
+                    disabled={wlLoading || wlSaving} /></div>
                 </div>
                 {wlMsg && (
                   <div className={`text-sm font-medium ${wlMsg.type === 'success' ? 'text-primary' : 'text-destructive'}`}>{wlMsg.text}</div>
@@ -868,23 +895,40 @@ export default function Profile() {
                   )}
                 </div>
               </form>
-              <div className="mt-6 space-y-2">
-                <h4 className="text-sm font-semibold text-foreground">Configured Locations</h4>
+<div className="mt-6">
+                <h4 className="mb-2 text-sm font-semibold text-foreground">Configured Locations</h4>
                 {wlList.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No working locations added yet.</p>
-                ) : wlList.map((w) => (
-                  <div key={w.id} className="rounded-lg border border-border px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="text-sm text-foreground/85">
-                      <span className="font-semibold">{w.name}</span> &mdash; Lat: {w.latitude}, Lng: {w.longitude}, Radius: {w.radius_meters}m
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button variant="outline" size="sm" type="button" onClick={() => startEditWl(w)} disabled={wlSaving}
-                        >Edit</Button>
-                      <Button variant="outline" size="sm" className="border-destructive/20 text-destructive hover:bg-destructive/10" type="button" onClick={() => handleDeleteWl(w.id)} disabled={wlSaving}
-                        >Delete</Button>
-                    </div>
+                  <EmptyState icon={<MapPin />} title="No locations added yet" className="border" />
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="uppercase whitespace-nowrap">Name</TableHead><TableHead className="uppercase whitespace-nowrap">Latitude</TableHead><TableHead className="uppercase whitespace-nowrap">Longitude</TableHead><TableHead className="uppercase whitespace-nowrap">Radius</TableHead>
+                          <TableHead className="w-10" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {wlList.map((x) => (
+                          <TableRow key={x.id} className="hover:bg-muted/70">
+                            <TableCell className="font-semibold">{x.name}</TableCell><TableCell>{x.latitude}</TableCell><TableCell>{x.longitude}</TableCell><TableCell>{x.radius_meters} m</TableCell>
+                            <TableCell className="w-10 pl-0">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon-sm" data-row-menu="" aria-label="Row actions"><MoreHorizontal /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40">
+                                  <DropdownMenuItem onSelect={() => startEditWl(x)}><Pencil /> Edit</DropdownMenuItem>
+                                  <DropdownMenuItem destructive onSelect={() => handleDeleteWl(x.id)}><Trash2 /> Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </Card>
@@ -896,7 +940,7 @@ export default function Profile() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">Invoice Inbox (IMAP)</h2>
-                  <p className="text-sm text-muted-foreground mt-0.5">Auto-import invoices from shared inbox via IMAP IDLE</p>
+                  <p className="mt-0.5 text-[13px] text-muted-foreground">Auto-import invoices from shared inbox via IMAP IDLE</p>
                 </div>
                 <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
                   imapConfig?.is_active ? 'bg-primary/15 text-accent-foreground' : 'bg-secondary text-muted-foreground'

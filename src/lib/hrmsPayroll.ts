@@ -78,6 +78,7 @@ export interface PayLineItem {
 export interface PayInputs {
   presentDays: number;
   halfDays: number;
+  paidLeaveDays?: number;
   overtimeHours: number;
   lopDays: number;
   bonus: number;
@@ -174,12 +175,15 @@ export interface PayrollRules {
   pfWageCap: number;
   /** basic_or_half_gross: the larger of basic and half of gross. basic: basic only. */
   esicWagesRule: 'basic_or_half_gross' | 'gross';
+  /** Weekly off days, 0 = Monday ... 6 = Sunday. */
+  weeklyOffDays: number[];
 }
 
 export const DEFAULT_RULES: PayrollRules = {
   payDays: 26, basicPercent: 60, hraPercent: 30, conveyancePercent: 20,
   pfEmployerPercent: 13, esicEmployerPercent: 3.25, pfWageCap: 15000,
   esicWagesRule: 'basic_or_half_gross',
+  weeklyOffDays: [6],
 };
 
 export interface PayrollSummary {
@@ -242,14 +246,22 @@ export function monthDays(month: string) {
   return new Date(y, m, 0).getDate();
 }
 
-export function workingDaysInMonth(month: string) {
+export const WEEKDAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+/** Days in the month that are not a weekly off. offDays use 0 = Monday ... 6 = Sunday. */
+export function workingDaysInMonth(month: string, offDays: number[] = [6]) {
   const [y, m] = month.split('-').map(Number);
   let count = 0;
   const total = new Date(y, m, 0).getDate();
   for (let d = 1; d <= total; d++) {
-    if (new Date(y, m - 1, d).getDay() !== 0) count++;
+    const mondayFirst = (new Date(y, m - 1, d).getDay() + 6) % 7;
+    if (!offDays.includes(mondayFirst)) count++;
   }
   return count;
+}
+
+export function weeklyOffsInMonth(month: string, offDays: number[] = [6]) {
+  return monthDays(month) - workingDaysInMonth(month, offDays);
 }
 
 export function defaultDeductions(): DeductionsConfig {
@@ -400,6 +412,7 @@ interface EntryOut {
   half_days: number;
   overtime_hours: number;
   lop_days: number;
+  paid_leave_days?: number;
   bonus: number;
   late_penalty?: number;
   ctc?: number;
@@ -541,6 +554,7 @@ export function toUiEntry(api: EntryOut): PayEntry {
     status: (api.status as EntryStatus) || 'draft',
     presentDays: Number(api.present_days) || 0,
     halfDays: Number(api.half_days) || 0,
+    paidLeaveDays: Number(api.paid_leave_days) || 0,
     overtimeHours: Number(api.overtime_hours) || 0,
     lopDays: Number(api.lop_days) || 0,
     bonus: Number(api.bonus) || 0,
@@ -618,6 +632,7 @@ export function toUiSettings(api: SettingsOut): PayrollSettings {
       esicEmployerPercent: Number(api.rules?.esic_employer_percent ?? DEFAULT_RULES.esicEmployerPercent),
       pfWageCap: Number(api.rules?.pf_wage_cap ?? DEFAULT_RULES.pfWageCap),
       esicWagesRule: api.rules?.esic_wages_rule === 'gross' ? 'gross' : 'basic_or_half_gross',
+      weeklyOffDays: Array.isArray(api.rules?.weekly_off_days) ? (api.rules.weekly_off_days as number[]).map(Number) : DEFAULT_RULES.weeklyOffDays,
     },
     formulas: api.formulas ?? {},
   };
@@ -690,6 +705,7 @@ export function settingsToApi(s: PayrollSettings) {
       esic_employer_percent: s.rules.esicEmployerPercent,
       pf_wage_cap: s.rules.pfWageCap,
       esic_wages_rule: s.rules.esicWagesRule,
+      weekly_off_days: s.rules.weeklyOffDays,
     },
     formulas: s.formulas ?? {},
   };
@@ -933,12 +949,13 @@ export interface FormulaPreview {
   employer_pf: number;
   employer_esic: number;
   employer_total_cost: number;
+  detail?: { rate_per_month?: number; earned_ctc?: number; full_basic?: number; esic_wages?: number };
 }
 
 /** Works out one sample salary with the given formulas. Nothing is saved. */
 export async function previewFormulas(
   token: string,
-  body: { formulas: FormulaSet; base: 'company' | 'none'; ctc: number; days: number; fields?: StructureFields },
+  body: { formulas: FormulaSet; base: 'company' | 'none'; ctc: number; days: number; bonus?: number; fields?: StructureFields },
 ): Promise<FormulaPreview> {
   const { fields, ...rest } = body;
   // With a form to go on, use its deductions and hand-typed breakdown so the sample matches it.
@@ -955,7 +972,7 @@ export async function previewFormulas(
   try {
     return await authJson<FormulaPreview>(token, '/hrms/payroll/formulas/preview', {
       method: 'POST',
-      body: JSON.stringify({ ...rest, ...extra }),
+      body: JSON.stringify({ ...rest, ...extra, pay_model: fields?.payModel === 'custom' ? 'custom' : 'monthly' }),
     });
   } catch (e) {
     rethrow(e, 'Could not work out the sample');
